@@ -12,7 +12,7 @@ import pandas as pd
 
 from alphatonic.config import METHODS, EvaluationConfig
 from alphatonic.stats import ZERO_TOLERANCE, correlations, summarize_ic
-from alphatonic.time_series import bootstrap_intervals, monthly_statistics
+from alphatonic.time_series import monthly_statistics
 
 
 def snap(value: float) -> float:
@@ -280,3 +280,70 @@ def time_series(
             quantiles, columns=["asset", "horizon", "quantile", "mean_return", "n_pairs"]
         ),
     }
+
+
+def bootstrap_intervals(x, y, assets, config, horizon):
+    """The original bootstrap: resample the rows, then correlate the copies."""
+    options = config.time_series
+    n = len(x)
+    block = max(horizon, options.block_bars or int(np.ceil(n ** (1 / 3))))
+    asset_results, aggregate_results = {}, {}
+    for method in METHODS:
+        aggregate_results[method] = {
+            "bootstrap_block_bars": block,
+            "bootstrap_samples": options.bootstrap_samples,
+            "bootstrap_valid": 0,
+            "bootstrap_status": "disabled",
+            "ci95_lower": np.nan,
+            "ci95_upper": np.nan,
+        }
+    if not options.bootstrap_samples:
+        return asset_results, aggregate_results
+    if n < 5 * block:
+        for result in aggregate_results.values():
+            result["bootstrap_status"] = "too_few_blocks"
+        return asset_results, aggregate_results
+    masks = {
+        m: assets.loc[assets.method == m]
+        .set_index("asset")
+        .reindex(x.columns)
+        .ic.notna()
+        .to_numpy()
+        for m in METHODS
+    }
+    if not any(mask.any() for mask in masks.values()):
+        for result in aggregate_results.values():
+            result["bootstrap_status"] = "no_eligible_assets"
+        return asset_results, aggregate_results
+    rng = np.random.default_rng(np.random.SeedSequence([options.seed, horizon]))
+    draws = {m: np.full((options.bootstrap_samples, x.shape[1]), np.nan) for m in METHODS}
+    xv, yv = x.to_numpy(), y.to_numpy()
+    for b in range(options.bootstrap_samples):
+        starts = rng.integers(0, n, size=int(np.ceil(n / block)))
+        indices = ((starts[:, None] + np.arange(block)) % n).ravel()[:n]
+        for method in METHODS:
+            draws[method][b] = correlations(xv[indices], yv[indices], method)
+    minimum = max(100, int(np.ceil(0.8 * options.bootstrap_samples)))
+    for method in METHODS:
+        mask = masks[method]
+        for i, asset in enumerate(x.columns):
+            sample = draws[method][:, i]
+            sample = sample[np.isfinite(sample)] if mask[i] else np.array([])
+            lo, hi = (
+                np.quantile(sample, [0.025, 0.975]) if len(sample) >= minimum else (np.nan, np.nan)
+            )
+            asset_results[method, asset] = {
+                "ci95_lower": lo,
+                "ci95_upper": hi,
+                "bootstrap_valid": len(sample),
+                "bootstrap_status": "valid" if len(sample) >= minimum else "insufficient_draws",
+            }
+        selected = draws[method][:, mask]
+        good = np.isfinite(selected).all(axis=1)
+        sample = selected[good].mean(axis=1) if mask.any() else np.array([])
+        result = aggregate_results[method]
+        result["bootstrap_valid"] = len(sample)
+        result["bootstrap_status"] = "valid" if len(sample) >= minimum else "insufficient_draws"
+        if len(sample) >= minimum:
+            result["ci95_lower"], result["ci95_upper"] = np.quantile(sample, [0.025, 0.975])
+    return asset_results, aggregate_results

@@ -1,0 +1,126 @@
+# The documentation site, built with Zensical: `uv run --group docs zensical serve`.
+
+[project]
+site_name = "alphatonic"
+site_description = "Evaluate predictive signals with information coefficients you can trust."
+repo_url = "https://github.com/mblum/alphatonic"
+repo_name = "mblum/alphatonic"
+edit_uri = "edit/main/docs/"
+
+nav = [
+  { "Home" = "index.md" },
+  { "Tutorials" = [
+    { "Your first evaluation" = "tutorials/first-evaluation.md" },
+  ] },
+  { "How-to guides" = [
+    { "Prepare factor and prices" = "how-to/prepare-inputs.md" },
+    { "Choose an evaluation mode" = "how-to/choose-evaluation-mode.md" },
+    { "Read a tearsheet" = "how-to/read-a-tearsheet.md" },
+    { "Save and reload results" = "how-to/save-and-reload.md" },
+    { "Compare factors and parameters" = "how-to/compare-factors.md" },
+    { "Migrate from alphalens" = "how-to/migrate-from-alphalens.md" },
+    { "Troubleshooting" = "how-to/troubleshooting.md" },
+  ] },
+  { "Reference" = [
+    { "API" = "reference/api.md" },
+    { "Results and metrics" = "reference/results.md" },
+  ] },
+  { "Explanation" = [
+    { "Evaluation methodology" = "explanation/methodology.md" },
+    { "Design decisions" = "explanation/design.md" },
+  ] },
+  { "Contributing" = [
+    { "Development" = "contributing/development.md" },
+  ] },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.action.edit",
+  "content.code.annotate",
+  "content.code.copy",
+  "content.tooltips",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.instant.prefetch",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "search.suggest",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
+
+# The API reference is rendered from source docstrings by mkdocstrings.
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "google"
+docstring_section_style = "table"
+filters = ["!^_", "!^model_config$"]
+show_root_heading = true
+show_root_full_path = false
+show_symbol_type_heading = true
+show_symbol_type_toc = true
+members_order = "source"
+separate_signature = true
+show_signature_annotations = true
+signature_crossrefs = true
+line_length = 88
+merge_init_into_class = true
+show_bases = true
+show_source = false
+docstring_options.ignore_init_summary = true
+inventories = [
+  "https://docs.python.org/3/objects.inv",
+  "https://docs.pydantic.dev/latest/objects.inv",
+  "https://pandas.pydata.org/docs/objects.inv",
+]
+
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+toc.toc_depth = 3
+toc.permalink = true
+pymdownx.betterem = {}
+pymdownx.caret = {}
+pymdownx.details = {}
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.line_spans = "__span"
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.keys = {}
+pymdownx.magiclink = {}
+pymdownx.mark = {}
+pymdownx.smartsymbols = {}
+pymdownx.snippets.base_path = ["."]
+pymdownx.snippets.check_paths = true
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+pymdownx.tabbed.alternate_style = true
+pymdownx.tabbed.combine_header_slug = true
+pymdownx.tasklist.custom_checkbox = true
+pymdownx.tilde = {}

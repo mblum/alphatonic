@@ -65,6 +65,99 @@ def correlations(x: np.ndarray, y: np.ndarray, method: str) -> np.ndarray:
     return np.where(np.abs(result) < ZERO_TOLERANCE, 0.0, result)
 
 
+class _Ranks:
+    """Average ranks of each column's values under any row multiplicities, without re-sorting.
+
+    Rows are sorted once. For multiplicities `m`, the rank of a value is the number of resampled
+    rows below it plus half of the rows tied with it (itself included) plus one half, which is
+    what ranking the resampled column gives, with ties sharing their average rank. Arrays have
+    one row per column of the data (`k` by `n`), so every column is contiguous, and the gathers
+    use flat indices computed once.
+    """
+
+    def __init__(self, values: np.ndarray, valid: np.ndarray) -> None:
+        k, n = values.shape
+        masked = np.where(valid, values, np.inf)
+        order = np.argsort(masked, axis=1, kind="stable")
+        ordered = np.take_along_axis(masked, order, axis=1)
+        position = np.arange(n)[None, :]
+        starts = np.ones(values.shape, dtype=bool)
+        starts[:, 1:] = ordered[:, 1:] != ordered[:, :-1]
+        ends = np.ones(values.shape, dtype=bool)
+        ends[:, :-1] = starts[:, 1:]
+        first = np.maximum.accumulate(np.where(starts, position, 0), axis=1)
+        last = np.minimum.accumulate(np.where(ends, position, n)[:, ::-1], axis=1)[:, ::-1]
+        offset = (np.arange(k) * n)[:, None]
+        self.shape = values.shape
+        self.order = (order + offset).ravel()
+        self.first = (first + offset).ravel()
+        self.last = (last + offset).ravel()
+
+    def __call__(self, weights: np.ndarray) -> np.ndarray:
+        """Return the ranks, in the original row order, for `weights` of shape `(k, n)`."""
+        by_rank = np.take(weights.ravel(), self.order).reshape(self.shape)
+        cumulative = np.cumsum(by_rank, axis=1)
+        before = np.take((cumulative - by_rank).ravel(), self.first)
+        through = np.take(cumulative.ravel(), self.last)
+        ranks = np.empty(weights.size)
+        ranks[self.order] = (before + through + 1) / 2
+        return ranks.reshape(self.shape)
+
+
+class ResampledCorrelations:
+    """Correlations of resampled rows, from how often each row was drawn.
+
+    `correlations(x[rows], y[rows], method)` for a sample of row indices sorts and copies the data
+    on every call. Bootstrapping calls it thousands of times for the same data, so this class
+    sorts once and takes the row multiplicities of a sample instead. The result is the same:
+    only rows where both values are finite take part, Spearman ranks are those of the resampled
+    pairs with ties sharing their average rank, and a column without at least three pairs or without
+    variation in either variable is `NaN`.
+    """
+
+    def __init__(self, x: np.ndarray, y: np.ndarray) -> None:
+        x, y = np.ascontiguousarray(x.T, dtype=float), np.ascontiguousarray(y.T, dtype=float)
+        self.valid = np.isfinite(x) & np.isfinite(y)
+        self.raw = (x, y)
+        scaled = []
+        for array in (x, y):
+            scale = np.max(np.where(self.valid, np.abs(array), 0), axis=1, initial=0)
+            scaled.append(np.where(self.valid, array / np.where(scale > 0, scale, 1)[:, None], 0.0))
+        self.x, self.y = scaled
+        self._ranks: dict[str, _Ranks] = {}
+
+    def __call__(self, multiplicity: np.ndarray, method: str) -> np.ndarray:
+        """Correlate the columns for a sample that draws row `i` `multiplicity[i]` times."""
+        x, y = self.raw
+        weights = self.valid * multiplicity[None, :]
+        drawn = weights > 0
+        if method == "spearman":
+            if not self._ranks:
+                self._ranks = {"x": _Ranks(x, self.valid), "y": _Ranks(y, self.valid)}
+            a, b = self._ranks["x"](weights), self._ranks["y"](weights)
+        else:
+            a, b = self.x, self.y
+        varying = np.ones(len(a), dtype=bool)
+        for raw in (x, y):
+            high = np.max(np.where(drawn, raw, -np.inf), axis=1, initial=-np.inf)
+            low = np.min(np.where(drawn, raw, np.inf), axis=1, initial=np.inf)
+            varying &= high > low
+        count = weights.sum(axis=1)
+        mean_a = np.divide((weights * a).sum(axis=1), count, out=np.zeros(len(a)), where=count > 0)
+        mean_b = np.divide((weights * b).sum(axis=1), count, out=np.zeros(len(a)), where=count > 0)
+        ac, bc = a - mean_a[:, None], b - mean_b[:, None]
+        weighted = weights * ac
+        denominator = np.sqrt((weighted * ac).sum(axis=1) * (weights * bc * bc).sum(axis=1))
+        result = np.divide(
+            (weighted * bc).sum(axis=1),
+            denominator,
+            out=np.full(len(a), np.nan),
+            where=(count >= 3) & varying & (denominator > 0),
+        )
+        result = np.clip(result, -1, 1)
+        return np.where(np.abs(result) < ZERO_TOLERANCE, 0.0, result)
+
+
 def summarize_ic(series: pd.Series, lags: int) -> dict[str, float | int]:
     """Summarize a series of ICs with a Newey-West standard error of its mean.
 
@@ -118,7 +211,7 @@ def summarize_ic(series: pd.Series, lags: int) -> dict[str, float | int]:
 
 
 def row_correlations(scores: np.ndarray, returns: np.ndarray, method: str) -> np.ndarray:
-    """Correlate each row of `scores` with the same row of `returns`, as [`correlations`][]."""
+    """Correlate each row of `scores` with the same row of `returns`."""
     out = np.empty(len(scores))
     for start in range(0, len(scores), BLOCK_ROWS):
         block = slice(start, start + BLOCK_ROWS)
@@ -176,7 +269,7 @@ def bucket_means(
 def quantile_rows(x: pd.Series, y: pd.Series, quantiles: int = 5) -> list[dict]:
     """Return the score-bucket rows of one sample, keeping ties together and empty bins visible.
 
-    A single-sample view of [`bucket_means`][]; the sample is empty if scores do not vary.
+    A single-sample view of `bucket_means`; the result is empty if scores do not vary.
     """
     means, counts, usable = bucket_means(
         x.to_numpy(dtype=float)[None, :], y.to_numpy(dtype=float)[None, :], quantiles

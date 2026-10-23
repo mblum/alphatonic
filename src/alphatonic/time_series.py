@@ -10,7 +10,7 @@ import pandas as pd
 from alphatonic.config import METHODS, EvaluationConfig
 from alphatonic.progress import ProgressFactory, silent, track
 from alphatonic.returns import label_endpoints
-from alphatonic.stats import bucket_means, correlations
+from alphatonic.stats import ResampledCorrelations, bucket_means, correlations
 
 TABLES = ("assets", "monthly", "rolling", "summary", "quantiles")
 
@@ -212,12 +212,13 @@ def bootstrap_intervals(
         return asset_results, aggregate_results
     rng = np.random.default_rng(np.random.SeedSequence([options.seed, horizon]))
     draws = {m: np.full((options.bootstrap_samples, x.shape[1]), np.nan) for m in METHODS}
-    xv, yv = x.to_numpy(), y.to_numpy()
+    resampled = ResampledCorrelations(x.to_numpy(float), y.to_numpy(float))
     for b in track(range(options.bootstrap_samples), f"TS bootstrap · h{horizon}", progress):
         starts = rng.integers(0, n, size=int(np.ceil(n / block)))
         indices = ((starts[:, None] + np.arange(block)) % n).ravel()[:n]
+        multiplicity = np.bincount(indices, minlength=n).astype(float)
         for method in METHODS:
-            draws[method][b] = correlations(xv[indices], yv[indices], method)
+            draws[method][b] = resampled(multiplicity, method)
     minimum = max(100, int(np.ceil(0.8 * options.bootstrap_samples)))
     for method in METHODS:
         mask = masks[method]

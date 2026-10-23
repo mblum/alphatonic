@@ -9,7 +9,13 @@ import statsmodels.api as sm
 
 import reference
 from alphatonic import summarize_ic
-from alphatonic.stats import bucket_means, correlations, quantile_rows, row_correlations
+from alphatonic.stats import (
+    ResampledCorrelations,
+    bucket_means,
+    correlations,
+    quantile_rows,
+    row_correlations,
+)
 
 
 def test_correlations_rank_finite_pairs_with_ties_inside_each_column():
@@ -151,3 +157,50 @@ def test_bucket_means_match_reference_rows(quantiles):
                 assert means[row, q] == pytest.approx(item["mean_return"])
             else:
                 assert np.isnan(means[row, q])
+
+
+def resample_cases():
+    rng = np.random.default_rng(99)
+    cases = []
+    for kind in ("continuous", "ties", "missing", "constant_column", "tiny"):
+        n, k = (6, 3) if kind == "tiny" else (80, 7)
+        x = rng.normal(size=(n, k))
+        y = rng.normal(size=(n, k)) + 0.4 * x
+        if kind == "ties":
+            x, y = np.round(x), np.round(y)
+        if kind == "missing":
+            x[rng.random(x.shape) < 0.25] = np.nan
+            y[rng.random(y.shape) < 0.25] = np.inf
+        if kind == "constant_column":
+            x[:, 0] = 2.5
+            y[:, 1] = -1.0
+            x[:, 2] = np.where(np.arange(n) < n // 2, np.nan, x[:, 2])
+        cases.append((kind, x, y))
+    return cases
+
+
+@pytest.mark.parametrize(
+    "kind, x, y", resample_cases(), ids=lambda v: v if isinstance(v, str) else ""
+)
+@pytest.mark.parametrize("method", ["spearman", "pearson"])
+def test_resampled_correlations_equal_correlating_the_resampled_rows(kind, x, y, method):
+    rng = np.random.default_rng(5)
+    n = len(x)
+    resampled = ResampledCorrelations(x, y)
+    for _ in range(60):
+        block = int(rng.integers(1, 6))
+        starts = rng.integers(0, n, size=int(np.ceil(n / block)))
+        indices = ((starts[:, None] + np.arange(block)) % n).ravel()[:n]
+        expected = correlations(x[indices], y[indices], method)
+        actual = resampled(np.bincount(indices, minlength=n).astype(float), method)
+        np.testing.assert_allclose(actual, expected, atol=1e-12, rtol=0)
+        np.testing.assert_array_equal(np.isnan(actual), np.isnan(expected))
+
+
+def test_resampling_every_row_once_reproduces_the_sample_correlations():
+    kind, x, y = resample_cases()[2]
+    ones = np.ones(len(x))
+    for method in ("spearman", "pearson"):
+        np.testing.assert_allclose(
+            ResampledCorrelations(x, y)(ones, method), correlations(x, y, method), atol=1e-12
+        )

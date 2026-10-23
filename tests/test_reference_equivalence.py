@@ -108,3 +108,32 @@ def test_sparse_assets_and_constant_scores_match_loop():
         assert_same(actual[name], expected[name])
     statuses = set(actual["assets"].status)
     assert {"constant_signal", "insufficient_pairs"} <= statuses
+
+
+@pytest.mark.parametrize("case", TS_CASES, ids=lambda c: f"seed{c['seed']}")
+def test_bootstrap_matches_resampling_the_rows(case):
+    from alphatonic.returns import label_endpoints
+    from alphatonic.time_series import bootstrap_intervals, window_table
+
+    panel, config, labels = run(case, n_bars=24 * 20)
+    grid = panel.factor.index
+    for horizon in (1, 4):
+        y = labels[horizon].reindex(grid)
+        ends = label_endpoints(grid, horizon + config.delay)
+        assets = window_table(panel.factor, y, config, horizon, panel.start, panel.end, ends)
+        mature = np.asarray(ends < panel.end)
+        x_m, y_m = panel.factor.loc[mature], y.loc[mature]
+        fast = bootstrap_intervals(x_m, y_m, assets, config, horizon)
+        slow = reference.bootstrap_intervals(x_m, y_m, assets, config, horizon)
+        assert fast[0].keys() == slow[0].keys()
+        for key, value in fast[0].items():
+            assert value["bootstrap_status"] == slow[0][key]["bootstrap_status"]
+            assert value["bootstrap_valid"] == slow[0][key]["bootstrap_valid"]
+            for bound in ("ci95_lower", "ci95_upper"):
+                np.testing.assert_allclose(value[bound], slow[0][key][bound], atol=1e-12)
+        for method, value in fast[1].items():
+            for name, expected in slow[1][method].items():
+                if isinstance(expected, float):
+                    np.testing.assert_allclose(value[name], expected, atol=1e-12)
+                else:
+                    assert value[name] == expected
