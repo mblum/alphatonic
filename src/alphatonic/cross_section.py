@@ -9,7 +9,17 @@ from alphatonic.config import METHODS, EvaluationConfig
 from alphatonic.progress import ProgressFactory, silent
 from alphatonic.stats import BLOCK_ROWS, bucket_means, row_correlations, summarize_ic
 
-QUANTILE_COLUMNS = ["timestamp", "horizon", "quantile", "mean_return", "n_pairs"]
+PERIOD_COLUMNS = [
+    "timestamp",
+    "horizon",
+    "spearman",
+    "pearson",
+    "n_available",
+    "n_signal",
+    "n_pairs",
+    "pair_coverage",
+    "status",
+]
 
 
 def cross_sectional_ic(
@@ -33,32 +43,36 @@ def cross_sectional_ic(
     scored = factor.notna().sum(axis=1).to_numpy()
     timestamps = factor.index
     scores = factor.to_numpy(dtype=float)
-    periods, buckets = [], []
+    columns: dict[str, list[np.ndarray]] = {name: [] for name in PERIOD_COLUMNS}
+    buckets: list[dict] = []
     with progress("Evaluating IC", len(config.horizons)) as advance:
         for horizon in config.horizons:
             advance(0, description=f"Evaluating IC · h{horizon}")
             period, bucket = _horizon_periods(scores, labels[horizon].to_numpy(dtype=float), config)
             with np.errstate(divide="ignore", invalid="ignore"):
                 coverage = np.where(available > 0, period["n_pairs"] / available, np.nan)
-            frame = pd.DataFrame(
-                {
-                    "timestamp": timestamps,
-                    "horizon": horizon,
-                    "spearman": period["spearman"],
-                    "pearson": period["pearson"],
-                    "n_available": available,
-                    "n_signal": scored,
-                    "n_pairs": period["n_pairs"],
-                    "pair_coverage": coverage,
-                    "status": period["status"],
-                }
-            )
-            periods.append(frame)
-            buckets.append(_bucket_frame(bucket, timestamps, horizon, config.quantiles))
+            rows = len(timestamps)
+            for name, values in {
+                "timestamp": timestamps.asi8,
+                "horizon": np.full(rows, horizon),
+                "spearman": period["spearman"],
+                "pearson": period["pearson"],
+                "n_available": available,
+                "n_signal": scored,
+                "n_pairs": period["n_pairs"],
+                "pair_coverage": coverage,
+                "status": period["status"],
+            }.items():
+                columns[name].append(values)
+            buckets.append({**bucket, "horizon": horizon})
             advance()
-    periods = pd.concat(periods, ignore_index=True)
-    quantiles = pd.concat(buckets, ignore_index=True)
-    return periods, _summarize(periods, config), quantiles
+    periods = pd.DataFrame({name: np.concatenate(parts) for name, parts in columns.items()})
+    periods["timestamp"] = pd.DatetimeIndex(periods["timestamp"].astype("int64"), tz="UTC")
+    return (
+        periods,
+        _summarize(periods, config),
+        _bucket_frame(buckets, timestamps, config.quantiles),
+    )
 
 
 def _horizon_periods(
@@ -106,22 +120,37 @@ def _horizon_periods(
 
 
 def _bucket_frame(
-    bucket: dict, timestamps: pd.DatetimeIndex, horizon: int, quantiles: int
+    buckets: list[dict], timestamps: pd.DatetimeIndex, quantiles: int
 ) -> pd.DataFrame:
-    rows = bucket["rows"]
-    if not len(rows):
-        return pd.DataFrame(columns=QUANTILE_COLUMNS).astype(
-            {"horizon": int, "quantile": int, "n_pairs": int}
+    """Stack the score-bucket means of every horizon into one table."""
+    parts = [(b, b["rows"]) for b in buckets if len(b["rows"])]
+    if not parts:
+        return pd.DataFrame(
+            {
+                "timestamp": pd.DatetimeIndex([], tz="UTC"),
+                "horizon": np.empty(0, dtype=int),
+                "quantile": np.empty(0, dtype=int),
+                "mean_return": np.empty(0),
+                "n_pairs": np.empty(0, dtype=int),
+            }
         )
-    return pd.DataFrame(
+    frame = pd.DataFrame(
         {
-            "timestamp": np.repeat(timestamps[rows], quantiles),
-            "horizon": horizon,
-            "quantile": np.tile(np.arange(1, quantiles + 1), len(rows)),
-            "mean_return": bucket["means"].ravel(),
-            "n_pairs": bucket["counts"].ravel(),
+            "timestamp": np.concatenate(
+                [np.repeat(timestamps.asi8[rows], quantiles) for _, rows in parts]
+            ),
+            "horizon": np.concatenate(
+                [np.full(len(rows) * quantiles, b["horizon"]) for b, rows in parts]
+            ),
+            "quantile": np.concatenate(
+                [np.tile(np.arange(1, quantiles + 1), len(rows)) for _, rows in parts]
+            ),
+            "mean_return": np.concatenate([b["means"].ravel() for b, _ in parts]),
+            "n_pairs": np.concatenate([b["counts"].ravel() for b, _ in parts]),
         }
     )
+    frame["timestamp"] = pd.DatetimeIndex(frame["timestamp"].astype("int64"), tz="UTC")
+    return frame
 
 
 def _summarize(periods: pd.DataFrame, config: EvaluationConfig) -> pd.DataFrame:

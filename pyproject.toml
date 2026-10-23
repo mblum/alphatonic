@@ -34,14 +34,14 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=1.26",
-    "pandas>=2.2",
+    "pandas>=2.2.2",
     "pydantic>=2.6",
 ]
 
 [project.optional-dependencies]
 # The offline HTML tearsheet. Evaluation itself needs only the core dependencies.
 report = [
-    "plotly>=6,<7",
+    "plotly>=6.1,<7",
     "jinja2>=3.1,<4",
 ]
 
@@ -58,14 +58,14 @@ dev = [
     "ruff>=0.9",
     "scipy>=1.11",
     "statsmodels>=0.14",
-    "plotly>=6,<7",
+    "plotly>=6.1,<7",
     "jinja2>=3.1,<4",
 ]
 # Not a default group: `uv run --group docs zensical serve`.
 docs = [
     "mkdocstrings[python]>=1.0.6",
     "zensical>=0.0.63",
-    "plotly>=6,<7",
+    "plotly>=6.1,<7",
     "jinja2>=3.1,<4",
 ]
 

@@ -55,8 +55,8 @@ docs = [
 requires-dist = [
     { name = "jinja2", marker = "extra == 'report'", specifier = ">=3.1,<4" },
     { name = "numpy", specifier = ">=1.26" },
-    { name = "pandas", specifier = ">=2.2" },
-    { name = "plotly", marker = "extra == 'report'", specifier = ">=6,<7" },
+    { name = "pandas", specifier = ">=2.2.2" },
+    { name = "plotly", marker = "extra == 'report'", specifier = ">=6.1,<7" },
     { name = "pydantic", specifier = ">=2.6" },
 ]
 provides-extras = ["report"]
@@ -64,7 +64,7 @@ provides-extras = ["report"]
 [package.metadata.requires-dev]
 dev = [
     { name = "jinja2", specifier = ">=3.1,<4" },
-    { name = "plotly", specifier = ">=6,<7" },
+    { name = "plotly", specifier = ">=6.1,<7" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-cov", specifier = ">=5.0" },
     { name = "ruff", specifier = ">=0.9" },
@@ -74,7 +74,7 @@ dev = [
 docs = [
     { name = "jinja2", specifier = ">=3.1,<4" },
     { name = "mkdocstrings", extras = ["python"], specifier = ">=1.0.6" },
-    { name = "plotly", specifier = ">=6,<7" },
+    { name = "plotly", specifier = ">=6.1,<7" },
     { name = "zensical", specifier = ">=0.0.63" },
 ]
 

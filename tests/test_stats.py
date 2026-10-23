@@ -1,3 +1,4 @@
+import itertools
 import math
 
 import numpy as np
@@ -37,13 +38,18 @@ def test_too_few_pairs_are_undefined_not_zero():
 
 
 def test_rounding_noise_is_reported_as_exact_zero():
-    # Seven ranks whose squared differences sum to 56 have exactly zero correlation, yet the
-    # textbook computation leaves rounding noise of either sign.
-    x = pd.Series(np.arange(1.0, 8))
-    y = pd.Series([1.0, 4, 7, 5, 6, 3, 2])
-    assert 0 < abs(x.corr(y)) < 1e-15
-    assert correlations(x.to_numpy()[:, None], y.to_numpy()[:, None], "pearson")[0] == 0.0
-    assert correlations(x.to_numpy()[:, None], y.to_numpy()[:, None], "spearman")[0] == 0.0
+    # Seven ranks whose squared differences sum to 56 have exactly zero correlation, but
+    # floating-point evaluation leaves noise of either sign unless it is snapped.
+    x = np.arange(1.0, 8)
+    zero = [
+        np.array(y)
+        for y in itertools.permutations(range(1, 8))
+        if ((x - np.array(y)) ** 2).sum() == 56
+    ]
+    assert len(zero) == 184
+    for y in zero[::4]:
+        for method in ("pearson", "spearman"):
+            assert correlations(x[:, None], y[:, None], method)[0] == 0.0
 
 
 @pytest.mark.parametrize("seed", range(5))

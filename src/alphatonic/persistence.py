@@ -26,6 +26,11 @@ TIME_COLUMNS = {
 }
 
 
+# Before pandas 3 the default CSV parser can be off in the last digit, and saved tables must load
+# back exactly. From pandas 3 the default is exact and the option is deprecated.
+_CSV_OPTIONS = {"float_precision": "round_trip"} if int(pd.__version__.split(".")[0]) < 3 else {}
+
+
 def _version() -> str:
     from alphatonic import __version__
 
@@ -57,7 +62,7 @@ def save(evaluation: Evaluation, directory: Path) -> Path:
 
 
 def _read(directory: Path, name: str, key: str) -> pd.DataFrame:
-    table = pd.read_csv(directory / name)
+    table = pd.read_csv(directory / name, **_CSV_OPTIONS)
     for column in TIME_COLUMNS.get(key, []):
         if column in table:
             table[column] = pd.to_datetime(table[column], utc=True)

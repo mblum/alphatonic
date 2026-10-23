@@ -334,8 +334,8 @@ def evaluate_time_series(
                 )
             )
         monthly = _table(months)
-        monthly_all.append(monthly)
-        rolling_all.append(_table(rolling))
+        monthly_all.extend(months)
+        rolling_all.extend(rolling)
         # Remove only deterministic end-of-evaluation label exclusions, preserving interior gaps.
         mature = np.asarray(ends < end)
         intervals, aggregate = bootstrap_intervals(
@@ -404,8 +404,8 @@ def evaluate_time_series(
                 )
     return TimeSeriesEvaluation(
         pd.DataFrame(assets_all),
-        pd.concat(monthly_all, ignore_index=True),
-        pd.concat(rolling_all, ignore_index=True),
+        _table(monthly_all),
+        _table(rolling_all),
         pd.DataFrame(summaries),
         pd.DataFrame(quantiles, columns=["asset", "horizon", "quantile", "mean_return", "n_pairs"]),
     )
