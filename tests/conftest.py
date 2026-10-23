@@ -56,7 +56,7 @@ def config():
 
 
 def perfect_market(n_assets: int = 5, n_bars: int = 48, freq: str = "h"):
-    """Assets grow at different constant rates, so growth ranks are a perfect cross-sectional factor."""
+    """Assets grow at different constant rates, so their rates are a perfect factor."""
     index = pd.date_range("2026-01-01", periods=n_bars, freq=freq, tz="UTC")
     rates = 1 + (np.arange(n_assets) + 1) / 100
     prices = pd.DataFrame(

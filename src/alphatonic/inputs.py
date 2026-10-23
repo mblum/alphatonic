@@ -32,7 +32,10 @@ class Panel:
 
 
 def utc_index(index: pd.Index, name: str) -> pd.DatetimeIndex:
-    """Return `index` as nanosecond UTC timestamps; naive timestamps are read as UTC."""
+    """Return `index` as nanosecond UTC timestamps named `timestamp`, without a frequency.
+
+    Naive timestamps are read as UTC.
+    """
     if not isinstance(index, pd.DatetimeIndex):
         raise TypeError(
             f"{name} must be indexed by timestamps (a DatetimeIndex), not {type(index).__name__}"
@@ -40,7 +43,7 @@ def utc_index(index: pd.Index, name: str) -> pd.DatetimeIndex:
     if index.hasnans:
         raise ValueError(f"{name} has missing timestamps (NaT) in its index")
     index = index.tz_localize("UTC") if index.tz is None else index.tz_convert("UTC")
-    return index.as_unit("ns")
+    return pd.DatetimeIndex(index.as_unit("ns"), freq=None, name="timestamp")
 
 
 def _numeric(frame: pd.DataFrame, name: str) -> pd.DataFrame:

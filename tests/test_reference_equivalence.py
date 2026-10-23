@@ -65,7 +65,7 @@ def assert_same(actual, expected):
 
 @pytest.mark.parametrize("case", CASES, ids=lambda c: f"seed{c['seed']}-{c['mode']}")
 def test_cross_section_matches_loop(case):
-    panel, config, labels = run(case)
+    panel, config, labels = run(case, n_bars=24 * 12)
     periods, summary, quantiles = cross_sectional_ic(panel.factor, labels, panel.prices, config)
     ref_periods, ref_summary, ref_quantiles = reference.cross_sectional(
         panel.factor, labels, panel.prices, config

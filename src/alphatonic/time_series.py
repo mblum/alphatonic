@@ -90,7 +90,7 @@ def window_arrays(
     options = config.time_series
     in_window = (x.index >= start) & (x.index < end)
     eligible = in_window & np.asarray(endpoints < end)
-    stamps = x.index.asi8[eligible]
+    stamps = x.index.as_unit("ns").asi8[eligible]
     scores, returns = x.to_numpy(float)[eligible], y.to_numpy(float)[eligible]
     finite = np.isfinite(scores) & np.isfinite(returns)
     counts = finite.sum(axis=0)
