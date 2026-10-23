@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}{% if subtitle %} · {{ subtitle }}{% endif %}</title>
+  <style>
+    :root { color-scheme: light; --ink: #243447; --muted: #627386; --line: #dde4e7; --accent: #146b70; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f3f5f4; color: var(--ink); font: 15px/1.6 system-ui, sans-serif; }
+    main { max-width: 1240px; margin: auto; padding: 48px 28px 64px; }
+    header { border-top: 5px solid var(--accent); padding-top: 24px; margin-bottom: 32px; }
+    .eyebrow { text-transform: uppercase; letter-spacing: .16em; font-size: 12px; font-weight: 700; color: var(--accent); }
+    h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.15; margin: 10px 0 18px; letter-spacing: -.035em; }
+    h2 { font-size: 23px; margin: 0 0 12px; }
+    h3 { font-size: 17px; margin: 0 0 6px; }
+    p { margin: 8px 0; }
+    .muted, .caption { color: var(--muted); }
+    .caption { font-size: 13px; margin-bottom: 14px; }
+    code { font-size: 12px; overflow-wrap: anywhere; }
+    .signal { font-size: 14px; }
+    .context { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 24px 0; }
+    .context div { border-left: 2px solid var(--line); padding-left: 14px; overflow-wrap: anywhere; }
+    dt { font-size: 12px; color: var(--muted); }
+    dd { margin: 3px 0 0; font-weight: 500; }
+    .panel { background: white; border: 1px solid var(--line); border-radius: 10px; padding: 22px; margin: 18px 0; min-width: 0; }
+    details.method > summary { cursor: pointer; padding: 17px 0; font-size: 22px; font-weight: 650; border-bottom: 1px solid var(--line); }
+    details.method > summary small { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 12px; }
+    .table-scroll { overflow-x: auto; }
+    .chart-scroll { overflow-x: auto; }
+    .chart-scroll .plotly-graph-div { min-width: 680px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+    th, td { padding: 11px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+    th { font-size: 11px; color: var(--muted); font-weight: 600; }
+    th:first-child, td:first-child { text-align: left; }
+    .notice { background: #fff3e9; border-left: 3px solid #cf7841; padding: 15px 18px; margin-bottom: 22px; }
+    .diagnostics { margin-top: 34px; }
+    footer { margin-top: 28px; font-size: 12px; color: var(--muted); }
+    .plotly-graph-div { width: 100%; }
+    @media (max-width: 700px) { main { padding: 24px 12px; } .panel { padding: 12px; } .context { grid-template-columns: 1fr; } }
+    @media print { body { background: white; } main { padding: 0; } .panel { break-inside: avoid; } .modebar { display: none !important; } }
+  </style>
+  <script>{{ plotly_js | safe }}</script>
+</head>
+<body>
+<main>
+  <header>
+    {% if eyebrow %}<div class="eyebrow">{{ eyebrow }}</div>{% endif %}
+    <h1>{{ title }}</h1>
+    {% if subtitle %}<p class="signal"><code>{{ subtitle }}</code></p>{% endif %}
+    <p class="muted">{{ window }} · end exclusive · UTC timestamps</p>
+    <dl class="context">
+      <div><dt>Horizons</dt><dd>{{ config.horizons | join(', ') }} bars · delay {{ config.delay }} bars</dd></div>
+      <div><dt>Evaluation</dt><dd>{{ config.mode | replace('_', ' ') }}</dd></div>
+      <div><dt>Minimum cross section</dt><dd>{{ config.min_assets }} valid pairs</dd></div>
+      {% for label, value in context.items() %}
+      <div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+      {% endfor %}
+    </dl>
+    <p class="caption">Larger scores predict larger forward returns. Cross-sectional summaries weight timestamps equally;
+      time-series summaries weight eligible assets equally. ICIR is unannualized.</p>
+  </header>
+
+  {% if invalid_horizons and methods %}
+  <div class="notice"><strong>No valid IC periods for horizons {{ invalid_horizons | join(', ') }}.</strong>
+    Cross-sectional evaluation is unavailable for these horizons. Time-series results, when available,
+    are evaluated independently. Coverage and skip reasons remain available below.</div>
+  {% endif %}
+
+  {% if methods %}<h2>Cross-sectional evaluation · asset selection</h2>{% endif %}
+  {% for method in methods %}
+  <details class="method" {% if loop.first %}open{% endif %}>
+    <summary>{{ method.name | title }} IC <small>{{ 'Rank association · primary view' if loop.first else 'Linear association' }}</small></summary>
+    <section class="panel">
+      <h3>Summary by horizon</h3>
+      <p class="caption">Confidence intervals use the evaluator's Newey–West estimate. IC IR is mean / standard deviation, without annualization.
+        A dash means the statistic is unavailable, including uncertainty for constant IC or too few observations.</p>
+      <div class="table-scroll">
+        <table aria-label="{{ method.name }} summary">
+          <thead><tr>{% for column in columns %}<th scope="col">{{ column }}</th>{% endfor %}</tr></thead>
+          <tbody>{% for row in method.rows %}<tr>{% for value in row %}<td>{{ value }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+        </table>
+      </div>
+    </section>
+    <section class="panel">
+      <h3>IC by horizon</h3>
+      <p class="caption">Points show mean IC; error bars show the stored HAC 95% confidence interval where available.</p>
+      {{ method.figures.comparison | safe }}
+    </section>
+    <section class="panel">
+      <h3>IC through time</h3>
+      <p class="caption">Rolling window: {{ rolling_duration }} ({{ options.rolling_window }}), at least {{ options.min_periods }} valid observations.
+        Hover for the observation count. Missing IC stays missing, including in the rolling line.</p>
+      {{ method.figures.timeseries | safe }}
+    </section>
+    <section class="panel">
+      <h3>Monthly stability</h3>
+      <p class="caption">Calendar-month means in UTC. Hover for valid period counts. Empty cells have no valid IC observations.</p>
+      {{ method.figures.monthly | safe }}
+    </section>
+    <section class="panel">
+      <h3>IC distribution</h3>
+      <p class="caption">Valid observations only, in fixed bins across the IC range of −1 to +1. Missing periods are excluded.</p>
+      {{ method.figures.distribution | safe }}
+    </section>
+    <section class="panel">
+      <h3>IC dependence</h3>
+      <p class="caption">Pearson correlation of IC with lagged IC, keeping missing periods in place.
+        Persistent dependence can require longer HAC lags. These are descriptive correlations.</p>
+      {{ method.figures.dependence | safe }}
+    </section>
+  </details>
+  {% endfor %}
+
+  {% if cs_quantiles %}
+  <section class="panel"><h3>Cross-sectional signal response</h3>
+    <p class="caption">Score buckets ({{ config.quantiles }}) within each timestamp; equal timestamp weights within each occupied bin.
+      Ties remain together. Forward returns are retrospective and exclude trading costs.</p>
+    {{ cs_quantiles | safe }}
+  </section>
+  {% endif %}
+
+  {% if ts_methods %}
+  <section class="diagnostics" id="time-series">
+    <h2>Time-series evaluation · prediction within each asset</h2>
+    <p>Full-period IC correlates scores and forward returns over time for each asset.
+      Monthly TS ICIR is mean / sample standard deviation of complete calendar-month ICs.
+      It requires {{ ts_options.min_months }} valid months and is marked preliminary below twelve.</p>
+    <p class="caption">Confidence intervals use circular blocks of paired observations, sampled together across assets.
+      Asset quartiles describe dispersion, not uncertainty. The universe monthly ratio is computed after averaging
+      eligible asset ICs each month; changing asset coverage can affect it. No ICIR significance test is implied.</p>
+    <p class="caption">Eligibility: at least {{ ts_options.min_pairs }} pairs,
+      {{ '%.0f' | format(ts_options.min_coverage * 100) }}% coverage,
+      and a window spanning {{ ts_options.min_horizons }} return horizons.
+      These are sample requirements, not significance thresholds.</p>
+    {% for method in ts_methods %}
+    <details class="method" {% if loop.first %}open{% endif %}>
+      <summary>{{ method.name | title }} TS IC</summary>
+      <section class="panel"><h3>Time-series summary by horizon</h3>
+        <div class="table-scroll">{{ method.table | safe }}</div>
+        {{ method.figures.comparison | safe }}
+      </section>
+      <section class="panel"><h3>Asset × horizon IC</h3>
+        <p class="caption">Full-period IC; shared scale from −1 to +1. Empty cells are unavailable.
+          Hover for paired observations. Horizon labels are in bars.</p>
+        {{ method.figures.breadth | safe }}
+      </section>
+      {% for horizon in method.horizons %}
+      <details class="method" {% if loop.first %}open{% endif %}>
+        <summary>{{ horizon.label }}</summary>
+        <section class="panel"><h3>Asset IC and uncertainty</h3>
+          {{ horizon.figures.assets | safe }}
+          <div class="table-scroll">{{ horizon.table | safe }}</div>
+        </section>
+        <section class="panel"><h3>Monthly TS IC</h3>
+          <p class="caption">Correlation recomputed inside each UTC month. Partial months are excluded.
+            Both prediction and target endpoint must fall inside the month. Missing cells remain undefined.</p>
+          {{ horizon.figures.monthly | safe }}
+          {{ horizon.figures.breadth | safe }}
+          <details><summary>Monthly sample coverage and exclusions</summary>
+            <div class="table-scroll">{{ horizon.monthly_table | safe }}</div>
+          </details>
+        </section>
+        <section class="panel"><h3>Rolling TS IC</h3>
+          <p class="caption">Trailing {{ ts_options.rolling_window }}, displayed every
+            {{ ts_options.rolling_step }}. Select an asset above the plot. Windows must be complete;
+            targets must end before the displayed endpoint. Overlapping windows are descriptive.</p>
+          {{ horizon.figures.rolling | safe }}
+        </section>
+      </details>
+      {% endfor %}
+      <section class="panel"><h3>Time-series signal response</h3>
+        <p class="caption">Score buckets ({{ config.quantiles }}) within each eligible asset's full evaluation sample;
+          equal asset weights within each occupied bin. These retrospective buckets are not trading thresholds.</p>
+        {{ method.figures.quantiles | safe }}
+      </section>
+    </details>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <section class="diagnostics">
+    <h2>Coverage and diagnostics</h2>
+    <div class="panel">
+      <h3>Available assets and valid pairs</h3>
+      <p class="caption">Pair coverage is valid score/return pairs divided by assets with a price at the timestamp.
+        Final bars lose labels when their forward window reaches the evaluation boundary.</p>
+      <div class="chart-scroll">{{ diagnostics.coverage | safe }}</div>
+    </div>
+    <div class="panel">
+      <h3>Evaluation status</h3>
+      <p class="caption">Each timestamp contributes one status per horizon. Undefined IC is never counted as zero.</p>
+      {{ diagnostics.statuses | safe }}
+    </div>
+  </section>
+  <footer>
+    <p>These results measure predictive association. Return labels exclude fees, slippage, financing and market impact.</p>
+    <p>Generated {{ generated_at }} ·
+      {% for package, version in versions.items() %}{{ package }} {{ version }}{% if not loop.last %} / {% endif %}{% endfor %}</p>
+    {% for line in footer %}<p>{{ line }}</p>{% endfor %}
+  </footer>
+</main>
+<script>
+  document.querySelectorAll('details.method').forEach(section => {
+    section.addEventListener('toggle', () => {
+      if (section.open) section.querySelectorAll('.plotly-graph-div').forEach(fig => Plotly.Plots.resize(fig));
+    });
+  });
+</script>
+</body>
+</html>
