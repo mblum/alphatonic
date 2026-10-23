@@ -73,7 +73,7 @@
     <summary>{{ method.name | title }} IC <small>{{ 'Rank association · primary view' if loop.first else 'Linear association' }}</small></summary>
     <section class="panel">
       <h3>Summary by horizon</h3>
-      <p class="caption">Confidence intervals use the evaluator's Newey–West estimate. IC IR is mean / standard deviation, without annualization.
+      <p class="caption">Confidence intervals use a Newey–West estimate that allows for overlapping labels. IC IR is mean / standard deviation, without annualization.
         A dash means the statistic is unavailable, including uncertainty for constant IC or too few observations.</p>
       <div class="table-scroll">
         <table aria-label="{{ method.name }} summary">
@@ -84,7 +84,7 @@
     </section>
     <section class="panel">
       <h3>IC by horizon</h3>
-      <p class="caption">Points show mean IC; error bars show the stored HAC 95% confidence interval where available.</p>
+      <p class="caption">Points show mean IC; error bars show the HAC 95% confidence interval where available.</p>
       {{ method.figures.comparison | safe }}
     </section>
     <section class="panel">

@@ -67,6 +67,19 @@ buckets["excess"] = buckets["mean_return"] - buckets["timestamp"].map(market)
 print(buckets.groupby("quantile")["excess"].mean().mul(1e4).round(1))  # basis points
 ```
 
+## Do the numbers agree?
+
+Where the two tools measure the same thing, yes. On a daily, tie-free factor, the per-timestamp
+Spearman IC from `result.ic()` equals alphalens-reloaded 0.5.0's
+`factor_information_coefficient` to machine precision (differences below 1e-15), with alphalens'
+outlier filter switched off (`filter_zscore=None`). To compare on your own data, align the
+conventions first: same prices, the timing described below, and no outlier filter.
+
+The summaries can still differ slightly because of how missing returns are handled. Alphalens
+drops an observation from **every** period when **any** period's return is missing, so with
+`periods=(1, 5)` the last four days vanish from the 1-bar IC as well. alphatonic evaluates each
+horizon on every label that exists, so its short horizons keep those days.
+
 ## Differences you will notice
 
 **Horizons count bars, not days.** `periods=(1, 5, 10)` and `horizons=(1, 5, 10)` mean rows of

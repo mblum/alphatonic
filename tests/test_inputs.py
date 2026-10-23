@@ -227,3 +227,10 @@ def test_inputs_are_not_modified():
     prepare(factor, prices, EvaluationConfig())
     pd.testing.assert_frame_equal(factor, before[0])
     pd.testing.assert_frame_equal(prices, before[1])
+
+
+def test_completely_mismatched_asset_labels_are_an_error_that_shows_both_sides():
+    factor, prices = regular_panel(n_bars=30, freq="D")
+    factor.columns = range(len(factor.columns))
+    with pytest.raises(ValueError, match=r"no factor asset has prices.*\[0, 1, 2\].*A0"):
+        prepare(factor, prices, EvaluationConfig())

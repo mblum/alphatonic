@@ -14,7 +14,8 @@ missing, look for the `status` next to it.
 | `prices must be finite` | Replace infinities with `NaN`. |
 | `a factor Series needs a two-level (timestamp, asset) MultiIndex` | Pass a wide DataFrame, or a Series with exactly one timestamp level and one asset level. |
 | `the factor has scores at N timestamps that are not in prices` | The tables disagree on which bars exist. Reindex one to the other, or narrow `start` and `end`. |
-| `factor assets have no prices and are ignored` (warning) | Asset labels differ between the tables, or the asset has no price history. |
+| `no factor asset has prices` | The asset labels of the two tables do not match at all (for example integers against ticker strings). The message shows a few labels from each. |
+| `factor assets have no prices and are ignored` (warning) | Some asset labels differ between the tables, or those assets have no price history. |
 | `the factor has no finite scores` | Every score is `NaN` for the priced assets, usually a label mismatch. |
 | `the window is empty` / `prices have no rows in the window` | `start` and `end` exclude every bar. |
 | `pass either a config or keyword options, not both` | Use `evaluate(f, p, EvaluationConfig(...))` or `evaluate(f, p, horizons=...)`. |

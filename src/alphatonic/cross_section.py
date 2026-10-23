@@ -41,7 +41,7 @@ def cross_sectional_ic(
     """
     available = prices.notna().sum(axis=1).to_numpy()
     scored = factor.notna().sum(axis=1).to_numpy()
-    timestamps = factor.index
+    timestamps = factor.index.as_unit("ns")
     scores = factor.to_numpy(dtype=float)
     columns: dict[str, list[np.ndarray]] = {name: [] for name in PERIOD_COLUMNS}
     buckets: list[dict] = []

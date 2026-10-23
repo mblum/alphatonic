@@ -137,3 +137,15 @@ def test_bootstrap_matches_resampling_the_rows(case):
                     np.testing.assert_allclose(value[name], expected, atol=1e-12)
                 else:
                     assert value[name] == expected
+
+
+@pytest.mark.parametrize("unit", ["s", "ms", "us"])
+def test_cross_section_does_not_depend_on_the_index_resolution(unit):
+    panel, config, labels = run(CASES[2], n_bars=24 * 6)
+    coarse = panel.factor.copy()
+    coarse.index = coarse.index.as_unit(unit)
+    expected = cross_sectional_ic(panel.factor, labels, panel.prices, config)
+    actual = cross_sectional_ic(coarse, labels, panel.prices, config)
+    for table_a, table_b in zip(actual, expected, strict=True):
+        assert_same(table_a, table_b)
+    assert actual[0].timestamp.iloc[0] == panel.factor.index[0]

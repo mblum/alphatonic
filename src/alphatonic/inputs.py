@@ -148,6 +148,12 @@ def prepare(
     prices = clean_prices(prices)
     wide = clean_factor(factor)
     unpriced = ~wide.columns.isin(prices.columns)
+    if len(unpriced) and unpriced.all():
+        raise ValueError(
+            "no factor asset has prices: the asset labels of the two tables do not match "
+            f"(factor columns such as {list(wide.columns[:3])}, price columns such as "
+            f"{list(prices.columns[:3])})"
+        )
     if unpriced.any():
         names = ", ".join(map(str, wide.columns[unpriced][:5]))
         warnings.warn(
