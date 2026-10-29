@@ -38,26 +38,6 @@ are never filled. Results can be saved, reloaded and used to rebuild reports.
 For repeated experiments, a `Study` saves each completed trial, counts variants of the same idea and
 keeps in-sample return labels out of a holdout period. Browse its results with `alphatonic serve`.
 
-## Comparison with other libraries
-
-These libraries can all evaluate signals without running a trading backtest. Their main workflows
-and scope differ:
-
-| Library | Signal evaluation input | Signal diagnostics | Broader scope and output |
-| --- | --- | --- | --- |
-| **alphatonic** | Scores and prices | Cross-sectional and per-asset time-series IC, signal persistence, Newey–West and block-bootstrap intervals | Offline HTML tearsheet; saved evaluations and studies with a holdout |
-| [Alphalens](https://github.com/quantopian/alphalens) | Factor values and prices | Cross-sectional rank IC, quantile returns, turnover and group analysis | Factor tearsheets; hypothetical factor returns |
-| [Alphalens Reloaded](https://github.com/stefan-jansen/alphalens-reloaded) | Factor values and prices | Alphalens-style IC, quantile, turnover and group analysis | Maintained Alphalens fork with factor tearsheets |
-| [Qlib](https://github.com/microsoft/qlib) | Predictions and labels for `calc_ic` | Cross-sectional Pearson and rank IC, ICIR; optional long-short analysis | Data, models, experiment recording and backtesting |
-| [Spectre](https://github.com/Heerozh/spectre) | Factors and prices through its factor engine | Factor analysis over multiple periods; output compatible with Alphalens | GPU-capable factor construction and backtesting |
-
-Alphalens and Reloaded focus on comparing assets at each timestamp; their information tearsheets
-include IC statistics and plots. Qlib's `calc_ic` also compares predictions and labels across assets
-at each timestamp. Spectre's `full_run` performs factor analysis and can pass its output to
-Alphalens. See the [Alphalens overview](https://alphalens.ml4trading.io/notebooks/overview.html),
-[Qlib's signal analysis](https://github.com/microsoft/qlib/blob/main/docs/component/recorder.rst)
-and [Spectre's factor analysis](https://github.com/Heerozh/spectre#factor-analysis) for details.
-
 ## Install
 
 Python 3.11 or newer. Install from [PyPI](https://pypi.org/project/alphatonic/):
@@ -116,6 +96,23 @@ uv run pyright
 ```
 
 See [Contributing](CONTRIBUTING.md) for setup, tests and the release process.
+
+## Other libraries
+
+You might also consider these open-source alternatives. Each can evaluate signals without running
+a trading backtest:
+
+- [Alphalens](https://github.com/quantopian/alphalens) analyses factor values and prices with
+  cross-sectional rank IC, quantile returns, turnover and group analysis, and produces factor
+  tearsheets.
+- [Alphalens Reloaded](https://github.com/stefan-jansen/alphalens-reloaded) is a maintained
+  Alphalens fork with the same style of factor analysis and tearsheets.
+- [Qlib](https://github.com/microsoft/qlib) is a broader research platform for data, models,
+  experiment recording and backtesting. Its `calc_ic` function evaluates predictions against
+  labels using cross-sectional Pearson and rank IC.
+- [Spectre](https://github.com/Heerozh/spectre) combines a GPU-capable factor engine with factor
+  analysis over multiple periods and backtesting. Its analysis output can also be used with
+  Alphalens.
 
 ## License
 
