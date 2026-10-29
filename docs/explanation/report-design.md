@@ -11,8 +11,10 @@ The report omits p-values. A study board puts cross-sectional p-values beside th
 count and its adjustment. The underlying result tables retain the inference statistics.
 
 Essential results stay visible. Optional diagnostics use one level of expandable panels, and horizon
-tabs keep long time-series sections manageable. The tearsheet uses a light theme to match the
-charts. Styles and chart code are embedded so the report works offline.
+tabs keep long time-series sections manageable. Both pages, the tearsheet and the list of trials,
+follow the system's light or dark setting, and the charts take their colours from the same
+stylesheet variables, so they change with the page. On paper they are always light. Styles and chart code are embedded so the
+report works offline.
 
 ## Interface design references
 

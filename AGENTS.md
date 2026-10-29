@@ -39,8 +39,10 @@ supported version has. CI (`.github/workflows/ci.yml`) runs all of these.
   then runs the cross-sectional (`cross_section.py`) and time-series (`time_series.py`)
   analyses, both built on `stats.py`. Options are pydantic models in `config.py`. Results are
   saved and loaded by `persistence.py`. `study.py` keeps trials, `report/` renders the
-  tearsheet and the list of trials (plotly + Jinja2 templates), `server.py` serves that list,
-  and `cli.py` is the `alphatonic` command.
+  tearsheet and the list of trials (Jinja2 templates; the charts are Observable Plot and d3,
+  vendored in `report/static/`: `figures.py` and `ts_figures.py` compute what a chart shows and
+  `alphatonic.js` only draws it), `server.py` serves that list, and `cli.py` is the `alphatonic`
+  command.
 - `tests/`: pytest, one `test_<module>.py` per module. `conftest.py` has synthetic-data
   helpers (`regular_panel`, `perfect_market`), and `reference.py` is the reference
   implementation (see below).
@@ -87,8 +89,8 @@ supported version has. CI (`.github/workflows/ci.yml`) runs all of these.
   model and give errors that say what is wrong and what is accepted.
 - Keep `src/` vectorised. Loops over timestamps belong in the reference implementation, not in
   the library.
-- Keep the dependencies small: evaluation needs only NumPy, pandas and pydantic. plotly and
-  Jinja2 belong to the optional `report` extra, so import `alphatonic.report` lazily, inside
+- Keep the dependencies small: evaluation needs only NumPy, pandas and pydantic. Jinja2
+  belongs to the optional `report` extra, so import `alphatonic.report` lazily, inside
   the function that needs it (as `Evaluation.render_tearsheet` does). `alphatonic`,
   `alphatonic.server` and `alphatonic.cli` must import without them, and
   `tests/test_public_api.py` checks this.

@@ -40,7 +40,6 @@ dependencies = [
 [project.optional-dependencies]
 # The offline HTML tearsheet. Evaluation itself needs only the core dependencies.
 report = [
-    "plotly>=6.1,<7",
     "jinja2>=3.1,<4",
 ]
 
@@ -61,7 +60,6 @@ dev = [
     "ruff>=0.9",
     "scipy>=1.11",
     "statsmodels>=0.14",
-    "plotly>=6.1,<7",
     "jinja2>=3.1,<4",
     "pyright>=1.1.414",
     "pandas-stubs>=3.0.5.260914",
@@ -71,7 +69,6 @@ dev = [
 docs = [
     "mkdocstrings[python]>=1.0.6",
     "zensical>=0.0.63",
-    "plotly>=6.1,<7",
     "jinja2>=3.1,<4",
 ]
 

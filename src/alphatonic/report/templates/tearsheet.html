@@ -30,9 +30,7 @@
 {%- endmacro %}
 
 {% block title %}{{ title }}{% if subtitle %} · {{ subtitle }}{% endif %}{% endblock %}
-{# Charts are drawn for a light page, so the tearsheet does not follow a dark system theme. #}
-{% block html_attributes %} data-theme="light"{% endblock %}
-{% block head %}<script>{{ plotly_js | safe }}</script>{% endblock %}
+{% block head %}<script>{{ libraries | safe }}</script>{% endblock %}
 {% block body %}
 <a class="skip-link" href="#main-content">Skip to the report</a>
 <nav class="site-nav" aria-label="Report sections">
@@ -170,6 +168,15 @@
         {% endcall %}
         {% call disclosure('timing-h' ~ horizon.horizon ~ '-rolling', 'Rolling IC') %}
           <p class="muted">Window: {{ ts_options.rolling_window }} · Step: {{ ts_options.rolling_step }} · {{ method('method-stability') }}</p>
+          {% if horizon.rolling_assets %}
+          <div class="toolbar">
+            <label>Asset
+              <select data-chart="ts-h{{ horizon.horizon }}-rolling">
+                {% for asset in horizon.rolling_assets %}<option value="{{ loop.index0 }}">{{ asset }}</option>{% endfor %}
+              </select>
+            </label>
+          </div>
+          {% endif %}
           {{ region(horizon.figures.rolling, 'Asset rolling Spearman IC · ' ~ horizon.label, 'chart') }}
         {% endcall %}
         {% if ts_pearson %}
@@ -294,7 +301,7 @@
         <p>Time-series monthly IC is recomputed within each complete UTC month. Both the score and return endpoint must lie inside the month.
           The eligible asset count may change each month. This differs from averaging timestamp-level cross-sectional ICs.</p>
         <p>Rolling time-series IC is recomputed over trailing {{ ts_options.rolling_window }} windows, displayed every {{ ts_options.rolling_step }}.
-          Only complete windows are used; returns must end before the displayed endpoint. Choose an asset using the chart dropdown. Empty cells are unavailable.</p>
+          Only complete windows are used; returns must end before the displayed endpoint. Choose an asset in the menu above the chart. Empty cells are unavailable.</p>
         {% endif %}
       </section>
       {% if ts_evaluated %}
@@ -344,23 +351,14 @@
 </main>
 <footer>
   <p>These results measure predictive association. Return labels exclude fees, slippage, financing and market impact.</p>
-  <p>Generated {{ generated_at }} · {% for package, version in versions.items() %}{{ package }} {{ version }}{% if not loop.last %} / {% endif %}{% endfor %} · styled with Pico CSS (MIT)</p>
+  <p>Generated {{ generated_at }} · {% for package, version in versions.items() %}{{ package }} {{ version }}{% if not loop.last %} / {% endif %}{% endfor %} · styled with Pico CSS (MIT), charts drawn with Observable Plot and d3 (ISC)</p>
   {% for line in footer %}<p>{{ line }}</p>{% endfor %}
 </footer>
+<script type="application/json" id="chart-data">{{ charts | tojson }}</script>
+<script>{{ chart_script | safe }}</script>
 <script>
   const disclosures = [...document.querySelectorAll('details')];
   const panels = [...document.querySelectorAll('[role=tabpanel]')];
-  function resizeCharts(container) {
-    if (!window.Plotly) return;
-    container.querySelectorAll('.plotly-graph-div').forEach(fig => {
-      if (fig.getBoundingClientRect().width) Plotly.Plots.resize(fig);
-    });
-  }
-  disclosures.forEach(section => {
-    section.addEventListener('toggle', () => {
-      if (section.open) requestAnimationFrame(() => resizeCharts(section));
-    });
-  });
   function selectTab(tab, focus) {
     const tabs = [...tab.closest('[role=tablist]').querySelectorAll('[role=tab]')];
     tabs.forEach(other => {
@@ -370,7 +368,6 @@
       document.getElementById(other.getAttribute('aria-controls')).hidden = !selected;
     });
     if (focus) tab.focus();
-    requestAnimationFrame(() => resizeCharts(document.getElementById(tab.getAttribute('aria-controls'))));
   }
   document.querySelectorAll('[role=tab]').forEach(tab => {
     tab.addEventListener('click', () => selectTab(tab, false));
@@ -422,14 +419,14 @@
     printState = {open: disclosures.map(item => item.open), hidden: panels.map(item => item.hidden)};
     disclosures.forEach(item => { item.open = true; });
     panels.forEach(item => { item.hidden = false; });
-    resizeCharts(document);
+    // Charts in panels that were closed or hidden have no width yet: draw them before printing.
+    alphatonic.drawCharts();
   });
   window.addEventListener('afterprint', () => {
     if (!printState) return;
     disclosures.forEach((item, index) => { item.open = printState.open[index]; });
     panels.forEach((item, index) => { item.hidden = printState.hidden[index]; });
     printState = undefined;
-    resizeCharts(document);
   });
 </script>
 {% endblock %}

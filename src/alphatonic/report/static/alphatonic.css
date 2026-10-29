@@ -33,9 +33,25 @@
   --at-down: #a2501c;
   --at-warn-background: #fff4e8;
   --at-cell: .45rem .75rem;
+  /* Chart palette. Series take --at-c1 to --at-c8 in order and are never cycled; the first three
+     are royal blue (the accent), orange and aqua. The set passes the lightness, chroma,
+     colour-vision-deficiency and contrast checks against the card colour of each theme; yellow and
+     magenta are under 3:1 on white, so a chart that uses them also writes its values (the legend of
+     the status chart gives totals). The scale of the heatmaps runs from --at-low through --at-mid
+     to --at-high. */
+  --at-c1: #4169e1; --at-c2: #eb6834; --at-c3: #199e70; --at-c4: #eda100;
+  --at-c5: #e87ba4; --at-c6: #008300; --at-c7: #6250d6; --at-c8: #e34948;
+  --at-context: #a8b7c5; --at-zero: #2a3f5f;
+  --at-low: #b45b3e; --at-mid: #f0efec; --at-high: var(--at-c1);
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme=light]) { --at-wash: rgb(19, 22.5, 30.5); --at-down: #f0a36e; --at-warn-background: #3a2a1c; }
+  :root:not([data-theme=light]) {
+    --at-wash: rgb(19, 22.5, 30.5); --at-down: #f0a36e; --at-warn-background: #3a2a1c;
+    --at-c1: #6a8cf0; --at-c2: #d95926; --at-c3: #199e70; --at-c4: #c98500;
+    --at-c5: #d55181; --at-c6: #008300; --at-c7: #9085e9; --at-c8: #e66767;
+    --at-context: #5d6b7e; --at-zero: #9aa3b2;
+    --at-low: #d4694a; --at-mid: #2f343f;
+  }
 }
 html { background-color: var(--at-wash); scroll-behavior: smooth; scroll-padding-top: 4.5rem; }
 h1 { --pico-font-size: 2rem; }
@@ -108,10 +124,22 @@ tbody tr:hover > * { background-color: var(--at-wash); }
 .metrics .value.emphasis { font-weight: 650; }
 .glance td { min-width: 11rem; }
 
-/* Charts keep a readable width and scroll on narrow screens. */
+/* Charts keep a readable width and scroll on narrow screens. alphatonic.js draws them into .host. */
 .chart { overflow-x: auto; max-width: 100%; }
-.chart .plotly-graph-div { min-width: 560px; width: 100%; }
-.chart.wide .plotly-graph-div { min-width: 680px; }
+.host { min-width: 560px; width: 100%; }
+.chart.wide .host { min-width: 680px; }
+.host svg { display: block; max-width: none; overflow: visible; --plot-background: var(--pico-card-background-color); } /* the tooltip's fill; Plot's own rule is :where(), and its style option drops custom properties */
+.panels { display: grid; gap: 1rem 1.5rem; }
+.panel-title { margin: .75rem 0 0; font-size: .85rem; font-weight: 600; color: var(--pico-muted-color); }
+.key { margin: 0 0 .25rem; color: var(--pico-muted-color); font-size: .8rem; }
+.swatch { display: inline-block; vertical-align: middle; margin: 0 .4rem 0 1rem; background: var(--swatch); }
+.swatch:first-child { margin-left: 0; }
+.swatch.line { width: 1.5rem; height: var(--thickness, 2px); }
+.swatch.dot { width: .65rem; height: .65rem; border-radius: 50%; }
+.swatch.box { width: .75rem; height: .75rem; border-radius: 2px; }
+.ramp { max-width: 22rem; margin: .25rem 0 0 auto; color: var(--pico-muted-color); font-size: .75rem; }
+.ramp .bar { display: block; height: .6rem; background: linear-gradient(in oklab to right, var(--at-low), var(--at-mid), var(--at-high)); }
+.ramp .ticks { display: flex; justify-content: space-between; }
 
 /* Tabs that switch between horizons. */
 [role=tablist] { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: .75rem; border-bottom: 1px solid var(--pico-muted-border-color); }
@@ -123,6 +151,7 @@ tbody tr:hover > * { background-color: var(--at-wash); }
 .toolbar { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; align-items: center; margin: 0; }
 .toolbar label { display: flex; align-items: center; gap: .5rem; margin: 0; font-size: .85rem; color: var(--pico-muted-color); }
 .toolbar select { width: auto; margin: 0; padding: .3rem 2.25rem .3rem .65rem; font-size: .85rem; }
+details .toolbar { margin-bottom: .75rem; }
 .board { border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); background: var(--pico-card-background-color); }
 .board thead a { color: inherit; text-decoration: none; }
 .board thead a:hover { color: var(--pico-primary); }
@@ -153,12 +182,13 @@ tbody tr:hover > * { background-color: var(--at-wash); }
   html { background: white; }
   body { font-size: 11px; }
   body > header, body > main, body > footer { max-width: none; padding: 0; }
-  .site-nav, .skip-link, .method-link, [role=tablist], .modebar, form { display: none !important; }
+  .site-nav, .skip-link, .method-link, [role=tablist], .toolbar { display: none !important; }
   [role=tabpanel][hidden] { display: block !important; }
   main > section { margin-bottom: 1.5rem; }
   h2, h3, summary { break-after: avoid; }
   .table-scroll, .chart { overflow: visible; }
-  .chart .plotly-graph-div { min-width: 0; }
+  .host, .chart.wide .host { min-width: 0; }
+  .host svg { max-width: 100%; height: auto; }
   th, td { padding: 3px 6px; white-space: normal; }
   thead { display: table-header-group; }
   tr { break-inside: avoid; }

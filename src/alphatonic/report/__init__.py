@@ -14,9 +14,8 @@ import pandas as pd
 from alphatonic.config import EvaluationConfig, ReportOptions
 
 try:
-    from plotly.offline import get_plotlyjs
-
     from alphatonic.report.figures import (
+        Spec,
         coverage_figures,
         horizon_label,
         method_figures,
@@ -26,16 +25,14 @@ try:
     from alphatonic.report.page import environment
     from alphatonic.report.ts_figures import horizon_figures
 except ModuleNotFoundError as error:  # pragma: no cover - exercised only without the extra
-    if error.name and error.name.split(".")[0] in {"plotly", "jinja2"}:
+    if error.name and error.name.split(".")[0] == "jinja2":
         raise ImportError(
-            f"The tearsheet needs plotly and jinja2 ({error.name} is missing): "
+            f"The tearsheet needs jinja2 ({error.name} is missing): "
             'pip install "alphatonic[report]"'
         ) from error
     raise
 
 if TYPE_CHECKING:
-    import plotly.graph_objects as go
-
     from alphatonic.evaluation import Evaluation
 
 __all__ = ["render_tearsheet"]
@@ -364,8 +361,9 @@ def render_tearsheet(
     """Render an evaluation as one standalone HTML document.
 
     Figures and summary metrics use stored tables; statistical inference is not rerun.
-    The page embeds Plotly's JavaScript and its stylesheet once, so it opens offline, and every
-    piece of caller-supplied text is escaped.
+    The page embeds the JavaScript that draws its charts and its stylesheet once, so it opens
+    offline, and every piece of caller-supplied text is escaped. It follows the system's light or
+    dark setting, and prints in light colours.
 
     Args:
         evaluation: The result to show.
@@ -391,13 +389,12 @@ def render_tearsheet(
     config = evaluation.config
     summary, bar, time_series = evaluation.summary, evaluation.bar, evaluation.time_series
 
-    def html(fig: go.Figure, identifier: str) -> str:
-        return fig.to_html(
-            full_html=False,
-            include_plotlyjs=False,
-            div_id=identifier,
-            config={"responsive": True, "displaylogo": False},
-        )
+    charts: dict[str, Spec] = {}
+
+    def html(spec: Spec, identifier: str) -> str:
+        """Keep a chart's specification for the page's script, and mark where it is drawn."""
+        charts[identifier] = spec
+        return f'<div class="host" id="{identifier}" data-chart="{identifier}"></div>'
 
     cs_available = bool(summary.n_periods.gt(0).any())
     ts_available = time_series is not None and bool(time_series.summary.n_assets.gt(0).any())
@@ -492,7 +489,7 @@ def render_tearsheet(
             identifier,
         )
 
-    versions = {name: version(name) for name in ("alphatonic", "plotly", "jinja2")}
+    versions = {name: version(name) for name in ("alphatonic", "jinja2")}
     return (
         environment()
         .get_template("tearsheet.html")
@@ -526,7 +523,7 @@ def render_tearsheet(
             diagnostics={
                 name: html(fig, name) for name, fig in coverage_figures(periods, bar).items()
             },
-            plotly_js=get_plotlyjs(),
+            charts=charts,
             cs_quantiles=buckets(evaluation.quantiles, "cs-quantiles", time_series=False)
             if cs_available
             else None,
