@@ -1,6 +1,7 @@
 import json
 import re
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -8,19 +9,19 @@ from alphatonic import Study, evaluate
 from alphatonic.config import ReportOptions
 from alphatonic.report.board import render_board
 from alphatonic.report.figures import (
-    DARK,
+    STATUSES,
     coverage_figures,
-    dark_theme,
     method_figures,
+    milliseconds,
     quantile_figure,
+    status_slots,
+    values,
 )
-from alphatonic.report.page import PICO, stylesheet
-from alphatonic.report.ts_figures import horizon_figures
+from alphatonic.report.page import PICO, environment, static, stylesheet
+from alphatonic.report.ts_figures import confidence_plot, horizon_figures
 from conftest import regular_panel
 
 FAST = {"min_pairs": 20, "min_horizons": 2, "bootstrap_samples": 0, "rolling_window": "5D"}
-COLOUR = re.compile(r"#[0-9a-fA-F]{6}|rgba?\([^)]*\)")
-TRANSPARENT = "rgba(0,0,0,0)"
 
 
 @pytest.fixture(scope="module")
@@ -117,19 +118,15 @@ def test_the_study_design_link_returns_to_the_top_of_the_page(page):
     assert page.index('id="top"') < page.index("<h1>") < page.index('id="study-design"')
 
 
-def _colours(value, found=None):
-    """Collect every colour string of a figure, leaving out Plotly's template."""
-    found = set() if found is None else found
-    if isinstance(value, str) and COLOUR.fullmatch(value):
-        found.add(value)
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            if key != "template":
-                _colours(item, found)
-    elif isinstance(value, list | tuple):
-        for item in value:
-            _colours(item, found)
-    return found
+def _specs(page):
+    """Read the chart specifications of a page, refusing NaN and infinities as JavaScript does."""
+    blob = re.search(r'<script type="application/json" id="chart-data">(.*?)</script>', page, re.S)
+    assert blob
+
+    def refuse(constant):
+        raise AssertionError(f"{constant} is not JSON")
+
+    return json.loads(blob.group(1), parse_constant=refuse)
 
 
 def test_both_pages_follow_the_system_theme_and_print_light(page, tmp_path):
@@ -139,34 +136,28 @@ def test_both_pages_follow_the_system_theme_and_print_light(page, tmp_path):
         assert "beforeprint" in html and "dataset.theme = 'light'" in html
 
 
-def test_the_charts_are_redrawn_for_a_dark_system(page):
-    assert "matchMedia('(prefers-color-scheme: dark)')" in page
-    assert all(f'"{colour}"' in page for colour in DARK.values())
-    # Plotly's dark template travels with the page, once.
-    assert (
-        page.count('"paper_bgcolor": "rgb(17,17,17)"')
-        + page.count('"paper_bgcolor":"rgb(17,17,17)"')
-        == 1
-    )
-    assert json.dumps(dark_theme())
+def test_the_page_draws_its_charts_with_the_libraries_it_carries(page):
+    assert "@observablehq/plot v0.6.17" in page and "https://d3js.org v7.9.0" in page
+    assert "plotly" not in page.lower()
+    assert "charts drawn with Observable Plot and d3 (ISC)" in page
 
 
-def test_every_colour_in_a_chart_has_a_dark_counterpart(result):
-    periods = result.periods.copy()
-    periods["timestamp"] = pd.to_datetime(periods.timestamp, utc=True)
-    periods = periods.sort_values(["horizon", "timestamp"])
-    figures = [
-        *method_figures(periods, "spearman", result.bar, ReportOptions()).values(),
-        *coverage_figures(periods, result.bar).values(),
-        quantile_figure(result.quantiles, unit="Timestamps", quantiles=5),
-        quantile_figure(result.time_series.quantiles, unit="Assets", quantiles=5),
-        *(fig for item in horizon_figures(result.time_series) for fig in item["figures"].values()),
-    ]
+def test_every_chart_has_a_place_on_the_page_and_a_kind_the_script_draws(page):
+    places = re.findall(r'<div class="host" id="([^"]+)" data-chart="\1"></div>', page)
+    specs = _specs(page)
+    drawn = re.search(r"const kinds = \{([^}]*)\};", static("alphatonic.js"))
+    assert drawn
 
-    used = set().union(*(_colours(fig.to_plotly_json()) for fig in figures))
+    assert len(places) == len(set(places)) > 8
+    assert set(places) == set(specs)
+    # No spec the script cannot draw, and no renderer that nothing uses.
+    assert {spec["kind"] for spec in specs.values()} == set(re.findall(r"\w+", drawn.group(1)))
 
-    assert len(figures) > 8 and used > {TRANSPARENT}
-    assert used - {TRANSPARENT} <= set(DARK), used - {TRANSPARENT} - set(DARK)
+
+def test_chart_data_refuses_nan_instead_of_writing_invalid_json():
+    assert environment().policies["json.dumps_kwargs"]["allow_nan"] is False
+    with pytest.raises(ValueError):
+        environment().from_string("{{ x | tojson }}").render(x=float("nan"))
 
 
 def test_the_rolling_chart_shows_the_asset_chosen_in_a_menu(page, result):
@@ -178,7 +169,123 @@ def test_the_rolling_chart_shows_the_asset_chosen_in_a_menu(page, result):
         assert re.findall(r'<option value="(\d+)">(A\d+)</option>', menu.group(1)) == [
             (str(i), f"A{i}") for i in range(8)
         ]
-    # Plotly's own menu highlights with a colour that no option changes, so it would not suit a
-    # dark page.
-    rolling = horizon_figures(result.time_series)[0]["figures"]["rolling"]
-    assert not rolling.layout.updatemenus
+    spec = horizon_figures(result.time_series)[0]["figures"]["rolling"]
+    assert [asset["name"] for asset in spec["assets"]] == [f"A{i}" for i in range(8)]
+    for asset in spec["assets"]:
+        assert len(asset["x"]) == len(asset["y"]) > 0
+        assert all(len(column["values"]) == len(asset["x"]) for column in asset["columns"])
+
+
+def test_timestamps_are_written_as_utc_milliseconds_whatever_the_pandas_unit():
+    expected = [1704067200000]
+    assert milliseconds(pd.DatetimeIndex(["2024-01-01"])) == expected
+    assert milliseconds(pd.DatetimeIndex(["2024-01-01T01:00:00+01:00"])) == expected
+    assert milliseconds(pd.DatetimeIndex(["2024-01-01"]).as_unit("s")) == expected
+    assert milliseconds(pd.Series(pd.to_datetime(["2024-01-01"], utc=True))) == expected
+
+
+def test_a_missing_value_is_null_and_the_rest_is_rounded():
+    assert values([0.123456789, np.nan, np.inf, -np.inf, 1]) == [0.123457, None, None, None, 1.0]
+
+
+def _periods(spearman):
+    index = pd.date_range("2024-01-01", periods=len(spearman), freq="D", tz="UTC")
+    return pd.DataFrame({"horizon": 1, "timestamp": index, "spearman": spearman})
+
+
+def test_a_month_without_a_valid_ic_is_empty_in_the_heatmap_never_zero():
+    spearman = [0.1] * 31 + [np.nan] * 29 + [-0.2] * 31
+
+    spec = method_figures(_periods(spearman), "spearman", None, ReportOptions())["monthly"]
+
+    assert spec["months"] == ["2024-01", "2024-02", "2024-03"]
+    assert spec["z"] == [[0.1, None, -0.2]]
+    assert spec["counts"] == [[31, 0, 31]]
+
+
+def test_the_rolling_mean_leaves_a_gap_where_the_ic_is_missing():
+    spearman = [0.1, 0.2, np.nan, np.nan, 0.3, 0.4, 0.5, 0.6]
+    options = ReportOptions(rolling_window="3D", min_periods=1)
+
+    panel = method_figures(_periods(spearman), "spearman", None, options)["timeseries"]["panels"][0]
+    raw, mean = panel["series"]
+
+    assert raw["y"][2:4] == [None, None] and mean["y"][2:4] == [None, None]
+    assert all(v is not None for v in mean["y"][:2] + mean["y"][4:])
+    assert panel["empty"] is None and len(panel["x"]) == len(raw["y"]) == len(mean["y"])
+
+
+def test_a_panel_without_any_ic_says_so_instead_of_drawing_zeros():
+    panel = method_figures(_periods([np.nan] * 5), "spearman", None, ReportOptions())["timeseries"][
+        "panels"
+    ][0]
+
+    assert panel["empty"] == "No valid cross-sectional observations"
+    assert panel["series"][0]["y"] == [None] * 5
+
+
+def test_quantile_returns_are_in_basis_points_or_in_sigma_and_an_empty_bucket_is_a_gap():
+    frame = pd.DataFrame(
+        {
+            "horizon": 1,
+            "quantile": [1, 3],
+            "mean_return": [-0.0005, 0.0012],
+            "n_pairs": [40, 44],
+        }
+    )
+
+    bps = quantile_figure(frame, unit="Timestamps", quantiles=3)
+    sigma = quantile_figure(frame, unit="Timestamps", quantiles=3, vol_scaled=True)
+
+    series = bps["panels"][0]["series"][0]
+    assert series["y"] == [-5.0, None, 12.0] and bps["panels"][0]["y"]["unit"] == " bps"
+    assert sigma["panels"][0]["series"][0]["y"] == [-0.0005, None, 0.0012]
+    assert bps["x"]["ticks"] == [1, 2, 3]
+    # The number of pairs behind an empty bucket is a count, so it is zero.
+    assert series["columns"][0]["values"] == [40, 0, 44]
+
+
+def test_a_status_keeps_its_colour_whichever_other_statuses_are_present():
+    assert status_slots(["valid", "low_coverage"]) == {"valid": 1, "low_coverage": 5}
+    assert status_slots(list(STATUSES))["constant_returns"] == 3
+    assert status_slots(["valid", "zebra", "aardvark"]) == {"valid": 1, "zebra": 7, "aardvark": 6}
+
+
+def test_the_status_chart_counts_every_period_once():
+    periods = pd.DataFrame(
+        {
+            "horizon": [1] * 4 + [4] * 4,
+            "timestamp": list(pd.date_range("2024-01-01", periods=4, tz="UTC")) * 2,
+            "status": ["valid", "valid", "constant_signal", "valid"] * 2,
+            "n_available": 5.0,
+            "n_signal": 5.0,
+            "n_pairs": 5.0,
+            "pair_coverage": 1.0,
+        }
+    )
+    periods.loc[7, "status"] = "low_coverage"
+
+    spec = coverage_figures(periods, None)["statuses"]
+
+    assert spec["categories"] == ["1 bar", "4 bars"]
+    series = {item["name"]: item for item in spec["series"]}
+    assert [item["name"] for item in spec["series"]] == ["valid", "constant signal", "low coverage"]
+    assert series["valid"]["values"] == [3, 2] and series["valid"]["color"] == 1
+    assert series["constant signal"]["color"] == 2 and series["low coverage"]["color"] == 5
+    assert sum(sum(item["values"]) for item in spec["series"]) == len(periods)
+
+
+def test_an_asset_without_an_estimate_has_no_marker_and_no_interval():
+    frame = pd.DataFrame(
+        {
+            "ic": [0.05, np.nan],
+            "ci95_lower": [-0.02, np.nan],
+            "ci95_upper": [0.12, np.nan],
+            "n_pairs": [300, 12],
+        }
+    )
+
+    rows = confidence_plot(frame, ["A", "B"], "ic")["rows"]
+
+    assert rows[0] == {"label": "A", "estimate": 0.05, "lower": -0.02, "upper": 0.12, "pairs": 300}
+    assert rows[1] == {"label": "B", "estimate": None, "lower": None, "upper": None, "pairs": 12}

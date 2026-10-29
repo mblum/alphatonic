@@ -1,6 +1,6 @@
 # Read a tearsheet
 
-A tearsheet is a single HTML file with interactive charts and tables. Install the report extra using
+A tearsheet is a single HTML file with charts and tables; hover a chart to read exact values. Install the report extra using
 the [installation command](../index.md#install), then write a report:
 
 ```python
@@ -88,7 +88,8 @@ persistence](measure-persistence.md).
 ## Navigate and share
 
 Use the section links at the top and arrow keys within horizon tabs. Wide tables and charts scroll
-horizontally on small screens. Printing includes all tabs and diagnostics. Share the HTML file
+horizontally on small screens. The page follows your system's light or dark setting. It needs a browser from 2023 or later
+(Chrome 111, Firefox 113 or Safari 16.2), which the heatmap colours rely on. Printing includes all tabs and diagnostics, in light colours. Share the HTML file
 itself; its chart code and styles are included.
 
 The **Methods and interpretation** section defines the report's metrics. For fields absent from the

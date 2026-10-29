@@ -37,10 +37,11 @@ because a p-value is honest only next to the number of tries. Facts it cannot ch
 signal was computed, are recorded as the caller states them.
 
 **Small dependency footprint.** Evaluation needs NumPy, pandas and pydantic (for validated, immutable
-configuration). Plotly and Jinja2 are an optional extra for the report. The list of a study's trials
+configuration). Jinja2 is an optional extra for the report. The list of a study's trials
 is served by the standard library's HTTP server, so browsing it adds nothing beyond that extra. Both
-pages are styled by Pico CSS, a classless stylesheet vendored in the package and written into each
-page, so there is no front-end build and a tearsheet still opens offline. A front end of another
+pages are styled by Pico CSS, a classless stylesheet, and the tearsheet's charts are drawn by
+Observable Plot and d3. All are vendored in the package and written into each page, so there is no
+front-end build and a tearsheet still opens offline. A front end of another
 kind can read the same results from `to_dict()`. There is no progress-bar dependency; a hook lets
 you plug in your own.
 

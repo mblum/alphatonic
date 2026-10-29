@@ -28,7 +28,7 @@ includes pandas type stubs. Select the project's `.venv` interpreter in your edi
 the same dependencies; it also reads the shared Pyright settings.
 
 The tests use synthetic data and temporary directories only. They run with every warning turned into
-an error (`filterwarnings = ["error"]`), so a deprecation in pandas, NumPy or plotly fails the suite
+an error (`filterwarnings = ["error"]`), so a deprecation in pandas or NumPy fails the suite
 instead of reaching users.
 
 The suite runs on all cores with [pytest-xdist](https://pytest-xdist.readthedocs.io/) and must
@@ -52,7 +52,8 @@ finish in under 40 seconds. Add `-n 0` to run it in one process, for example wit
 | JSON values of results (`to_dict`) | `export.py` | `test_export.py` |
 | Saving and loading | `persistence.py` | `test_persistence.py` |
 | Studies: trials, the holdout, the board | `study.py` | `test_study.py` |
-| The tearsheet | `report/__init__.py`, `report/*figures.py`, `report/templates/` | `test_report.py` |
+| The tearsheet | `report/__init__.py`, `report/templates/` | `test_report.py` |
+| The tearsheet's charts | `report/*figures.py`, `report/static/alphatonic.js` | `test_report.py` |
 | Styles shared by both pages | `report/page.py`, `report/static/` | `test_report.py` |
 | The list of trials and its server | `report/board.py`, `server.py` | `test_server.py` |
 | The `alphatonic` command | `cli.py` | `test_cli.py` |
@@ -62,26 +63,38 @@ finish in under 40 seconds. Add `-n 0` to run it in one process, for example wit
 Preserve the explicit handling of gaps, ties, constants and unavailable statistics: a statistic that
 cannot be computed is `NaN` with a status, never zero.
 
-## The pages' stylesheet
+## The pages' stylesheet and charts
 
 The tearsheet and the list of trials share one stylesheet, written into each page: [Pico
 CSS](https://picocss.com) followed by `report/static/alphatonic.css`. Pico styles the elements
 themselves, so templates use semantic HTML (`article`, `details`, `nav`, `table`) and add a class
 only where Pico has nothing to say, such as a dense numeric table. Put new rules in
 `alphatonic.css`; never edit the vendored file. The accent colour, royal blue (`#4169e1`), is set
-there by overriding Pico's `--pico-primary` variables, with a lighter tint for dark mode. The
-charts' colours are in `report/figures.py`, each with a dark counterpart in `DARK`: the page
-redraws its charts with those on a dark system, and `tests/test_report.py` fails when a figure uses
-a colour that has none. Check a new series colour for contrast with the dark card colour
-(`#181c25`) and for separation from the other series under colour-vision deficiency, as the
-existing ones were.
+there by overriding Pico's `--pico-primary` variables, with a lighter tint for dark mode.
+
+The charts' colours are variables in the same file, each with a dark value: `--at-c1` to `--at-c8`
+for series (taken in order, never cycled), `--at-context` and `--at-zero` for the lines that give
+context, and `--at-low`, `--at-mid` and `--at-high` for the scale of the heatmaps. Python never names
+a colour: a chart specification names a slot. Check a new colour for contrast with the card colour
+of both themes (white and `#181c25`) and for separation from its neighbours under colour-vision
+deficiency, as the existing ones were.
+
+The charts are drawn by [Observable Plot](https://observablehq.com/plot/) and [d3](https://d3js.org),
+vendored in `report/static/` with their licences, and by `report/static/alphatonic.js`.
+`report/figures.py` and `report/ts_figures.py` compute everything a chart shows and write it as a
+specification, which is plain data of one of five kinds (`lines`, `rolling`, `heatmap`, `bars`,
+`intervals`); the script only draws. Test the specification in `tests/test_report.py`. The script has
+no automated test, because CI has no browser, so after you change it open a tearsheet in light and
+dark mode, hover each kind of chart, open the closed panels and the second tab, narrow the window,
+and print once with a dark system: paper is meant to come out light.
 
 `report/static/pico.classless.min.css` is Pico 2.1.1 from the npm package `@picocss/pico`, with its
-licence beside it as `pico.LICENSE.md`. To update it, download the package tarball from the npm
+licence beside it as `pico.LICENSE.md`. `plot.umd.min.js` is Observable Plot 0.6.17 and `d3.min.js`
+is d3 7.9.0 (Plot's build needs d3 as the global `d3`), each from the file `dist/` of its npm
+package, with the licence beside it. To update one, download the package tarball from the npm
 registry, check it against the registry's `integrity` hash, copy the same file and the licence,
 change the version in `report/page.py` and `tests/test_report.py`, and look at both pages in a
-browser. Check both pages in light and dark mode, and print each once with a dark system: paper
-is meant to come out light.
+browser, in light and dark mode.
 
 ## The reference implementation
 

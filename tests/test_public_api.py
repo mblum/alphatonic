@@ -36,7 +36,7 @@ def test_core_import_does_not_pull_in_the_reporting_dependencies():
 
     code = (
         "import sys, alphatonic, alphatonic.server, alphatonic.cli; "
-        "assert 'plotly' not in sys.modules and 'jinja2' not in sys.modules; "
+        "assert 'jinja2' not in sys.modules; "
         "assert 'alphatonic.report' not in sys.modules"
     )
     subprocess.run([sys.executable, "-W", "error", "-c", code], check=True)

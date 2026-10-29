@@ -217,7 +217,7 @@ class Evaluation:
             footer: Extra lines in the page footer.
 
         Returns:
-            The HTML. Plotly's JavaScript is embedded, so the page works offline.
+            The HTML. The JavaScript that draws the charts is embedded, so the page works offline.
         """
         from alphatonic.report import render_tearsheet
 

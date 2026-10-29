@@ -30,51 +30,7 @@
 {%- endmacro %}
 
 {% block title %}{{ title }}{% if subtitle %} · {{ subtitle }}{% endif %}{% endblock %}
-{% block head %}
-<script>{{ plotly_js | safe }}</script>
-<script>
-  /* The figures are written for a light page. On a dark one each is drawn, and drawn again when the
-     system setting changes or the page is printed, with its colours replaced and Plotly's dark
-     template. Patching newPlot draws them right the first time, before the figures' own scripts. */
-  (() => {
-    const theme = {{ chart_theme | tojson }};
-    const colors = new Map(Object.entries(theme.colors));
-    const system = matchMedia('(prefers-color-scheme: dark)');
-    const isDark = () => (document.documentElement.dataset.theme || (system.matches ? 'dark' : 'light')) === 'dark';
-    const recolour = (key, value) => (typeof value === 'string' && colors.has(value) ? colors.get(value) : value);
-    const figures = new Map();
-    let shownDark = isDark();
-    function paint(id) {
-      const dark = isDark();
-      const figure = JSON.parse(figures.get(id).written, dark ? recolour : undefined);
-      if (dark) figure.layout.template = theme.template;
-      return figure;
-    }
-    const newPlot = Plotly.newPlot;
-    Plotly.newPlot = (div, data, layout, config) => {
-      const id = typeof div === 'string' ? div : div.id;
-      figures.set(id, {written: JSON.stringify({data, layout}), config});
-      const figure = paint(id);
-      return newPlot.call(Plotly, div, figure.data, figure.layout, config);
-    };
-    function redraw() {
-      if (isDark() === shownDark) return;
-      shownDark = isDark();
-      figures.forEach(({config}, id) => {
-        const div = document.getElementById(id);
-        if (!div || !div.data) return;
-        const figure = paint(id);
-        // Keep the traces the reader chose: the asset in a menu, or what the legend shows.
-        figure.data.forEach((trace, i) => { if (div.data[i] && div.data[i].visible !== undefined) trace.visible = div.data[i].visible; });
-        Plotly.react(div, figure.data, figure.layout, config);
-      });
-    }
-    system.addEventListener('change', redraw);
-    addEventListener('beforeprint', redraw);
-    addEventListener('afterprint', redraw);
-  })();
-</script>
-{% endblock %}
+{% block head %}<script>{{ libraries | safe }}</script>{% endblock %}
 {% block body %}
 <a class="skip-link" href="#main-content">Skip to the report</a>
 <nav class="site-nav" aria-label="Report sections">
@@ -395,23 +351,14 @@
 </main>
 <footer>
   <p>These results measure predictive association. Return labels exclude fees, slippage, financing and market impact.</p>
-  <p>Generated {{ generated_at }} · {% for package, version in versions.items() %}{{ package }} {{ version }}{% if not loop.last %} / {% endif %}{% endfor %} · styled with Pico CSS (MIT)</p>
+  <p>Generated {{ generated_at }} · {% for package, version in versions.items() %}{{ package }} {{ version }}{% if not loop.last %} / {% endif %}{% endfor %} · styled with Pico CSS (MIT), charts drawn with Observable Plot and d3 (ISC)</p>
   {% for line in footer %}<p>{{ line }}</p>{% endfor %}
 </footer>
+<script type="application/json" id="chart-data">{{ charts | tojson }}</script>
+<script>{{ chart_script | safe }}</script>
 <script>
   const disclosures = [...document.querySelectorAll('details')];
   const panels = [...document.querySelectorAll('[role=tabpanel]')];
-  function resizeCharts(container) {
-    if (!window.Plotly) return;
-    container.querySelectorAll('.plotly-graph-div').forEach(fig => {
-      if (fig.getBoundingClientRect().width) Plotly.Plots.resize(fig);
-    });
-  }
-  disclosures.forEach(section => {
-    section.addEventListener('toggle', () => {
-      if (section.open) requestAnimationFrame(() => resizeCharts(section));
-    });
-  });
   function selectTab(tab, focus) {
     const tabs = [...tab.closest('[role=tablist]').querySelectorAll('[role=tab]')];
     tabs.forEach(other => {
@@ -421,7 +368,6 @@
       document.getElementById(other.getAttribute('aria-controls')).hidden = !selected;
     });
     if (focus) tab.focus();
-    requestAnimationFrame(() => resizeCharts(document.getElementById(tab.getAttribute('aria-controls'))));
   }
   document.querySelectorAll('[role=tab]').forEach(tab => {
     tab.addEventListener('click', () => selectTab(tab, false));
@@ -433,16 +379,6 @@
       event.preventDefault();
       selectTab(tabs[(next + tabs.length) % tabs.length], true);
     });
-  });
-  // A menu above a chart shows one of its traces. The browser may restore a menu on reload, so
-  // draw what it says now.
-  function showTrace(select) {
-    const chart = document.getElementById(select.dataset.chart);
-    Plotly.restyle(chart, {visible: chart.data.map((trace, i) => i === Number(select.value))});
-  }
-  document.querySelectorAll('select[data-chart]').forEach(select => {
-    select.addEventListener('change', () => showTrace(select));
-    showTrace(select);
   });
   function revealAnchor() {
     let id;
@@ -483,14 +419,14 @@
     printState = {open: disclosures.map(item => item.open), hidden: panels.map(item => item.hidden)};
     disclosures.forEach(item => { item.open = true; });
     panels.forEach(item => { item.hidden = false; });
-    resizeCharts(document);
+    // Charts in panels that were closed or hidden have no width yet: draw them before printing.
+    alphatonic.drawCharts();
   });
   window.addEventListener('afterprint', () => {
     if (!printState) return;
     disclosures.forEach((item, index) => { item.open = printState.open[index]; });
     panels.forEach((item, index) => { item.hidden = printState.hidden[index]; });
     printState = undefined;
-    resizeCharts(document);
   });
 </script>
 {% endblock %}

@@ -119,8 +119,8 @@ path = result.tearsheet("tearsheet.html", title="Demo factor", subtitle="synthet
 print(path)
 ```
 
-Open `tearsheet.html` in a browser. It is one self-contained file: charts, tables and Plotly's
-JavaScript. [Read a tearsheet](../how-to/read-a-tearsheet.md) walks through it.
+Open `tearsheet.html` in a browser. It is one self-contained file: charts, tables and the
+JavaScript that draws the charts. [Read a tearsheet](../how-to/read-a-tearsheet.md) walks through it.
 
 ## Where next
 
