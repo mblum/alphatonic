@@ -133,7 +133,8 @@ supported version has. CI (`.github/workflows/ci.yml`) runs all of these.
   the change does for users (for example "Add TimeSeriesOptions.for_bars for windows that fit
   the bar length").
 - The default branch is `master`. Work on a branch and open a pull request.
-- A release is a tag `X.Y.Z` (no `v`) on `master`; pushing it publishes the documentation (see
-  "Releasing" in `CONTRIBUTING.md`). Don't create or push a tag unless asked.
+- A release is a tag `X.Y.Z` (no `v`) on `master`; pushing it publishes the documentation and
+  uploads the package to PyPI (see "Releasing" in `CONTRIBUTING.md`). Don't create or push a tag
+  unless asked.
 - Keep each change to what the task needs. Don't reformat or refactor unrelated code in the
   same change.

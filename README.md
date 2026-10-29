@@ -40,10 +40,10 @@ keeps in-sample return labels out of a holdout period. Browse its results with `
 
 ## Install
 
-Python 3.11 or newer. Install from the repository:
+Python 3.11 or newer. Install from [PyPI](https://pypi.org/project/alphatonic/):
 
 ```sh
-python -m pip install "alphatonic[report] @ git+https://github.com/mblum/alphatonic"
+python -m pip install "alphatonic[report]"
 ```
 
 `alphatonic[report]` adds plotly and jinja2 for the tearsheet; evaluation itself depends only on

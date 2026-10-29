@@ -4,7 +4,7 @@ In this tutorial you evaluate a factor on a simulated market, read the results, 
 tearsheet. It takes about five minutes and needs no data. You need Python 3.11+ and:
 
 ```sh
-python -m pip install "alphatonic[report] @ git+https://github.com/mblum/alphatonic"
+python -m pip install "alphatonic[report]"
 ```
 
 ## 1. Get a factor and prices
