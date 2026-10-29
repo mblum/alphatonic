@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --all-extras --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pyright
+
+  test:
+    name: test (py${{ matrix.python }}, ${{ matrix.resolution }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
+        resolution: [highest]
+        include:
+          # The oldest supported versions of the direct dependencies (see pyproject.toml).
+          - python: "3.11"
+            resolution: lowest-direct
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --all-extras --python ${{ matrix.python }} --resolution ${{ matrix.resolution }}
+      - run: uv run --no-sync pytest --cov --cov-report=term-missing
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --group docs --locked
+      - run: uv run --group docs zensical build --strict
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv build
+      - run: uvx twine check dist/*
+      - name: The wheel installs and imports without the dev tools
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install "$(ls dist/*.whl)[report]"
+          /tmp/clean/bin/python -c "import alphatonic, alphatonic.report; print(alphatonic.__version__)"

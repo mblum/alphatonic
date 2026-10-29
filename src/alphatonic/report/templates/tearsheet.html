@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+{% macro region(content, label, kind='table-scroll') -%}
+<div class="{{ kind }}" role="region" aria-label="{{ label }}" tabindex="0">{{ content | safe }}</div>
+{%- endmacro %}
+{% macro method(anchor, label='Methods') -%}
+<a class="method-link" href="#{{ anchor }}">{{ label }}</a>
+{%- endmacro %}
+{% macro cell(item) -%}
+<span class="value{% if item.emphasis %} emphasis{% endif %}">{{ item.value }}</span>
+{%- if item.detail %}<span class="detail">{{ item.detail }}</span>{% endif %}
+{%- endmacro %}
+{% macro metrics_table(view) -%}
+<div class="table-scroll" role="region" aria-label="{{ view.label }}" tabindex="0">
+  <table class="metrics">
+    <caption class="sr-only">{{ view.label }} by forecast horizon</caption>
+    <thead><tr><th scope="col"><span class="sr-only">Metric</span></th>{% for horizon in view.horizons %}<th scope="col">{{ horizon }}</th>{% endfor %}</tr></thead>
+    {% for group in view.groups %}
+    <tbody>
+      <tr class="section-row"><th scope="rowgroup" colspan="{{ view.horizons | length + 1 }}">{{ group.label }}{% if group.link %} · {{ method(group.link, 'definition') }}{% endif %}</th></tr>
+      {% for row in group.rows %}
+      <tr><th scope="row">{{ row.label }}</th>{% for item in row.cells %}<td>{{ cell(item) }}</td>{% endfor %}</tr>
+      {% endfor %}
+    </tbody>
+    {% endfor %}
+  </table>
+</div>
+{%- endmacro %}
+{% macro disclosure(id, label) -%}
+<details id="{{ id }}"><summary>{{ label }}</summary><div>{{ caller() }}</div></details>
+{%- endmacro %}
+
+{% block title %}{{ title }}{% if subtitle %} · {{ subtitle }}{% endif %}{% endblock %}
+{# Charts are drawn for a light page, so the tearsheet does not follow a dark system theme. #}
+{% block html_attributes %} data-theme="light"{% endblock %}
+{% block head %}<script>{{ plotly_js | safe }}</script>{% endblock %}
+{% block body %}
+<a class="skip-link" href="#main-content">Skip to the report</a>
+<nav class="site-nav" aria-label="Report sections">
+  <ul><li class="brand">alphatonic</li></ul>
+  <ul>
+    <li><a href="#top" data-section="study-design">Study design</a></li>
+    <li><a href="#at-a-glance">At a glance</a></li>
+    <li><a href="#cross-section">Cross-section</a></li>
+    <li><a href="#time-series">Time series</a></li>
+    <li><a href="#signal-persistence">Persistence</a></li>
+    <li><a href="#methods">Methods</a></li>
+  </ul>
+</nav>
+<header id="top">
+  {% if eyebrow %}<p class="eyebrow">{{ eyebrow }}</p>{% endif %}
+  <h1>{{ title }}</h1>
+  {% if subtitle %}<p class="lead">{{ subtitle }}</p>{% endif %}
+</header>
+<main id="main-content" tabindex="-1">
+  <section id="study-design" aria-labelledby="design-title">
+    <h2 id="design-title">Study design</h2>
+    <p class="lead">What was tested, and on which data. Every result below refers to this window, these horizons and these return targets.</p>
+    <article>
+      <dl class="facts" aria-label="Evaluation specification">
+        <div><dt>Window (UTC, end exclusive)</dt><dd>{{ window }}</dd></div>
+        <div><dt>Forecast horizons</dt><dd>{{ config.horizons | join(', ') }} bars{% if bar %} of {{ bar }}{% endif %}</dd></div>
+        <div><dt>Execution delay</dt><dd>{{ config.delay }} bar{{ '' if config.delay == 1 else 's' }}</dd></div>
+        <div><dt>Score buckets</dt><dd>{{ config.quantiles }} quantiles</dd></div>
+        <div class="wide"><dt>Return targets</dt><dd>{{ targets }} · {{ method('method-design', 'design') }}</dd></div>
+        {% for label, value in context.items() %}<div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>{% endfor %}
+      </dl>
+    </article>
+  </section>
+
+  <section id="at-a-glance" aria-labelledby="glance-title">
+    <h2 id="glance-title">At a glance</h2>
+    <p class="lead">Mean Spearman rank IC per forecast horizon, with its 95% confidence interval, and the spread between the top and bottom score quantiles.
+      An interval above zero means higher scores tended to precede higher returns. Intervals account for dependence but not for other signals you tried.</p>
+    <article id="glance-panel">
+    <div class="table-scroll" role="region" aria-label="Results at a glance" tabindex="0">
+      <table class="glance">
+        <caption class="sr-only">Mean Spearman rank IC and quantile spread by forecast horizon, cross-sectional and time-series</caption>
+        <thead>
+          <tr><th scope="col" rowspan="2">Horizon</th><th scope="colgroup" colspan="2">Cross-sectional · <a href="#cross-section">details</a></th><th scope="colgroup" colspan="2">Time-series · <a href="#time-series">details</a></th></tr>
+          <tr><th scope="col">Mean rank IC</th><th scope="col">Q{{ config.quantiles }} − Q1 ({{ cs_units }})</th><th scope="col">Mean rank IC</th><th scope="col">Q{{ config.quantiles }} − Q1 ({{ ts_units }})</th></tr>
+        </thead>
+        <tbody>
+          {% for row in glance %}<tr><th scope="row">{{ row.label }}</th>{% for item in row.cells %}<td>{{ cell(item) }}</td>{% endfor %}</tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    </article>
+    {% if invalid_horizons %}
+    <p class="notice">No valid cross-sectional observations for horizons {{ invalid_horizons | join(', ') }}. See <a href="#cs-coverage">coverage</a> and <a href="#cs-status">sample status</a>.</p>
+    {% endif %}
+  </section>
+
+  <section id="cross-section" aria-labelledby="cs-title">
+    <h2 id="cs-title">Cross-sectional analysis</h2>
+    <p class="lead">Does the signal rank assets? At each timestamp, scores are compared with subsequent returns across assets.
+      Return target: {{ cs_metrics.target }}. {{ cs_metrics.weighting }}</p>
+    {% if cs_available %}
+    <article id="cs-quantiles-panel">
+      <header><h3>Quantile returns</h3>{{ method('method-quantiles') }}</header>
+      {% if cs_quantiles %}{{ region(cs_quantiles, 'Cross-sectional quantile returns', 'chart') }}
+      {% else %}<p class="unavailable">No cross-sectional quantile returns are available for this evaluation.</p>{% endif %}
+    </article>
+    {% else %}
+    <p class="unavailable">No valid cross-sectional observations. Cross-sectional IC needs at least {{ config.min_assets }} usable pairs
+      with varying scores and returns at a timestamp. See <a href="#cs-coverage">coverage</a> and <a href="#cs-status">sample status</a> for exclusions.</p>
+    {% endif %}
+    <article id="cs-metrics">
+      <header><h3>Metrics by horizon</h3>{{ method('method-summary') }}<p>Each column's returns span that horizon and are not annualised.</p></header>
+      {{ metrics_table(cs_metrics) }}
+    </article>
+    <div class="group-heading"><h3>Diagnostics</h3></div>
+    {% if cs_available %}
+    {% call disclosure('cs-monthly', 'Monthly mean IC') %}
+      {{ method('method-stability') }}
+      {{ region(cs_figures.monthly, 'Cross-sectional monthly mean IC', 'chart') }}
+    {% endcall %}
+    {% call disclosure('cs-history', 'IC over time') %}
+      <p class="muted">Rolling window: {{ options.rolling_window }} · Minimum observations: {{ options.min_periods }} · {{ method('method-stability') }}</p>
+      {{ region(cs_figures.timeseries, 'Cross-sectional IC time series', 'chart') }}
+    {% endcall %}
+    {% endif %}
+    {% call disclosure('cs-coverage', 'Coverage over time') %}
+      {{ method('method-coverage') }}
+      {{ region(diagnostics.coverage, 'Cross-sectional coverage time series', 'chart wide') }}
+    {% endcall %}
+    {% call disclosure('cs-status', 'Sample status') %}
+      {{ method('method-coverage') }}
+      {{ region(diagnostics.statuses, 'Cross-sectional sample status', 'chart') }}
+    {% endcall %}
+  </section>
+
+  <section id="time-series" aria-labelledby="ts-title">
+    <h2 id="ts-title">Time-series analysis</h2>
+    <p class="lead">Does the signal time each asset? Within each asset, scores are compared with its own subsequent returns.
+      Return target: {{ ts_metrics.target }}. {{ ts_metrics.weighting }}</p>
+    {% if ts_available %}
+    <article id="ts-quantiles-panel">
+      <header><h3>Quantile returns</h3>{{ method('method-quantiles') }}</header>
+      {% if ts_quantiles %}{{ region(ts_quantiles, 'Time-series quantile returns', 'chart') }}
+      {% else %}<p class="unavailable">No eligible asset quantile returns are available for this evaluation.</p>{% endif %}
+    </article>
+    {% else %}
+    <p class="unavailable">Time-series IC is unavailable.
+      {% if ts_evaluated %}No asset meets the sample and signal requirements. See the asset coverage under each horizon below.
+      {% else %}This saved evaluation has no time-series tables.{% endif %}</p>
+    {% endif %}
+    {% if ts_evaluated %}
+    <article id="ts-metrics">
+      <header><h3>Metrics by horizon</h3>{{ method('method-summary') }}<p>Each column's returns span that horizon and are not annualised. Intervals describe the mean, not dispersion between assets.</p></header>
+      {{ metrics_table(ts_metrics) }}
+    </article>
+    {% endif %}
+    {% if horizons %}
+    <div class="group-heading"><h3>Diagnostics by horizon</h3>{{ method('method-inference') }}</div>
+    <div class="tabs">
+      <div role="tablist" aria-label="Forecast horizon">
+        {% for horizon in horizons %}<button type="button" role="tab" id="ts-tab-h{{ horizon.horizon }}" aria-controls="timing-h{{ horizon.horizon }}" aria-selected="{{ 'true' if loop.first else 'false' }}"{% if not loop.first %} tabindex="-1"{% endif %}>{{ horizon.label }}</button>{% endfor %}
+      </div>
+      {% for horizon in horizons %}
+      <div role="tabpanel" id="timing-h{{ horizon.horizon }}" aria-labelledby="ts-tab-h{{ horizon.horizon }}"{% if not loop.first %} hidden{% endif %}>
+        {% if ts_available %}
+        {% call disclosure('timing-h' ~ horizon.horizon ~ '-assets', 'Asset-level IC estimates') %}
+          {{ region(horizon.figures.assets, 'Asset Spearman IC · ' ~ horizon.label, 'chart') }}
+          {{ region(horizon.table, 'Asset Spearman IC estimates · ' ~ horizon.label) }}
+        {% endcall %}
+        {% call disclosure('timing-h' ~ horizon.horizon ~ '-monthly', 'Monthly IC and eligible assets') %}
+          {{ method('method-stability') }}
+          {{ region(horizon.figures.monthly, 'Asset monthly Spearman IC · ' ~ horizon.label, 'chart') }}
+          {{ region(horizon.figures.breadth, 'Monthly eligible assets · ' ~ horizon.label, 'chart') }}
+        {% endcall %}
+        {% call disclosure('timing-h' ~ horizon.horizon ~ '-rolling', 'Rolling IC') %}
+          <p class="muted">Window: {{ ts_options.rolling_window }} · Step: {{ ts_options.rolling_step }} · {{ method('method-stability') }}</p>
+          {{ region(horizon.figures.rolling, 'Asset rolling Spearman IC · ' ~ horizon.label, 'chart') }}
+        {% endcall %}
+        {% if ts_pearson %}
+        {% call disclosure('timing-h' ~ horizon.horizon ~ '-pearson', 'Asset-level Pearson IC') %}
+          {{ method('method-correlation') }}
+          {{ region(horizon.pearson_table, 'Asset Pearson IC estimates · ' ~ horizon.label) }}
+        {% endcall %}
+        {% endif %}
+        {% endif %}
+        {% call disclosure('coverage-h' ~ horizon.horizon ~ '-assets', 'Asset coverage and exclusions') %}
+          {{ method('method-coverage') }}
+          {{ region(horizon.coverage_table, 'Asset sample coverage · ' ~ horizon.label) }}
+        {% endcall %}
+        {% call disclosure('coverage-h' ~ horizon.horizon ~ '-monthly', 'Monthly coverage and exclusions') %}
+          {{ method('method-coverage') }}
+          {{ region(horizon.monthly_table, 'Monthly sample coverage · ' ~ horizon.label) }}
+        {% endcall %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if cosine %}
+    {% call disclosure('average-position', 'Cosine similarity by asset') %}
+      {{ method('method-cosine') }}
+      {% for horizon in cosine %}
+      <h4>{{ horizon.label }}</h4>
+      {{ region(horizon.table, 'Asset cosine similarity · ' ~ horizon.label) }}
+      {% endfor %}
+    {% endcall %}
+    {% endif %}
+  </section>
+
+  <section id="signal-persistence" aria-labelledby="persistence-title">
+    <h2 id="persistence-title">Signal persistence</h2>
+    <p class="lead">How much do the scores and their ordering change from bar to bar? These diagnostics describe the signal, independently of forward returns; they are not traded turnover or costs.</p>
+    {% if persistence %}
+    <article id="persistence-summary">
+      <header><h3>Persistence by lag</h3>{{ method('method-persistence') }}<p>Lags count bars of the price grid. Beneath each value: contributing timestamps (cross-section, buckets) or assets (time series) of all candidates.</p></header>
+      <div class="table-scroll" role="region" aria-label="Signal persistence by lag" tabindex="0">
+        <table class="metrics">
+          <caption class="sr-only">Signal persistence means by lag</caption>
+          <thead><tr><th scope="col"><span class="sr-only">Measure</span></th>{% for lag in persistence.lags %}<th scope="col">Lag {{ lag }}</th>{% endfor %}</tr></thead>
+          {% for group in persistence.groups %}
+          <tbody>
+            <tr class="section-row"><th scope="rowgroup" colspan="{{ persistence.lags | length + 1 }}">{{ group.label }}</th></tr>
+            {% for row in group.rows %}<tr><th scope="row">{{ row.label }}</th>{% for item in row.cells %}<td>{{ cell(item) }}</td>{% endfor %}</tr>{% endfor %}
+          </tbody>
+          {% endfor %}
+        </table>
+      </div>
+    </article>
+    {% for name, label in [('assets', 'Signal changes by asset'), ('periods', 'Rank persistence and universe changes by timestamp'), ('quantiles', 'Bucket membership changes by timestamp')] %}
+    {% call disclosure('persistence-' ~ name, label) %}
+      <p class="muted">Up to the first 200 rows. The complete tables are in the evaluation and its saved CSV files.</p>
+      {{ region(persistence.tables[name], label) }}
+    {% endcall %}
+    {% endfor %}
+    {% else %}<p class="unavailable">This saved evaluation has no signal persistence tables.</p>{% endif %}
+  </section>
+
+  <section id="methods" aria-labelledby="methods-title" class="methods">
+    <h2 id="methods-title">Methods and interpretation</h2>
+    <article>
+      <section id="method-summary" aria-labelledby="summary-method-title">
+        <h3 id="summary-method-title">Summary metrics</h3>
+        <p>Every configured forecast horizon is reported separately; none is chosen by its performance. Mean Spearman IC measures predictive ordering;
+          its 95% confidence interval describes estimation uncertainty. Cross-sectional estimates weight usable timestamps equally;
+          time-series estimates weight eligible assets equally. The tables use stored estimates and intervals without rerunning inference.</p>
+        <p>Intervals do not adjust for the number of signals tried. A study's list of trials reports p-values next to that count.</p>
+        <p>The cross-sectional ratio of mean to standard deviation is computed over timestamp ICs and is not annualised.
+          The time-series median and middle half (25th to 75th percentile) describe dispersion between assets, not uncertainty.</p>
+        <p>The quantile spread subtracts the mean return of Q1 from that of Q{{ config.quantiles }}, matching the endpoints of the quantile-return chart.
+          Each quantile mean weights its occupied timestamps (cross-sectional) or eligible assets (time-series) equally.
+          The two endpoints can have different contributing samples. A missing extreme quantile makes the spread unavailable.
+          Raw returns are in basis points; volatility-scaled values are in units of horizon volatility (σ).
+          Spreads are descriptive differences in forward returns, without annualisation, trading costs or a confidence interval. They are not realised portfolio returns.</p>
+        <p>Mean pair coverage measures data availability using each analysis's own return target. Usable timestamps and eligible assets
+          give the Spearman sample next to its total candidate count. High coverage alone does not establish predictive power.</p>
+        {{ method('at-a-glance', 'At a glance ↑') }} · {{ method('method-inference', 'Statistical inference') }}
+      </section>
+      <section id="method-design" aria-labelledby="design-method-title">
+        <h3 id="design-method-title">Evaluation design</h3>
+        <p>Scores are compared with subsequent returns. Higher scores are expected to predict higher returns.
+          Cross-sectional analysis compares assets at each timestamp; time-series analysis compares observations within each asset.</p>
+        <p>A bar is one row of the price data. The execution delay precedes the forecast horizon, which specifies the number of bars in the return.
+          The evaluation window uses UTC timestamps and an exclusive end. Volatility-scaled returns express the move relative to estimated asset volatility.</p>
+        {{ method('top', 'Study design ↑') }}
+      </section>
+      <section id="method-correlation" aria-labelledby="correlation-method-title">
+        <h3 id="correlation-method-title">Information coefficient</h3>
+        <dl>
+          <dt>Spearman IC</dt><dd>Rank correlation between scores and subsequent returns, from −1 to +1. Positive values indicate that higher scores tended to precede higher returns;
+            zero indicates no rank association, and negative values indicate reversed ordering. IC is neither a percentage return nor a trading win rate.</dd>
+          <dt>Pearson IC</dt><dd>Linear correlation between score magnitudes and returns. Outliers and nonlinear relationships can make it differ from Spearman IC.</dd>
+          <dt>Mean IC</dt><dd>Cross-sectional estimates weight usable timestamps equally. Time-series estimates first calculate IC within each eligible asset, then weight those assets equally.</dd>
+          <dt>Positive timestamps or assets</dt><dd>The fraction of usable timestamps (cross-sectional) or eligible assets (time-series) with positive IC. This describes the prevalence of positive association, not the fraction of profitable trades.</dd>
+        </dl>
+        {{ method('cross-section', 'Cross-sectional results ↑') }} · {{ method('time-series', 'Time-series results ↑') }}
+      </section>
+      <section id="method-inference" aria-labelledby="inference-method-title">
+        <h3 id="inference-method-title">Statistical inference</h3>
+        <p>The 95% confidence interval describes uncertainty in the estimate. An interval spanning zero leaves the direction uncertain;
+          narrower intervals indicate greater precision. Tables list each interval as its stored lower and upper bounds, including asymmetric intervals.
+          An unavailable interval appears as “Unavailable”, and its inference status says why.</p>
+        <p>Cross-sectional intervals use Newey–West estimates to account for dependence, including overlapping returns.
+          Time-series intervals use block bootstrap samples, preserving runs of paired observations and sampling assets together.
+          The summary interval describes uncertainty in the mean, not dispersion between assets. Asset-level plots show point estimates and their individual intervals.</p>
+        <p>These intervals do not account for selecting a signal after trying many candidates.</p>
+      </section>
+      <section id="method-quantiles" aria-labelledby="quantile-method-title">
+        <h3 id="quantile-method-title">Quantile estimation</h3>
+        <p>Scores are assigned to {{ config.quantiles }} quantiles, ordered from lowest to highest. An increasing mean-return profile supports the intended ordering.
+          Ties stay together; empty quantiles stay empty. Cross-sectional quantiles are formed separately at each timestamp, then timestamps receive equal weight within each occupied quantile.</p>
+        <p>Time-series quantiles are formed within each eligible asset's full sample, then assets receive equal weight within each occupied quantile.
+          These retrospective groups are not thresholds that could have been traded. Return targets exclude trading costs.</p>
+      </section>
+      <section id="method-stability" aria-labelledby="stability-method-title">
+        <h3 id="stability-method-title">Temporal stability</h3>
+        <p>Cross-sectional monthly cells average timestamp-level ICs within each UTC month. Hover for usable sample counts.
+          The rolling mean spans {{ options.rolling_window }} and requires {{ options.min_periods }} usable observations. Missing observations remain gaps, including in the rolling mean.</p>
+        {% if ts_evaluated %}
+        <p>Time-series monthly IC is recomputed within each complete UTC month. Both the score and return endpoint must lie inside the month.
+          The eligible asset count may change each month. This differs from averaging timestamp-level cross-sectional ICs.</p>
+        <p>Rolling time-series IC is recomputed over trailing {{ ts_options.rolling_window }} windows, displayed every {{ ts_options.rolling_step }}.
+          Only complete windows are used; returns must end before the displayed endpoint. Choose an asset using the chart dropdown. Empty cells are unavailable.</p>
+        {% endif %}
+      </section>
+      {% if ts_evaluated %}
+      <section id="method-cosine" aria-labelledby="cosine-method-title">
+        <h3 id="cosine-method-title">Cosine similarity</h3>
+        <p>If a score represents a position, cosine similarity measures its uncentred alignment with returns.
+          The timing component reflects changes in the position; the static component reflects the average position.
+          A large static component can explain alignment without successful timing.</p>
+        <p>Cosine retains the average score and return instead of subtracting them. It measures a different association from rank correlation.
+          These are alignment values, not portfolio returns. A constant nonzero position can have a valid cosine.
+          Long fraction is the share of usable observations with a positive position.</p>
+        {{ method('ts-metrics', 'Time-series metrics ↑') }}
+      </section>
+      {% endif %}
+      <section id="method-coverage" aria-labelledby="coverage-method-title">
+        <h3 id="coverage-method-title">Sample coverage and eligibility</h3>
+        <p>Cross-sectional pair coverage is usable score/return pairs divided by assets with a price, averaged equally across timestamps.
+          At least {{ config.min_assets }} valid pairs and nonconstant scores and targets are required for a valid timestamp.</p>
+        <p>Coverage charts distinguish available assets (with prices), scored assets (with signals), and paired assets (with usable scores and returns).
+          Each timestamp contributes one sample status per horizon.</p>
+        {% if ts_evaluated %}
+        <p>Time-series pair coverage divides each asset's usable pairs by its expected observations, then averages across all assets, including ineligible ones.
+          It uses the actual time-series target, including volatility warmup losses for scaled returns.</p>
+        <p>Time-series eligibility requires at least {{ ts_options.min_pairs }} usable pairs, {{ '%.0f' | format(ts_options.min_coverage * 100) }}% coverage,
+          and a sample spanning {{ ts_options.min_horizons }} return horizons. Monthly and rolling samples must meet these rules within their own windows.</p>
+        <p>Coverage and exclusion tables use the Spearman sample. Other methods can have different eligibility, recorded in their asset tables.</p>
+        {% endif %}
+        <p>Sample requirements do not establish predictive power. Sample status explains missing correlations; inference status explains missing intervals.
+          A dash denotes an unavailable statistic, never zero. Final bars may lose return labels when their horizons reach the evaluation boundary.</p>
+        {{ method('cs-coverage', 'Cross-sectional coverage ↑') }}
+      </section>
+      <section id="method-persistence" aria-labelledby="persistence-method-title">
+        <h3 id="persistence-method-title">Signal persistence</h3>
+        <p>Diagnostics use scores and prices available at each endpoint, independently of forward-return horizons. Lag is measured in price-grid bars;
+          a multi-bar lag compares endpoints and does not sum intervening changes.</p>
+        <p>Rank persistence is the cross-sectional rank correlation of scores with their values one lag earlier, from −1 to 1, weighting valid timestamps equally.
+          Bucket entry fraction is the share of a bucket's current members absent from it one lag earlier; ties stay together.
+          Universe counts reflect availability of both a score and a price, not confirmed listings or delistings.</p>
+        <p>Normalised change divides each asset's total absolute score changes by its total mean endpoint magnitudes on the same valid pairs,
+          then weights eligible assets equally. A constant nonzero signal has zero change; an all-zero signal has undefined normalised change.
+          Sign changes exclude transitions into or out of zero, which are counted separately.</p>
+        <p>Missing values remain unavailable; a gap never shortens a lag. No confidence intervals are claimed.</p>
+        {{ method('signal-persistence', 'Signal persistence ↑') }}
+      </section>
+    </article>
+  </section>
+</main>
+<footer>
+  <p>These results measure predictive association. Return labels exclude fees, slippage, financing and market impact.</p>
+  <p>Generated {{ generated_at }} · {% for package, version in versions.items() %}{{ package }} {{ version }}{% if not loop.last %} / {% endif %}{% endfor %} · styled with Pico CSS (MIT)</p>
+  {% for line in footer %}<p>{{ line }}</p>{% endfor %}
+</footer>
+<script>
+  const disclosures = [...document.querySelectorAll('details')];
+  const panels = [...document.querySelectorAll('[role=tabpanel]')];
+  function resizeCharts(container) {
+    if (!window.Plotly) return;
+    container.querySelectorAll('.plotly-graph-div').forEach(fig => {
+      if (fig.getBoundingClientRect().width) Plotly.Plots.resize(fig);
+    });
+  }
+  disclosures.forEach(section => {
+    section.addEventListener('toggle', () => {
+      if (section.open) requestAnimationFrame(() => resizeCharts(section));
+    });
+  });
+  function selectTab(tab, focus) {
+    const tabs = [...tab.closest('[role=tablist]').querySelectorAll('[role=tab]')];
+    tabs.forEach(other => {
+      const selected = other === tab;
+      other.setAttribute('aria-selected', selected);
+      other.tabIndex = selected ? 0 : -1;
+      document.getElementById(other.getAttribute('aria-controls')).hidden = !selected;
+    });
+    if (focus) tab.focus();
+    requestAnimationFrame(() => resizeCharts(document.getElementById(tab.getAttribute('aria-controls'))));
+  }
+  document.querySelectorAll('[role=tab]').forEach(tab => {
+    tab.addEventListener('click', () => selectTab(tab, false));
+    tab.addEventListener('keydown', event => {
+      const tabs = [...tab.closest('[role=tablist]').querySelectorAll('[role=tab]')];
+      const index = tabs.indexOf(tab);
+      const next = {ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: tabs.length - 1}[event.key];
+      if (next === undefined) return;
+      event.preventDefault();
+      selectTab(tabs[(next + tabs.length) % tabs.length], true);
+    });
+  });
+  function revealAnchor() {
+    let id;
+    try { id = decodeURIComponent(location.hash.slice(1)); } catch { return; }
+    const target = id && document.getElementById(id);
+    if (!target) return;
+    const panel = target.closest('[role=tabpanel]');
+    if (panel && panel.hidden) selectTab(document.querySelector(`[aria-controls="${panel.id}"]`), false);
+    const disclosure = target.closest('details');
+    if (disclosure && !disclosure.open) disclosure.open = true;
+    requestAnimationFrame(() => target.scrollIntoView());
+  }
+  window.addEventListener('hashchange', revealAnchor);
+  revealAnchor();
+  const sections = [...document.querySelectorAll('main > section')];
+  const navLinks = [...document.querySelectorAll('.site-nav a')];
+  let scrollPending = false;
+  function updateNavigation() {
+    let current = sections[0];
+    sections.forEach(section => {
+      if (section.getBoundingClientRect().top <= 120) current = section;
+    });
+    navLinks.forEach(link => {
+      // A link may point above its section, as Study design points to the top of the page.
+      const section = link.dataset.section || link.hash.slice(1);
+      if (section === current.id) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    });
+    scrollPending = false;
+  }
+  window.addEventListener('scroll', () => {
+    if (!scrollPending) { scrollPending = true; requestAnimationFrame(updateNavigation); }
+  }, { passive: true });
+  updateNavigation();
+  let printState;
+  window.addEventListener('beforeprint', () => {
+    if (printState) return;
+    printState = {open: disclosures.map(item => item.open), hidden: panels.map(item => item.hidden)};
+    disclosures.forEach(item => { item.open = true; });
+    panels.forEach(item => { item.hidden = false; });
+    resizeCharts(document);
+  });
+  window.addEventListener('afterprint', () => {
+    if (!printState) return;
+    disclosures.forEach((item, index) => { item.open = printState.open[index]; });
+    panels.forEach((item, index) => { item.hidden = printState.hidden[index]; });
+    printState = undefined;
+    resizeCharts(document);
+  });
+</script>
+{% endblock %}

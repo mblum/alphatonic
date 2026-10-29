@@ -1,0 +1,165 @@
+/* alphatonic: additions to Pico's classless styles for dense, numeric reports. */
+
+/* The accent is royal blue. Pico sets its colours on `:root:not([data-theme=dark])` and, in
+   dark mode, `:root:not([data-theme])`, so the overrides use the same selectors. Royal blue is
+   4.85:1 on white; on the dark background a lighter tint keeps text readable. */
+:root:not([data-theme=dark]) {
+  --pico-primary: #4169e1;
+  --pico-primary-background: #4169e1;
+  --pico-primary-underline: rgba(65, 105, 225, .5);
+  --pico-primary-hover: #2f55d4;
+  --pico-primary-hover-background: #3558cc;
+  --pico-primary-focus: rgba(65, 105, 225, .5);
+  --pico-primary-inverse: #fff;
+  --pico-text-selection-color: rgba(65, 105, 225, .2);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --pico-primary: #7f9cf5;
+    --pico-primary-background: #4169e1;
+    --pico-primary-underline: rgba(127, 156, 245, .5);
+    --pico-primary-hover: #a3b8f8;
+    --pico-primary-hover-background: #5079e8;
+    --pico-primary-focus: rgba(127, 156, 245, .4);
+    --pico-primary-inverse: #fff;
+    --pico-text-selection-color: rgba(127, 156, 245, .2);
+  }
+}
+:root {
+  --pico-font-size: 93.75%; /* Fixed: Pico enlarges text on wide screens, which costs columns. */
+  --pico-spacing: 1rem;
+  --pico-typography-spacing-vertical: .75rem;
+  --at-wash: #f3f5f7;
+  --at-down: #a2501c;
+  --at-warn-background: #fff4e8;
+  --at-cell: .45rem .75rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme=light]) { --at-wash: rgb(19, 22.5, 30.5); --at-down: #f0a36e; --at-warn-background: #3a2a1c; }
+}
+html { background-color: var(--at-wash); scroll-behavior: smooth; scroll-padding-top: 4.5rem; }
+h1 { --pico-font-size: 2rem; }
+h2 { --pico-font-size: 1.45rem; }
+h3 { --pico-font-size: 1.1rem; }
+h4 { --pico-font-size: 1rem; }
+code { font-size: .85em; overflow-wrap: anywhere; }
+small, .muted { color: var(--pico-muted-color); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.skip-link { position: absolute; left: 1rem; top: -100px; z-index: 10; padding: .5rem 1rem; background: var(--pico-background-color); }
+.skip-link:focus { top: .5rem; }
+
+/* Page frame: a sticky bar of section links over a wide column. */
+body > header, body > main, body > footer { max-width: 1280px; padding-inline: 1.5rem; }
+[data-page=board] body > header, [data-page=board] body > main { max-width: none; padding-inline: 2rem; }
+body > header { padding-top: 2rem; }
+body > footer { color: var(--pico-muted-color); font-size: .8rem; overflow-wrap: anywhere; }
+body > footer p { margin-bottom: .25rem; color: inherit; }
+.site-nav { position: sticky; top: 0; z-index: 5; background: var(--pico-background-color); border-bottom: 1px solid var(--pico-muted-border-color); padding-inline: max(1.5rem, calc((100% - 1280px) / 2 + 1.5rem)); }
+.site-nav ul { overflow-x: auto; scrollbar-width: none; }
+.site-nav li { padding-block: .65rem; white-space: nowrap; }
+.site-nav .brand { font-weight: 700; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
+.site-nav a { font-size: .9rem; }
+.site-nav a[aria-current] { color: var(--pico-color); background: var(--at-wash); }
+.eyebrow { margin: 0 0 .25rem; color: var(--pico-primary-hover); font-size: .75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.lead { max-width: 80ch; color: var(--pico-muted-color); }
+.facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: .75rem 1.5rem; margin: 0; }
+.facts div { min-width: 0; overflow-wrap: anywhere; }
+.facts dt { color: var(--pico-muted-color); font-size: .75rem; }
+.facts dd { margin: 0; font-size: .9rem; }
+.facts .wide { grid-column: 1 / -1; }
+
+/* Sections and cards. */
+main > section { margin-bottom: 3rem; }
+main > section > h2 { margin-bottom: .35rem; }
+article { box-shadow: none; border: 1px solid var(--pico-muted-border-color); padding: 1.25rem; }
+article > header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem 1rem; margin: -1.25rem -1.25rem 1rem; padding: .75rem 1.25rem; }
+article > header h3 { margin: 0; }
+article > header p { flex-basis: 100%; margin: 0; color: var(--pico-muted-color); font-size: .8rem; }
+.method-link { font-size: .8rem; }
+details { border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); background: var(--pico-card-background-color); margin-bottom: .5rem; }
+details > summary { padding: .85rem 1.25rem; font-weight: 600; line-height: 1.4; }
+details[open] > summary { margin-bottom: 0; border-bottom: 1px solid var(--pico-muted-border-color); }
+details > div { padding: 1rem 1.25rem; min-width: 0; }
+.group-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem 1rem; margin: 1.75rem 0 .5rem; }
+.group-heading h3 { margin: 0; }
+.notice { margin: 1rem 0; padding: .75rem 1rem; border-left: 3px solid var(--at-down); background: var(--at-warn-background); }
+.unavailable { margin: 1rem 0; padding: .5rem 1rem; border-left: 3px solid var(--pico-muted-border-color); color: var(--pico-muted-color); }
+
+/* Tables: compact, left-aligned, scrolling inside their own region. A column of plain numbers
+   (class "number") aligns right, so that digits and signs line up down the column. */
+.table-scroll { overflow-x: auto; max-width: 100%; margin-bottom: var(--pico-spacing); }
+.table-scroll > table { margin-bottom: 0; }
+table { font-size: .85rem; font-variant-numeric: tabular-nums; }
+th, td { padding: var(--at-cell); background-color: transparent; white-space: nowrap; vertical-align: top; text-align: left; }
+.number { text-align: right; }
+thead th { color: var(--pico-muted-color); font-size: .75rem; font-weight: 600; vertical-align: bottom; }
+thead th[colspan] { color: var(--pico-color); border-bottom-color: var(--pico-muted-color); }
+tbody th { font-weight: 400; }
+tbody tr:hover > * { background-color: var(--at-wash); }
+.value { display: block; font-size: .95rem; font-weight: 600; }
+.detail { display: block; color: var(--pico-muted-color); font-size: .75rem; font-weight: 400; }
+.subtle { color: var(--pico-muted-color); }
+.wrap { white-space: normal; min-width: 14rem; }
+.metrics th[scope=row] { min-width: 13rem; }
+.metrics tbody + tbody > tr:first-child > * { border-top: 2px solid var(--pico-muted-border-color); }
+.metrics .section-row th { padding-top: 1rem; color: var(--pico-muted-color); font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.metrics .section-row a { font-weight: 400; letter-spacing: 0; text-transform: none; }
+.metrics .value { font-weight: 400; }
+.metrics .value.emphasis { font-weight: 650; }
+.glance td { min-width: 11rem; }
+
+/* Charts keep a readable width and scroll on narrow screens. */
+.chart { overflow-x: auto; max-width: 100%; }
+.chart .plotly-graph-div { min-width: 560px; width: 100%; }
+.chart.wide .plotly-graph-div { min-width: 680px; }
+
+/* Tabs that switch between horizons. */
+[role=tablist] { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: .75rem; border-bottom: 1px solid var(--pico-muted-border-color); }
+[role=tablist] button { --pico-background-color: transparent; --pico-border-color: transparent; --pico-color: var(--pico-muted-color); width: auto; margin: 0 0 -1px; padding: .45rem .9rem; border-width: 0 0 2px; border-radius: 0; font-size: .9rem; box-shadow: none; }
+[role=tablist] button[aria-selected=true] { --pico-color: var(--pico-primary); --pico-border-color: var(--pico-primary); font-weight: 600; }
+[role=tablist] button:hover { --pico-color: var(--pico-color); --pico-background-color: var(--at-wash); }
+
+/* The list of trials: a toolbar, grouped headings and a signal column that stays in view. */
+.toolbar { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; align-items: center; margin: 0; }
+.toolbar label { display: flex; align-items: center; gap: .5rem; margin: 0; font-size: .85rem; color: var(--pico-muted-color); }
+.toolbar select { width: auto; margin: 0; padding: .3rem 2.25rem .3rem .65rem; font-size: .85rem; }
+.board { border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); background: var(--pico-card-background-color); }
+.board thead a { color: inherit; text-decoration: none; }
+.board thead a:hover { color: var(--pico-primary); }
+.board thead th[aria-sort=ascending], .board thead th[aria-sort=descending] { color: var(--pico-color); }
+.board tr.groups th { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; border-bottom: 2px solid var(--pico-muted-border-color); }
+.board tbody th, .board thead tr:last-child th:first-child { position: sticky; left: 0; z-index: 1; background: var(--pico-card-background-color); }
+.board tbody th { font-weight: 600; max-width: 22rem; }
+.board .note { font-style: italic; }
+.badge { display: inline-block; padding: 0 .4rem; border-radius: 999px; font-size: .75rem; font-weight: 600; background: var(--at-warn-background); color: var(--at-down); }
+.badge.bad { background: var(--at-down); color: var(--pico-background-color); }
+
+/* Methods: reference text at a reading width. */
+.methods section { max-width: 80ch; padding-block: 1rem; border-bottom: 1px solid var(--pico-muted-border-color); }
+.methods section:last-child { border: 0; }
+.methods h3 { margin-bottom: .5rem; }
+.methods dt { font-weight: 600; }
+.methods dd { margin: 0 0 .75rem; }
+
+@media (max-width: 640px) {
+  body > header, body > main, body > footer { padding-inline: 1rem; }
+  .site-nav { padding-inline: 1rem; }
+  .site-nav .brand { display: none; }
+  article { padding: 1rem; }
+  article > header { margin: -1rem -1rem 1rem; padding: .75rem 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+@media print {
+  html { background: white; }
+  body { font-size: 11px; }
+  body > header, body > main, body > footer { max-width: none; padding: 0; }
+  .site-nav, .skip-link, .method-link, [role=tablist], .modebar, form { display: none !important; }
+  [role=tabpanel][hidden] { display: block !important; }
+  main > section { margin-bottom: 1.5rem; }
+  h2, h3, summary { break-after: avoid; }
+  .table-scroll, .chart { overflow: visible; }
+  .chart .plotly-graph-div { min-width: 0; }
+  th, td { padding: 3px 6px; white-space: normal; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+}

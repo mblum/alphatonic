@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% set order = 'desc' if data.descending else 'asc' %}
+{% block title %}Trials · {{ title }}{% endblock %}
+{% block html_attributes %} data-page="board"{% endblock %}
+{% block body %}
+<header>
+  <p class="eyebrow">alphatonic · study</p>
+  <h1>Trials · {{ title }}</h1>
+  <p class="lead">
+    {{ data.trials | length }} trial{{ '' if data.trials | length == 1 else 's' }} saved in {{ data.families | length }} famil{{ 'y' if data.families | length == 1 else 'ies' }}
+    {%- if holdout_uses %} · {{ holdout_uses }} holdout evaluation{{ '' if holdout_uses == 1 else 's' }}{% endif %}
+    {%- if data.holdout_start %} · holdout from {{ when(data.holdout_start) }} UTC{% endif %}.
+    Statistics are at a horizon of {{ data.horizon or 1 }} bar{{ '' if data.horizon == 1 or not data.horizon else 's' }}.
+  </p>
+  {% if data.horizons %}
+  <form class="toolbar" method="get" aria-label="Show trials">
+    <label>Horizon
+      <select name="horizon" onchange="this.form.submit()">
+        {% for h in data.horizons %}<option value="{{ h }}"{% if h == data.horizon %} selected{% endif %}>{{ h }} bar{{ '' if h == 1 else 's' }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Signal
+      <select name="signal" onchange="this.form.submit()">
+        <option value="">All signals</option>
+        {% for name in signals %}<option value="{{ name }}"{% if name == signal %} selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select>
+    </label>
+    <input type="hidden" name="sort" value="{{ data.sort }}">
+    <input type="hidden" name="order" value="{{ order }}">
+    <noscript><button type="submit">Show</button></noscript>
+  </form>
+  {% endif %}
+</header>
+<main>
+  {% if data.unreadable %}
+  <p class="notice">{{ data.unreadable | length }} record{{ '' if data.unreadable | length == 1 else 's' }} could not be read: {{ data.unreadable | join(', ') }}</p>
+  {% endif %}
+  {% if rows %}
+  <div class="table-scroll board" role="region" aria-label="Trials" tabindex="0">
+    <table>
+      <caption class="sr-only">Trials at a horizon of {{ data.horizon }} bars, sorted by {{ data.sort }}</caption>
+      <thead>
+        <tr class="groups">
+          {% for group in groups %}<th scope="colgroup" colspan="{{ group.span + (1 if loop.last else 0) }}">{{ group.label }}</th>{% endfor %}
+        </tr>
+        <tr>
+          {% for column in columns %}
+          <th scope="col" class="{{ 'number' if column.numeric else '' }}"
+              aria-sort="{{ ('descending' if data.descending else 'ascending') if column.key == data.sort else 'none' }}">
+            <a href="?{{ {'sort': column.key, 'order': column.order, 'horizon': data.horizon, 'signal': signal or ''} | urlencode }}">{{ column.heading }}{% if column.key == data.sort %} {{ '▼' if data.descending else '▲' }}{% endif %}</a>
+          </th>
+          {% endfor %}
+          <th scope="col">Files</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for trial in rows %}
+        <tr>
+          {% for column in columns %}{% set key = column.key %}
+          {% if key == 'signal' %}
+          <th scope="row" class="wrap"{% if trial.summary %} title="{{ trial.summary }}"{% endif %}>
+            {% if trial.files.tearsheet %}<a href="{{ trial.files.tearsheet }}">{{ trial.signal }}</a>{% else %}{{ trial.signal }}{% endif %}
+            {% set details = [] %}
+            {% if trial.family != trial.signal %}{% set _ = details.append('family ' ~ trial.family) %}{% endif %}
+            {% for name, value in trial.parameters.items() %}{% set _ = details.append(name ~ '=' ~ value) %}{% endfor %}
+            {% if details %}<span class="detail">{{ details | join(' · ') }}</span>{% endif %}
+            {% if trial.note %}<span class="detail note">{{ trial.note }}</span>{% endif %}
+          </th>
+          {% elif key == 'cs_ic' or key.startswith('ts_') %}<td class="number">{{ number(trial[key], 4) }}</td>
+          {% elif key == 'cs_z' %}<td class="number">{{ number(trial.cs_z, 2) }}</td>
+          {% elif key == 'cs_p' %}<td class="number subtle">{{ p_value(trial.cs_p) }}</td>
+          {% elif key == 'adjusted_p' %}<td class="number">{% if trial.adjusted_p is not none and trial.adjusted_p <= significant %}<strong>{{ p_value(trial.adjusted_p) }}</strong>{% else %}{{ p_value(trial.adjusted_p) }}{% endif %}</td>
+          {% elif key == 'trials' %}<td class="number">{{ trial.trials }}</td>
+          {% elif key == 'sample' %}<td>{% if trial.sample == 'holdout' %}<span class="badge {{ 'bad' if trial.holdout_uses > 1 else 'warn' }}" title="The family {{ trial.family }} has {{ trial.holdout_uses }} holdout evaluation{{ '' if trial.holdout_uses == 1 else 's' }}">holdout{% if trial.holdout_uses > 1 %} · {{ trial.holdout_uses }} looks{% endif %}</span>{% else %}in sample{% endif %}</td>
+          {% elif key == 'start' %}<td>{{ when(trial.start, '%Y-%m-%d') }} – {{ when(trial.end, '%Y-%m-%d') }}</td>
+          {% elif key == 'bar' %}<td>{{ bar(trial.bar_seconds) }}</td>
+          {% elif key == 'assets' %}<td class="number">{{ trial.assets if trial.assets else '–' }}</td>
+          {% elif key == 'created_at' %}<td class="subtle" title="{{ trial.id }}">{{ when(trial.created_at) }}</td>
+          {% else %}<td>{{ trial.context.get(key, '–') }}</td>
+          {% endif %}
+          {% endfor %}
+          <td><a href="{{ trial.files.record }}">record</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="unavailable">No trials{% if asked_signal %} of {{ asked_signal }}{% endif %} yet. Evaluations run through <code>Study.evaluate</code> appear here.</p>
+  {% endif %}
+  <details>
+    <summary>About these columns</summary>
+    <div>
+      <dl>
+        <dt>Cross-sectional rank IC, z and p</dt>
+        <dd>The mean Spearman IC across timestamps, its Newey–West z-statistic and the two-sided p-value.</dd>
+        <dt>Trials</dt>
+        <dd>Evaluations of the same family in this study, across parameters and both samples.</dd>
+        <dt>p × trials</dt>
+        <dd>The cross-sectional p-value times the number of trials of its family, at most 1: Bonferroni's correction. It is a lower bound on the
+          penalty, because variants tried outside the study, or abandoned before evaluation, are not counted. Values of {{ significant }} or less are bold.</dd>
+        <dt>Sample</dt>
+        <dd>In sample, or the holdout. A second look at the holdout makes it in-sample data for that family.</dd>
+        <dt>Time-series rank IC, cosine and timing</dt>
+        <dd>The mean Spearman IC within assets, the uncentred cosine similarity, and the part of the cosine earned by timing rather than by the average position.</dd>
+        <dt>Data</dt>
+        <dd>The evaluated window (end exclusive, UTC), the bar spacing, the number of assets with prices, and facts recorded by the researcher.</dd>
+      </dl>
+      <p class="muted">A dash marks a statistic that is undefined at this horizon, never zero. The same list is available as JSON at <a href="study.json">study.json</a>.</p>
+    </div>
+  </details>
+</main>
+{% endblock %}

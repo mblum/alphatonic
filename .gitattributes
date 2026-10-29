@@ -1,0 +1,11 @@
+# Overrides for GitHub's language statistics (Linguist):
+# https://github.com/github-linguist/linguist/blob/main/docs/overrides.md
+# Attribute patterns do not recurse into directories, so a folder needs `/**`.
+
+# The documentation site, including its example script.
+docs/** linguist-documentation
+
+# Pico CSS and its licence, copied from the npm package. `alphatonic.css` beside them is ours and
+# stays counted, which is why this lists the two files and not the folder.
+src/alphatonic/report/static/pico.classless.min.css linguist-vendored
+src/alphatonic/report/static/pico.LICENSE.md linguist-vendored
