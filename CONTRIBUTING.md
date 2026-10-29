@@ -2,11 +2,11 @@
 
 Bug reports with a minimal, runnable example are welcome. Use
 `alphatonic.demo.synthetic_market` to share an example without market data. For usage questions,
-check the [documentation](README.md) or open an issue.
+check the [documentation](https://mblum.github.io/alphatonic/) or open an issue.
 
 Statistical changes need a source or a fixed-seed simulation in `tests/test_inference.py`, plus an
-update to [the methodology](docs/explanation/methodology.md). Add a changelog entry for changes
-users would notice. Work on a branch and open a pull request.
+update to `docs/explanation/methodology.md`. Add a changelog entry for changes users would notice.
+Work on a branch and open a pull request.
 
 By contributing, you agree that your contribution is licensed under the MIT License.
 
@@ -122,14 +122,16 @@ not prove that the surrounding explanation is correct.
 ### Shared pages
 
 Edit `README.md` for the site home page, `CHANGELOG.md` for the changelog, and this file for
-contributor guidance. The matching pages under `docs/` include these files at build time using
-Zensical's built-in Jinja support. `docs/_includes/` contains symlinks to the three root files;
-it is excluded from site navigation and output. The page filters adapt repository-relative links for the
-site. Use inline Markdown links rather than reference-style links so these filters can adjust them.
+contributor guidance. The matching pages under `docs/` are symlinks to these root files, so
+Zensical renders their contents directly. The `watch` setting in `zensical.toml` includes the
+root files so changes trigger a rebuild during preview.
 
-The example tests expand the same includes before running code blocks. After changing links,
-build the site with `--strict` and check the rendered destinations. Shared files are watched
-when running `zensical serve`.
+Use absolute web URLs in the root Markdown files so their links also work on PyPI and GitHub.
+The example tests read each source file once, resolving symlinks to avoid duplicate runs.
+`tests/test_docs.py` also checks that the three site pages are still symlinks, that these files
+have no repository-relative links, and that their links to the site and to files on `master` name
+an existing page or file. It does not check external sites or `#anchors`. After changing links,
+build the site with `--strict` and check the rendered destinations.
 
 ## Releasing
 

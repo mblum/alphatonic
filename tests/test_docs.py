@@ -7,35 +7,43 @@ A block preceded by an `<!-- notest -->` line is skipped.
 
 import re
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import urlsplit
 
 import pytest
-from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 ROOT = Path(__file__).resolve().parents[1]
-PAGES = sorted({p.resolve() for p in [*ROOT.glob("*.md"), *(ROOT / "docs").rglob("*.md")]})
-SHARED_PAGES = (
-    ROOT / "docs/index.md",
-    ROOT / "docs/changelog.md",
-    ROOT / "docs/contributing/development.md",
-)
-TEMPLATES = Environment(loader=FileSystemLoader(ROOT / "docs/_includes"), undefined=StrictUndefined)
-
-
-def page_text(path: Path) -> str:
-    """Expand shared root files with the same Jinja includes used by Zensical."""
-    if path in SHARED_PAGES:
-        return TEMPLATES.from_string(path.read_text(encoding="utf-8")).render()
-    return path.read_text(encoding="utf-8")
+DOCS = ROOT / "docs"
+PAGES = sorted({p.resolve() for p in [*ROOT.glob("*.md"), *DOCS.rglob("*.md")]})
+# Pages of the site that are symlinks to root files, which GitHub and PyPI also show.
+SHARED_PAGES = {
+    "docs/index.md": "README.md",
+    "docs/changelog.md": "CHANGELOG.md",
+    "docs/contributing/development.md": "CONTRIBUTING.md",
+}
+SITE = "https://mblum.github.io/alphatonic/"
+SOURCES = "https://github.com/mblum/alphatonic/blob/master/"
 
 
 OPEN = re.compile(r"^(\s*)```python\s*$")
 CLOSE = re.compile(r"^(\s*)```\s*$")
+FENCED = re.compile(r"^[ \t]*(`{3,}|~{3,}).*?^[ \t]*\1[ \t]*$", re.MULTILINE | re.DOTALL)
+LINK = re.compile(
+    r"\]\(\s*<?([^)\s>]+)"  # [text](destination "title")
+    r"|^ {0,3}\[(?!\^)[^\]]+\]:\s*<?([^\s>]+)"  # [label]: destination
+    r"|\b(?:href|src)\s*=\s*[\"']([^\"']+)[\"']",  # <a href="destination">
+    re.MULTILINE | re.IGNORECASE,
+)
+
+
+def link_targets(text: str) -> list[str]:
+    """Return the destination of every link in Markdown text, ignoring code."""
+    prose = re.sub(r"`[^`\n]*`", "", FENCED.sub("", text))
+    return [next(group for group in match.groups() if group) for match in LINK.finditer(prose)]
 
 
 def blocks(path: Path):
     """Yield `(line number, code)` for each runnable Python block of a Markdown file."""
-    lines = page_text(path).splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
     i = 0
     while i < len(lines):
         opening = OPEN.match(lines[i])
@@ -73,26 +81,43 @@ def test_examples_run(page, tmp_path, monkeypatch):
 
 def test_examples_exist_in_the_main_pages():
     names = {p.name for p in pages_with_examples()}
-    assert {"README.md", "index.md", "first-evaluation.md", "prepare-inputs.md"} <= names
+    assert {"README.md", "first-evaluation.md", "prepare-inputs.md"} <= names
 
 
-@pytest.mark.parametrize("page", SHARED_PAGES, ids=lambda p: str(p.relative_to(ROOT)))
-def test_shared_page_links_resolve_inside_docs(page):
-    """Included GitHub links must point to site sources after path adaptation."""
-    text = page_text(page)
-    assert "{%" not in text
-    assert "# " in text
-    for target in re.findall(r"\]\(([^)]+)\)", text):
+@pytest.mark.parametrize("page, source", SHARED_PAGES.items(), ids=list(SHARED_PAGES))
+def test_shared_pages_are_symlinks_to_the_root_files(page, source):
+    """A copy under `docs/` would drift from the root file, and its examples would run twice."""
+    assert (ROOT / page).resolve() == ROOT / source
+
+
+def test_link_targets_finds_every_link_form_outside_code():
+    text = (
+        '[a](docs/a.md) and [b](<docs/b.md> "title")\n\n'
+        "[c]: docs/c.md\n[^1]: A footnote.\n\n"
+        '<a href="docs/d.md">d</a>\n\n'
+        "`f[0](1)` is code.\n\n```python\nf[0](1)\n```\n"
+    )
+    assert link_targets(text) == ["docs/a.md", "docs/b.md", "docs/c.md", "docs/d.md"]
+
+
+@pytest.mark.parametrize("source", SHARED_PAGES.values())
+def test_root_page_links_work_outside_the_repository(source):
+    """Shared pages must not rely on repository-relative link resolution."""
+    for target in link_targets((ROOT / source).read_text(encoding="utf-8")):
         url = urlsplit(target)
-        if url.scheme or url.netloc or not url.path:
+        assert url.scheme or url.netloc or not url.path, target
+
+
+@pytest.mark.parametrize("source", SHARED_PAGES.values())
+def test_root_page_links_into_the_project_name_existing_files(source):
+    """Absolute links to the site and the sources must not outlive the page or file they name."""
+    for target in link_targets((ROOT / source).read_text(encoding="utf-8")):
+        path = urlsplit(target).path
+        if target.startswith(SITE):
+            page = path.removeprefix(urlsplit(SITE).path).strip("/")
+            candidates = [DOCS / page, DOCS / f"{page}.md", DOCS / page / "index.md"]
+        elif target.startswith(SOURCES):
+            candidates = [ROOT / path.removeprefix(urlsplit(SOURCES).path)]
+        else:
             continue
-        destination = (page.parent / unquote(url.path)).resolve()
-        assert destination.is_relative_to(ROOT / "docs"), target
-        assert destination.is_file(), target
-
-
-def test_home_page_uses_readme_example():
-    """Changing the README example must change the site's example as well."""
-    assert [code for _, code in blocks(ROOT / "docs/index.md")] == [
-        code for _, code in blocks(ROOT / "README.md")
-    ]
+        assert any(candidate.is_file() for candidate in candidates), target

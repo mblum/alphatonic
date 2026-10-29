@@ -6,6 +6,17 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Compare alphatonic's signal evaluation with Alphalens, Alphalens Reloaded, Qlib and Spectre in
+  the README.
+
+### Changed
+
+- Condense the README, which is also the documentation home page, into one short "Main concepts"
+  section. The home page now links to the documentation instead of listing the guides, and the
+  README's links are web URLs that also work on PyPI.
+
 ## [0.1.1] - 2026-10-29
 
 ### Added

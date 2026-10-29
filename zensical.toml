@@ -7,7 +7,7 @@ repo_url = "https://github.com/mblum/alphatonic"
 repo_name = "mblum/alphatonic"
 edit_uri = "edit/master/docs/"
 site_url = "https://mblum.github.io/alphatonic/"
-exclude_docs = "/_includes/"
+# The shared pages in docs/ are symlinks to these root files.
 watch = ["README.md", "CHANGELOG.md", "CONTRIBUTING.md"]
 
 nav = [
@@ -106,12 +106,6 @@ inventories = [
 ]
 
 [project.markdown_extensions]
-# Root Markdown files are shared with GitHub; only the include pages render Jinja.
-zensical.extensions.macros.include_dir = "docs/_includes"
-zensical.extensions.macros.module_name = ""
-zensical.extensions.macros.render_by_default = false
-zensical.extensions.macros.on_error_fail = true
-zensical.extensions.macros.on_undefined = "strict"
 abbr = {}
 admonition = {}
 attr_list = {}
