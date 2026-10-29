@@ -11,6 +11,10 @@ All notable changes are listed here. The format follows
 - Compare alphatonic's signal evaluation with Alphalens, Alphalens Reloaded, Qlib and Spectre in
   the README.
 
+### Changed
+
+- Condense the README's main concepts and use web links that also work on PyPI.
+
 ## [0.1.1] - 2026-10-29
 
 ### Added

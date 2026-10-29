@@ -6,27 +6,14 @@ A block preceded by an `<!-- notest -->` line is skipped.
 """
 
 import re
+import tomllib
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import urlsplit
 
 import pytest
-from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGES = sorted({p.resolve() for p in [*ROOT.glob("*.md"), *(ROOT / "docs").rglob("*.md")]})
-SHARED_PAGES = (
-    ROOT / "docs/index.md",
-    ROOT / "docs/changelog.md",
-    ROOT / "docs/contributing/development.md",
-)
-TEMPLATES = Environment(loader=FileSystemLoader(ROOT / "docs/_includes"), undefined=StrictUndefined)
-
-
-def page_text(path: Path) -> str:
-    """Expand shared root files with the same Jinja includes used by Zensical."""
-    if path in SHARED_PAGES:
-        return TEMPLATES.from_string(path.read_text(encoding="utf-8")).render()
-    return path.read_text(encoding="utf-8")
 
 
 OPEN = re.compile(r"^(\s*)```python\s*$")
@@ -35,7 +22,7 @@ CLOSE = re.compile(r"^(\s*)```\s*$")
 
 def blocks(path: Path):
     """Yield `(line number, code)` for each runnable Python block of a Markdown file."""
-    lines = page_text(path).splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
     i = 0
     while i < len(lines):
         opening = OPEN.match(lines[i])
@@ -73,26 +60,22 @@ def test_examples_run(page, tmp_path, monkeypatch):
 
 def test_examples_exist_in_the_main_pages():
     names = {p.name for p in pages_with_examples()}
-    assert {"README.md", "index.md", "first-evaluation.md", "prepare-inputs.md"} <= names
+    assert {"README.md", "first-evaluation.md", "prepare-inputs.md"} <= names
 
 
-@pytest.mark.parametrize("page", SHARED_PAGES, ids=lambda p: str(p.relative_to(ROOT)))
-def test_shared_page_links_resolve_inside_docs(page):
-    """Included GitHub links must point to site sources after path adaptation."""
-    text = page_text(page)
-    assert "{%" not in text
-    assert "# " in text
+@pytest.mark.parametrize("page", sorted(ROOT.glob("*.md")), ids=lambda p: p.name)
+def test_root_page_links_work_outside_the_repository(page):
+    """Shared pages must not rely on repository-relative link resolution."""
+    text = page.read_text(encoding="utf-8")
     for target in re.findall(r"\]\(([^)]+)\)", text):
         url = urlsplit(target)
-        if url.scheme or url.netloc or not url.path:
-            continue
-        destination = (page.parent / unquote(url.path)).resolve()
-        assert destination.is_relative_to(ROOT / "docs"), target
-        assert destination.is_file(), target
+        assert url.scheme or url.netloc or not url.path, target
 
 
 def test_home_page_uses_readme_example():
     """Changing the README example must change the site's example as well."""
-    assert [code for _, code in blocks(ROOT / "docs/index.md")] == [
+    project = tomllib.loads((ROOT / "zensical.toml").read_text(encoding="utf-8"))["project"]
+    home = next(item["Home"] for item in project["nav"] if "Home" in item)
+    assert [code for _, code in blocks(ROOT / project.get("docs_dir", "docs") / home)] == [
         code for _, code in blocks(ROOT / "README.md")
     ]

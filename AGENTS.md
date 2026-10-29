@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Guidance for coding agents working in this repository. People should start with
-[CONTRIBUTING.md](CONTRIBUTING.md). If this file and that guide disagree, the guide is right;
+`CONTRIBUTING.md`. If this file and that guide disagree, the guide is right;
 fix this file.
 
 alphatonic is a Python library (with an `alphatonic` command) that evaluates predictive signals
