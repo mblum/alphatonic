@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import UTC, datetime, timedelta
 
 import numpy as np
@@ -89,7 +90,7 @@ def test_naive_bounds_are_utc(tmp_path):
     assert study.window(end="2026-01-02")[1] == datetime(2026, 1, 2, tzinfo=UTC)
 
 
-def test_an_evaluation_saves_its_tables_tearsheet_and_record(study, market, boundary):
+def test_an_evaluation_saves_its_tables_and_record(study, market, boundary):
     factor, prices = market
 
     trial = study.evaluate(
@@ -106,7 +107,8 @@ def test_an_evaluation_saves_its_tables_tearsheet_and_record(study, market, boun
 
     assert IDENTIFIER.match(trial.id) and "-Momentum-20-5-" in trial.id
     directory = study.directory / trial.id
-    assert (directory / TABLES / "ic_summary.csv").is_file()
+    assert (directory / TABLES / "ic_summary.csv.gz").is_file()
+    assert not (directory / TEARSHEET).exists()
     stored = json.loads((directory / RECORD).read_text(encoding="utf-8"))
     assert Trial.model_validate(stored) == trial
     assert (trial.signal, trial.family, trial.sample) == (
@@ -121,22 +123,78 @@ def test_an_evaluation_saves_its_tables_tearsheet_and_record(study, market, boun
     assert trial.versions["alphatonic"] and trial.versions["research"] == "1.2.3"
     assert len(trial.data_fingerprint) == 64
     assert "cs.h1.spearman.mean" in trial.metrics
-    page = (directory / TEARSHEET).read_text(encoding="utf-8")
-    for text in ("<dt>Study</dt><dd>demo</dd>", "1 of Momentum 20/5", "price only", "window=20"):
-        assert text in page
     assert study.trials() == [trial]
     assert study.evaluation(trial.id).metrics() == pytest.approx(trial.metrics)
 
 
-def test_the_trial_count_in_the_tearsheet_includes_earlier_trials(study, market):
+def test_a_tearsheet_is_stored_only_when_asked_for(study, market):
     factor, prices = market
 
-    study.evaluate(factor, prices, signal="momentum", report=False, **QUICK)
-    trial = study.evaluate(factor * 2, prices, signal="momentum", **QUICK)
+    stored = study.evaluate(factor, prices, signal="momentum", report=True, **QUICK)
+    default = study.evaluate(factor * 2, prices, signal="momentum", **QUICK)
 
-    page = (study.directory / trial.id / TEARSHEET).read_text(encoding="utf-8")
-    assert "2 of momentum, this one included" in page
-    assert not (study.directory / study.trials()[1].id / TEARSHEET).exists()
+    page = (study.directory / stored.id / TEARSHEET).read_text(encoding="utf-8")
+    for text in ("<dt>Study</dt><dd>demo</dd>", "1 of momentum, this one included"):
+        assert text in page
+    assert not (study.directory / default.id / TEARSHEET).exists()
+
+
+class _LaterClock:
+    """Stands in for `datetime` in the report module, so a redraw happens at a later time."""
+
+    @staticmethod
+    def now(tz):
+        return datetime(2030, 1, 1, tzinfo=tz)
+
+
+def _without_the_clock(page):
+    """The page without the time it was generated, which is the one thing a redraw changes."""
+    return re.sub(r"Generated \S+", "Generated", page)
+
+
+def test_a_drawn_tearsheet_is_the_page_the_evaluation_would_have_stored(study, market, monkeypatch):
+    factor, prices = market
+    trial = study.evaluate(
+        factor,
+        prices,
+        signal="Momentum 20/5",
+        parameters={"window": 20},
+        context={"Returns": "price only"},
+        note="first look",
+        report=True,
+        **QUICK,
+    )
+
+    stored = (study.directory / trial.id / TEARSHEET).read_text(encoding="utf-8")
+    monkeypatch.setattr("alphatonic.report.datetime", _LaterClock)
+    drawn = study.render_tearsheet(trial.id)
+
+    assert "Generated 2030-01-01T00:00:00+00:00" in drawn
+    assert _without_the_clock(drawn) == _without_the_clock(stored)
+    for text in ("<dt>Study</dt><dd>demo</dd>", "price only", "window=20", "first look"):
+        assert text in drawn
+
+
+def test_the_trial_count_in_a_drawn_tearsheet_is_the_trials_place_in_its_family(study, market):
+    factor, prices = market
+
+    first = study.evaluate(factor, prices, signal="momentum", **QUICK)
+    other = study.evaluate(factor, prices, signal="bollinger", **QUICK)
+    second = study.evaluate(factor * 2, prices, signal="momentum", **QUICK)
+
+    assert "1 of momentum, this one included" in study.render_tearsheet(first.id)
+    assert "1 of bollinger, this one included" in study.render_tearsheet(other.id)
+    assert "2 of momentum, this one included" in study.render_tearsheet(second.id)
+
+
+def test_a_tearsheet_needs_a_finished_trial_with_tables(study):
+    saved(study, record("tableless"))
+
+    with pytest.raises(FileNotFoundError, match="no saved tables"):
+        study.render_tearsheet("tableless")
+    for identifier in ("missing", "../study"):
+        with pytest.raises(UnknownTrialError):
+            study.render_tearsheet(identifier)
 
 
 def test_the_tearsheet_names_at_most_twenty_assets():
@@ -358,7 +416,7 @@ def test_to_dict_lists_the_trials_in_board_order_as_plain_json(study, boundary):
     assert low["created_at"] == "2026-01-01T01:00:00+00:00"
     assert low["files"] == {"record": "low/record.json", "tearsheet": "low/tearsheet.html"}
     assert none["cs_ic"] is None and none["adjusted_p"] is None
-    assert none["files"]["tearsheet"] is None
+    assert none["files"]["tearsheet"] is None  # No stored page and no tables to draw one from.
     assert (none["note"], none["parameters"], none["context"]) == ("smoothed", {"window": 5}, {})
 
 
@@ -379,3 +437,16 @@ def test_an_empty_study_is_an_empty_document(tmp_path):
 
     assert document["trials"] == [] and document["families"] == {}
     assert document["horizon"] is None and document["horizons"] == []
+
+
+def test_to_dict_links_the_tearsheet_of_a_trial_that_can_be_drawn(study, market):
+    factor, prices = market
+    trial = study.evaluate(factor, prices, signal="momentum", **QUICK)
+
+    (row,) = study.to_dict()["trials"]
+
+    assert not (study.directory / trial.id / TEARSHEET).exists()
+    assert row["files"] == {
+        "record": f"{trial.id}/record.json",
+        "tearsheet": f"{trial.id}/tearsheet.html",
+    }

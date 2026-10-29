@@ -10,9 +10,25 @@ All notable changes are listed here. The format follows
 
 - Compare alphatonic's signal evaluation with Alphalens, Alphalens Reloaded, Qlib and Spectre in
   the README.
+- `Study.render_tearsheet(id)` returns the tearsheet of a finished trial as HTML, drawn from its
+  saved tables: the same page `Study.evaluate(report=True)` writes, with the study's name, the
+  trial's context and its place in its family's count.
 
 ### Changed
 
+- `Evaluation.save` writes each table as gzip-compressed CSV (`ic_summary.csv.gz`, and so on), as
+  format 4 of the saved evaluation. A saved evaluation is about seven times smaller: 22 MB instead
+  of 158 MB for 20 assets of hourly bars over five years. Directories of formats 1 to 3, which hold
+  plain `.csv` files, still load, and saving over one replaces its plain files. `pandas.read_csv`
+  reads the new files as they are, but an older alphatonic cannot load a format 4 directory.
+- `Study.evaluate` no longer stores a tearsheet unless you pass `report=True`, which was the
+  default. A tearsheet can be as large as the trial's compressed tables. `alphatonic serve` and
+  `Study.render_tearsheet` draw it from the tables when it is asked for, which takes a few seconds;
+  the server keeps the last few pages. Stored tearsheets are still served as they are, and
+  `Study.evaluate` no longer needs `alphatonic[report]` unless you ask for a report. A tearsheet the
+  server draws shows the study's name only if you pass `--name`. In
+  `Study.to_dict` and `/study.json`, `files.tearsheet` is now set for a trial that has tables, not
+  only for one with a stored page.
 - The tearsheet follows the system's light or dark setting, as the list of trials already did;
   before, it was always light. Both pages print in light colours whatever the screen uses.
 - The tearsheet's charts are drawn by Observable Plot and d3, which the package carries, instead of

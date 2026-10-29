@@ -171,17 +171,21 @@ Each trial carries the record's `id`, `created_at`, `signal`, `family`, `summary
 `note`, `sample`, `start`, `end`, `horizons`, `delay` and `bar_seconds`; the board's `assets` (a
 count), `cs_ic`, `cs_z`, `cs_p`, `adjusted_p`, `ts_ic`, `ts_cosine`, `ts_timing`, `trials` and
 `holdout_uses` at the document's horizon; its `context` as an object; and `files`, the paths of its
-`record` and `tearsheet` (null if none was written) relative to the study's directory.
+`record` and `tearsheet` relative to the study's directory. `tearsheet` is null if the trial has
+neither a stored tearsheet nor tables to draw one from.
 
 ## Files written by `save`
 
 | Path | Contents |
 | --- | --- |
-| `evaluation.json` | `format_version` (3; formats 1 and 2 remain readable; format 1 is read with `return` targets, which it predates), `alphatonic_version`, the configuration, the window (`start`, `end`) and `bar_seconds` (null for irregular grids). |
-| `ic_by_timestamp.csv`, `ic_summary.csv`, `cs_quantiles.csv` | `periods`, `summary`, `quantiles`. |
-| `persistence_periods.csv`, `persistence_quantiles.csv`, `persistence_assets.csv`, `persistence_summary.csv` | Signal persistence tables, written for new evaluations. |
-| `ic_monthly.csv` | The mean and count of `spearman` and `pearson` IC per horizon and UTC month. |
-| `ts_assets.csv`, `ts_monthly.csv`, `ts_rolling.csv`, `ts_summary.csv`, `ts_quantiles.csv` | The time-series tables, always written for new evaluations. |
+| `evaluation.json` | `format_version` (4, which gzips the tables; formats 1 to 3, which wrote plain CSV files, remain readable; format 1 is read with `return` targets, which it predates), `alphatonic_version`, the configuration, the window (`start`, `end`) and `bar_seconds` (null for irregular grids). |
+| `ic_by_timestamp.csv.gz`, `ic_summary.csv.gz`, `cs_quantiles.csv.gz` | `periods`, `summary`, `quantiles`. |
+| `persistence_periods.csv.gz`, `persistence_quantiles.csv.gz`, `persistence_assets.csv.gz`, `persistence_summary.csv.gz` | Signal persistence tables, written for new evaluations. |
+| `ic_monthly.csv.gz` | The mean and count of `spearman` and `pearson` IC per horizon and UTC month. |
+| `ts_assets.csv.gz`, `ts_monthly.csv.gz`, `ts_rolling.csv.gz`, `ts_summary.csv.gz`, `ts_quantiles.csv.gz` | The time-series tables, always written for new evaluations. |
+
+Every table is gzip-compressed CSV. Formats 1 to 3 wrote the same tables as plain `.csv` files
+(`ic_summary.csv`, and so on); they load as before.
 
 ## Files written by a study
 
@@ -191,8 +195,8 @@ Each trial of a `Study` is a directory named by its identifier, such as
 | Path | Contents |
 | --- | --- |
 | `record.json` | The trial's record, written last; a directory without one is an evaluation that did not finish. |
-| `tearsheet.html` | The tearsheet, unless `report=False`. |
 | `tables/` | The files written by `save`, reloadable with `Study.evaluation`. |
+| `tearsheet.html` | The tearsheet, only if `Study.evaluate` was called with `report=True`. Otherwise `Study.render_tearsheet` and the server draw it from `tables/`. |
 
 `record.json` holds these fields. Fields it does not know are ignored when it is read, and a record
 without `family` is counted under its `signal`.
@@ -241,6 +245,6 @@ comparison is unavailable; consult status before treating counts as transitions.
 decimals and no metric is annualised.
 
 `metrics()` includes finite means and counts as
-`persistence.<scope>.lag<lag>[.q<quantile>].<metric>.<mean|n_valid|n_total>`. Format 3 saves four
-`persistence_*.csv` files; formats 1 and 2 remain readable without these files. The report renders
-stored tables without recomputing diagnostics.
+`persistence.<scope>.lag<lag>[.q<quantile>].<metric>.<mean|n_valid|n_total>`. Formats 3 and 4 save
+four persistence tables (`persistence_*.csv.gz` in format 4); formats 1 and 2 remain readable
+without them. The report renders stored tables without recomputing diagnostics.

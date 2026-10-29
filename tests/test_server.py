@@ -6,10 +6,11 @@ import urllib.request
 
 import pytest
 
-from alphatonic import Study
-from alphatonic.server import make_server, respond
+from alphatonic import Evaluation, Study
+from alphatonic.server import _drawn_tearsheet, make_server, respond
 from alphatonic.study import RECORD, TEARSHEET
-from test_study import record, saved
+from conftest import regular_panel
+from test_study import QUICK, record, saved
 
 
 @pytest.fixture
@@ -26,6 +27,16 @@ def study(tmp_path):
         page = f"<html>{identifier}</html>"
         (study.directory / identifier / TEARSHEET).write_text(page, encoding="utf-8")
     return study
+
+
+@pytest.fixture(scope="module")
+def evaluated(tmp_path_factory):
+    """A study with two evaluated trials of one family, neither with a stored tearsheet."""
+    factor, prices = regular_panel(n_assets=6, n_bars=240, seed=5)
+    study = Study(tmp_path_factory.mktemp("evaluated") / "study", name="demo")
+    first = study.evaluate(factor, prices, signal="momentum", **QUICK)
+    second = study.evaluate(factor * 2, prices, signal="momentum", **QUICK)
+    return study, first, second
 
 
 def _page(study, target="/"):
@@ -98,6 +109,63 @@ def test_a_tearsheet_and_a_record_are_served_from_their_trial(study):
     assert tearsheet.body == b"<html>bollinger-run</html>"
     assert stored.content_type == "application/json"
     assert json.loads(stored.body)["signal"] == "bollinger"
+
+
+def test_a_tearsheet_that_was_not_stored_is_drawn_from_the_tables(evaluated):
+    study, first, second = evaluated
+    assert not (study.directory / second.id / TEARSHEET).exists()
+
+    response = respond(study, f"/{second.id}/tearsheet.html")
+
+    assert response.status == 200 and response.content_type.startswith("text/html")
+    page = response.body.decode("utf-8")
+    assert "<dt>Study</dt><dd>demo</dd>" in page
+    assert "2 of momentum, this one included" in page
+    assert "1 of momentum, this one included" in _page(study, f"/{first.id}/tearsheet.html")
+
+
+def test_a_drawn_tearsheet_is_kept_for_the_next_request(evaluated, monkeypatch):
+    study, _, second = evaluated
+    _drawn_tearsheet.cache_clear()
+    drawn = []
+    original = Evaluation.render_tearsheet
+    monkeypatch.setattr(
+        Evaluation, "render_tearsheet", lambda *a, **k: drawn.append(1) or original(*a, **k)
+    )
+
+    first = respond(study, f"/{second.id}/tearsheet.html")
+    again = respond(study, f"/{second.id}/tearsheet.html")
+
+    assert len(drawn) == 1
+    assert first.body == again.body
+
+
+def test_the_list_links_a_tearsheet_that_can_be_drawn(evaluated):
+    study, first, second = evaluated
+
+    page = _page(study)
+
+    for trial in (first, second):
+        assert f'href="{trial.id}/tearsheet.html"' in page
+
+
+def test_a_stored_tearsheet_is_served_instead_of_a_drawn_one(evaluated):
+    study, first, _ = evaluated
+    stored = study.directory / first.id / TEARSHEET
+    stored.write_text("<html>stored</html>", encoding="utf-8")
+    try:
+        assert respond(study, f"/{first.id}/tearsheet.html").body == b"<html>stored</html>"
+    finally:
+        stored.unlink()
+
+
+def test_a_trial_with_neither_a_stored_tearsheet_nor_tables_has_none(study):
+    (study.directory / "old-momentum" / TEARSHEET).unlink()
+
+    response = respond(study, "/old-momentum/tearsheet.html")
+
+    assert response.status == 404
+    assert b"no saved tables" in response.body
 
 
 @pytest.mark.parametrize(
