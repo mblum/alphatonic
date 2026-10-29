@@ -7,6 +7,7 @@ from typing import cast
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.io as pio
 from plotly.subplots import make_subplots
 
 from alphatonic.config import ReportOptions
@@ -14,10 +15,52 @@ from alphatonic.config import ReportOptions
 COLORS = ("#4169e1", "#eb6834", "#199e70")
 """Series colours in fixed order: royal blue (the page's accent), orange, aqua. Checked for
 lightness, chroma, colour-vision-deficiency separation and contrast on a light surface."""
-FONT = dict(family='system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', color="#373c44")
-"""The page's font and text colour (Pico's), so that charts read as part of it."""
-SCALE = [[0, "#b45b3e"], [0.5, "#f0efec"], [1, COLORS[0]]]
+INK = "#373c44"
+"""The page's text colour (Pico's), so that charts read as part of it."""
+FONT = dict(family='system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', color=INK)
+"""The page's font and text colour."""
+CONTEXT = "#a8b7c5"
+"""Lines that give context to a series: the raw IC under its rolling mean, confidence intervals."""
+REFERENCE = "#94a3b8"
+"""Reference lines in the plot of confidence intervals."""
+ZERO = "#2a3f5f"
+"""The dotted line at zero (the shape colour of Plotly's white template)."""
+POLES = ("#b45b3e", "#f0efec")
+"""The negative pole and the neutral middle of the diverging scale."""
+SCALE = [[0, POLES[0]], [0.5, POLES[1]], [1, COLORS[0]]]
 """Diverging scale of correlations: red below zero, neutral grey at zero, royal blue above."""
+MODEBAR = ("rgba(68, 68, 68, 0.3)", "rgba(68, 68, 68, 0.7)")
+"""The toolbar's icons, resting and active. Plotly's own light defaults, set so that they can be
+replaced on a dark page."""
+
+DARK_COLORS = ("#6a8cf0", "#d95926", "#199e70")
+"""The series colours stepped for the dark page: the same hues, with blue lightened and orange
+deepened to stay inside the lightness band of a dark surface. Checked as `COLORS` are, against the
+card colour (`#181c25`) and the page colour (`#13171f`) of Pico's dark theme."""
+DARK = {
+    INK: "#c2c7d0",
+    CONTEXT: "#5d6b7e",
+    REFERENCE: "#7b8495",
+    ZERO: "#9aa3b2",
+    POLES[0]: "#d4694a",
+    POLES[1]: "#2f343f",
+    MODEBAR[0]: "rgba(194, 199, 208, 0.45)",
+    MODEBAR[1]: "rgba(194, 199, 208, 0.9)",
+    **dict(zip(COLORS, DARK_COLORS, strict=True)),
+}
+"""The dark counterpart of every colour written into a figure. The page redraws its charts on a
+dark system by replacing each of these, and Plotly's white template by its dark one, in the figure
+as written here. Every colour a figure sets explicitly must be a key: `tests/test_report.py`
+checks. The ink and the greys are Pico's dark text, muted and border tones."""
+
+
+def dark_theme() -> dict:
+    """Return what the page needs to redraw its charts on a dark system, as JSON-ready data.
+
+    Returns:
+        The colour replacements (`colors`) and Plotly's dark `template`.
+    """
+    return {"colors": DARK, "template": pio.templates["plotly_dark"].to_plotly_json()}
 
 
 def bar_count(horizon: int) -> str:
@@ -51,6 +94,7 @@ def style(fig: go.Figure, height: int = 360) -> go.Figure:
         legend=dict(orientation="h", y=-0.15),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
+        modebar=dict(bgcolor="rgba(0,0,0,0)", color=MODEBAR[0], activecolor=MODEBAR[1]),
     )
     return fig
 
@@ -87,7 +131,7 @@ def method_figures(
         )
         dates = [value.isoformat() for value in group.index]
         for name, line, color in (
-            ("Spearman IC", series, "#a8b7c5"),
+            ("Spearman IC", series, CONTEXT),
             (f"{options.rolling_window} rolling mean", rolling, COLORS[0]),
         ):
             timeseries.add_trace(
@@ -113,6 +157,7 @@ def method_figures(
         timeseries.add_hline(
             y=0,
             line_dash="dot",
+            line_color=ZERO,
             row=i + 1,  # pyright: ignore[reportArgumentType]
             col=1,  # pyright: ignore[reportArgumentType]
         )
@@ -264,7 +309,7 @@ def quantile_figure(
                 ),
             )
         )
-    fig.add_hline(y=0, line_dash="dot")
+    fig.add_hline(y=0, line_dash="dot", line_color=ZERO)
     fig.update_xaxes(title=f"Signal quantile (1–{quantiles})", dtick=1)
     fig.update_yaxes(title=axis)
     return style(fig)

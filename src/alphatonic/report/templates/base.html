@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %}</title>
   <style>{{ stylesheet | safe }}</style>
+  <script>
+    /* Both pages follow the system's light or dark setting (Pico does, from its stylesheet).
+       Paper is light, whatever the screen uses: pinning the theme for the print is what Pico's
+       light variables answer to. */
+    addEventListener('beforeprint', () => { document.documentElement.dataset.theme = 'light'; });
+    addEventListener('afterprint', () => { delete document.documentElement.dataset.theme; });
+  </script>
   {% block head %}{% endblock %}
 </head>
 <body>

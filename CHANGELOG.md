@@ -13,6 +13,11 @@ All notable changes are listed here. The format follows
 
 ### Changed
 
+- The tearsheet follows the system's light or dark setting, as the list of trials already did. Its
+  charts are redrawn with a dark palette on a dark system, and again if the setting changes while
+  the page is open. Both pages print in light colours whatever the screen uses.
+- The rolling IC chart of the time-series analysis picks its asset from a menu above the chart,
+  styled like the menus of the list of trials, instead of one inside the chart.
 - Condense the README, which is also the documentation home page, into one short "Main concepts"
   section. The home page now links to the documentation instead of listing the guides, and the
   README's links are web URLs that also work on PyPI.

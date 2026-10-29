@@ -70,13 +70,18 @@ themselves, so templates use semantic HTML (`article`, `details`, `nav`, `table`
 only where Pico has nothing to say, such as a dense numeric table. Put new rules in
 `alphatonic.css`; never edit the vendored file. The accent colour, royal blue (`#4169e1`), is set
 there by overriding Pico's `--pico-primary` variables, with a lighter tint for dark mode. The
-charts' colours are in `report/figures.py`.
+charts' colours are in `report/figures.py`, each with a dark counterpart in `DARK`: the page
+redraws its charts with those on a dark system, and `tests/test_report.py` fails when a figure uses
+a colour that has none. Check a new series colour for contrast with the dark card colour
+(`#181c25`) and for separation from the other series under colour-vision deficiency, as the
+existing ones were.
 
 `report/static/pico.classless.min.css` is Pico 2.1.1 from the npm package `@picocss/pico`, with its
 licence beside it as `pico.LICENSE.md`. To update it, download the package tarball from the npm
 registry, check it against the registry's `integrity` hash, copy the same file and the licence,
 change the version in `report/page.py` and `tests/test_report.py`, and look at both pages in a
-browser. Check the study board in light and dark mode; the tearsheet uses a light theme.
+browser. Check both pages in light and dark mode, and print each once with a dark system: paper
+is meant to come out light.
 
 ## The reference implementation
 

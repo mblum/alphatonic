@@ -18,6 +18,7 @@ try:
 
     from alphatonic.report.figures import (
         coverage_figures,
+        dark_theme,
         horizon_label,
         method_figures,
         quantile_figure,
@@ -527,6 +528,7 @@ def render_tearsheet(
                 name: html(fig, name) for name, fig in coverage_figures(periods, bar).items()
             },
             plotly_js=get_plotlyjs(),
+            chart_theme=dark_theme(),
             cs_quantiles=buckets(evaluation.quantiles, "cs-quantiles", time_series=False)
             if cs_available
             else None,

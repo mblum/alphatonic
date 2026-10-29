@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from alphatonic.report.figures import COLORS, SCALE, style, values
+from alphatonic.report.figures import COLORS, CONTEXT, REFERENCE, SCALE, ZERO, style, values
 from alphatonic.time_series import TimeSeriesEvaluation
 
 
@@ -25,7 +25,7 @@ def confidence_plot(frame: pd.DataFrame, labels: list[str], column: str) -> go.F
             y=ys,
             mode="lines",
             name="95% confidence interval",
-            line=dict(color="#a8b7c5", width=3),
+            line=dict(color=CONTEXT, width=3),
             connectgaps=False,
         )
     )
@@ -39,7 +39,7 @@ def confidence_plot(frame: pd.DataFrame, labels: list[str], column: str) -> go.F
             hovertemplate="%{y}<br>Spearman IC: %{x:.3f}<extra></extra>",
         )
     )
-    fig.add_vline(x=0, line_dash="dot", line_color="#94a3b8")
+    fig.add_vline(x=0, line_dash="dot", line_color=REFERENCE)
     fig.update_xaxes(title="Spearman IC", range=[-1.05, 1.05])
     fig.update_yaxes(type="category", autorange="reversed")
     return _style(fig, max(350, 25 * len(frame) + 160))
@@ -120,25 +120,8 @@ def horizon_figures(result: TimeSeriesEvaluation) -> list[dict]:
                     ),
                 )
             )
-        traces = cast(tuple[go.Scatter, ...], chart.data)
-        chart.update_layout(
-            updatemenus=[
-                dict(
-                    buttons=[
-                        dict(
-                            label=trace.name,
-                            method="update",
-                            args=[{"visible": [j == i for j in range(len(traces))]}],
-                        )
-                        for i, trace in enumerate(traces)
-                    ],
-                    x=0,
-                    y=1.2,
-                )
-            ],
-            showlegend=False,
-        )
-        chart.add_hline(y=0, line_dash="dot")
+        chart.update_layout(showlegend=False)
+        chart.add_hline(y=0, line_dash="dot", line_color=ZERO)
         chart.update_yaxes(title="Spearman IC", range=[-1.05, 1.05])
         chart.update_xaxes(title="Evaluation window end (UTC, exclusive)")
         horizons.append(
@@ -146,6 +129,10 @@ def horizon_figures(result: TimeSeriesEvaluation) -> list[dict]:
                 "horizon": int(cast(int, horizon)),
                 "assets": group,
                 "monthly": monthly,
+                # The page shows one of these traces at a time, chosen in a menu above the chart.
+                "rolling_assets": [
+                    str(trace.name) for trace in cast(tuple[go.Scatter, ...], chart.data)
+                ],
                 "figures": {
                     "assets": confidence_plot(group, group.asset.astype(str).tolist(), "ic"),
                     "monthly": heatmap(monthly, "month", "asset", "ic", "n_pairs"),
