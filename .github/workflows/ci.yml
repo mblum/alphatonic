@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, "release-*"]  # a release is tagged on its branch, so test the branch itself
   pull_request:
 
 permissions:

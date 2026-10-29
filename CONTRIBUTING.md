@@ -149,10 +149,11 @@ it.
    (or `uv version --bump minor`), which updates `pyproject.toml` and `uv.lock`. In
    `CHANGELOG.md`, rename `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD` and add an empty
    `[Unreleased]` above it. Commit this as "Release X.Y.Z", push the branch and open a pull
-   request into `master` so that CI runs. Commit anything that needs fixing to this branch.
-   CI tests the pull request merged into `master`, so if `master` has moved it also tests what
-   landed there.
-2. When CI is green, tag the last commit of the branch. Do not push the tag yet:
+   request into `master`. Commit anything that needs fixing to this branch.
+   CI runs on every push to a `release-*` branch, so it tests the last commit exactly as it will
+   be tagged. It also runs on the pull request, merged into `master`, which shows what the merge
+   will do; GitHub skips that run while the pull request has a merge conflict.
+2. When CI on the branch is green, tag its last commit. Do not push the tag yet:
 
     ```sh
     git switch release-X.Y.Z
