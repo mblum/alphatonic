@@ -133,8 +133,39 @@ supported version has. CI (`.github/workflows/ci.yml`) runs all of these.
   the change does for users (for example "Add TimeSeriesOptions.for_bars for windows that fit
   the bar length").
 - The default branch is `master`. Work on a branch and open a pull request.
-- A release is a tag `X.Y.Z` (no `v`) on `master`; pushing it publishes the documentation and
-  uploads the package to PyPI (see "Releasing" in `CONTRIBUTING.md`). Don't create or push a tag
-  unless asked.
+- A release is a tag `X.Y.Z` (no `v`) on the last commit of a release branch that is merged into
+  `master`; pushing it publishes the documentation and uploads the package to PyPI (see
+  "Releasing" in `CONTRIBUTING.md`). Don't create or push a tag unless asked.
 - Keep each change to what the task needs. Don't reformat or refactor unrelated code in the
   same change.
+
+## Preparing a release
+
+When asked to prepare a release, do step 1 of "Releasing" in `CONTRIBUTING.md` and stop at the
+pull request. The release is the branch as it is when tagged, so the branch holds the version
+bump and changelog and nothing else.
+
+1. Take the version from the request. If there is none, read `[Unreleased]` in `CHANGELOG.md`,
+   suggest one (new features or changed behaviour are a minor bump, fixes alone a patch) and ask.
+   If `[Unreleased]` is empty, there is nothing to release: say so and stop.
+2. Branch `release-X.Y.Z` from the latest `master` (`git fetch origin master`, then
+   `git switch -c release-X.Y.Z origin/master`). If the task assigns a branch name, use that
+   one; the steps are the same.
+3. Run `uv version X.Y.Z`, which updates `pyproject.toml` and `uv.lock`. In `CHANGELOG.md`, rename
+   `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD` with today's date (`date +%F`) and add an empty
+   `[Unreleased]` above it. Don't add features, fixes or edits to other files. If you find
+   something that needs fixing before the release, say so, and commit the fix to the branch only
+   if asked.
+4. Run everything in "Commands" that CI runs: `pytest`, `ruff check .`, `ruff format --check .`,
+   `pyright`, the docs build, and `uv build && uvx twine check dist/*`. If one fails, fix the
+   cause only when it is in the release commit itself; otherwise report it.
+5. Commit with the message "Release X.Y.Z", push the branch and open a pull request into
+   `master`. In the description, list the changelog entries and the checks you ran, and say what
+   remains: once CI is green, tag the last commit of the branch locally, merge the branch into
+   `master` with a merge commit, and push the tag after CI on `master` is green.
+
+Don't merge the pull request, create a tag or push a tag unless asked. If you are asked to finish
+the release, follow steps 2 to 5 of "Releasing" in the order given: tag the branch, merge with a
+merge commit (never squash or rebase, which would leave the tag outside `master`), then push the
+tag. Never merge `master` into a release branch, because that puts unreleased work into the
+release.
