@@ -6,6 +6,11 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Compare alphatonic's signal evaluation with Alphalens, Alphalens Reloaded, Qlib and Spectre in
+  the README.
+
 ## [0.1.1] - 2026-10-29
 
 ### Added
