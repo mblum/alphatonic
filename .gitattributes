@@ -5,7 +5,12 @@
 # The documentation site, including its example script.
 docs/** linguist-documentation
 
-# Pico CSS and its licence, copied from the npm package. `alphatonic.css` beside them is ours and
-# stays counted, which is why this lists the two files and not the folder.
+# Pico CSS, d3 and Observable Plot with their licences, copied from their npm packages.
+# `alphatonic.css` and `alphatonic.js` beside them are ours and stay counted, which is why this
+# lists the files and not the folder.
 src/alphatonic/report/static/pico.classless.min.css linguist-vendored
 src/alphatonic/report/static/pico.LICENSE.md linguist-vendored
+src/alphatonic/report/static/d3.min.js linguist-vendored
+src/alphatonic/report/static/d3.LICENSE.md linguist-vendored
+src/alphatonic/report/static/plot.umd.min.js linguist-vendored
+src/alphatonic/report/static/plot.LICENSE.md linguist-vendored
