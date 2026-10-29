@@ -6,9 +6,6 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-29
+
 First public version.
-
-### Changed
-
-- Use the README as the documentation home page, publish the changelog, and keep contributor
-  and development guidance together in `CONTRIBUTING.md`.
