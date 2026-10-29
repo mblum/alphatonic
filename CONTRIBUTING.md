@@ -127,8 +127,11 @@ Zensical renders their contents directly. The `watch` setting in `zensical.toml`
 root files so changes trigger a rebuild during preview.
 
 Use absolute web URLs in the root Markdown files so their links also work on PyPI and GitHub.
-The example tests read each source file once, resolving symlinks to avoid duplicate runs. After
-changing links, build the site with `--strict` and check the rendered destinations.
+The example tests read each source file once, resolving symlinks to avoid duplicate runs.
+`tests/test_docs.py` also checks that the three site pages are still symlinks, that these files
+have no repository-relative links, and that their links to the site and to files on `master` name
+an existing page or file. It does not check external sites or `#anchors`. After changing links,
+build the site with `--strict` and check the rendered destinations.
 
 ## Releasing
 

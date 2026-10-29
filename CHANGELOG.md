@@ -13,7 +13,9 @@ All notable changes are listed here. The format follows
 
 ### Changed
 
-- Condense the README's main concepts and use web links that also work on PyPI.
+- Condense the README, which is also the documentation home page, into one short "Main concepts"
+  section. The home page now links to the documentation instead of listing the guides, and the
+  README's links are web URLs that also work on PyPI.
 
 ## [0.1.1] - 2026-10-29
 
