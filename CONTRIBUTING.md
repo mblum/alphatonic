@@ -133,32 +133,56 @@ when running `zensical serve`.
 
 ## Releasing
 
-A release is a tag `X.Y.Z` on `master`, without a `v` prefix, equal to the version in
-`pyproject.toml`. Pushing the tag runs `.github/workflows/release.yml`, which builds the
-documentation from the tag and publishes it to GitHub Pages at
-<https://mblum.github.io/alphatonic/>, and builds the distributions from the tag and uploads them
-to [PyPI](https://pypi.org/project/alphatonic/). The workflow stops before it publishes anything if
-the tag is not on `master`, does not match the version, or has no section in `CHANGELOG.md`, or if
-the documentation does not build. Tags of any other form, such as `v1.0.0` or `1.0.0rc1`, do not
-start it.
+A release is a tag `X.Y.Z`, without a `v` prefix and equal to the version in `pyproject.toml`,
+on the last commit of a release branch that is merged into `master`. What you release is what the
+release branch holds: work that lands on `master` while you prepare it waits for the next release.
 
-1. On a branch, set the version with `uv version X.Y.Z` (or `uv version --bump minor`), which
-   updates `pyproject.toml` and `uv.lock`. In `CHANGELOG.md`, rename `[Unreleased]` to
-   `[X.Y.Z] - YYYY-MM-DD` and add an empty `[Unreleased]` above it. Open a pull request and
-   merge it once CI is green.
-2. Tag the merge commit on `master` and push the tag:
+Pushing the tag runs `.github/workflows/release.yml`, which builds the documentation from the tag
+and publishes it to GitHub Pages at <https://mblum.github.io/alphatonic/>, and builds the
+distributions from the tag and uploads them to [PyPI](https://pypi.org/project/alphatonic/). The
+workflow stops before it publishes anything if the tagged commit is not in the history of
+`master`, the tag does not match the version, `CHANGELOG.md` has no section for it, or the
+documentation does not build. Tags of any other form, such as `v1.0.0` or `1.0.0rc1`, do not start
+it.
+
+1. Branch `release-X.Y.Z` from an up-to-date `master`. Set the version with `uv version X.Y.Z`
+   (or `uv version --bump minor`), which updates `pyproject.toml` and `uv.lock`. In
+   `CHANGELOG.md`, rename `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD` and add an empty
+   `[Unreleased]` above it. Commit this as "Release X.Y.Z", push the branch and open a pull
+   request into `master` so that CI runs. Commit anything that needs fixing to this branch.
+   CI tests the pull request merged into `master`, so if `master` has moved it also tests what
+   landed there.
+2. When CI is green, tag the last commit of the branch. Do not push the tag yet:
 
     ```sh
-    git switch master && git pull --ff-only
+    git switch release-X.Y.Z
     git tag -a X.Y.Z -m "alphatonic X.Y.Z"
+    ```
+
+3. Merge the branch into `master` with a merge commit. A squash or a rebase merge would leave the
+   tagged commit outside `master`. If `master` has moved and the merge conflicts, resolve the
+   conflicts in the merge, not by merging `master` into the release branch, which would put
+   unreleased work into the tagged commit:
+   - In `CHANGELOG.md`, keep what `master` added under the new `[Unreleased]`, above `[X.Y.Z]`.
+     Git can merge this file cleanly and still put those lines in the wrong section, so check it.
+   - For `uv.lock`, run `uv lock` instead of editing it by hand.
+
+   With a conflict, merge locally: `git switch master && git pull --ff-only`, then
+   `git merge --no-ff release-X.Y.Z`. Push the result, or, if `master` is protected, merge on a
+   branch off `master` and merge that pull request with a merge commit.
+4. Once CI on `master` is green, push the tag:
+
+    ```sh
     git push origin X.Y.Z
     ```
 
-3. Check that the Release workflow succeeds. If the check or the documentation build fails,
-   nothing has been published: delete the tag (`git push --delete origin X.Y.Z`, then
-   `git tag -d X.Y.Z`), fix the cause on `master` and tag again. If the deployment or the upload
-   fails, fix the settings below and re-run the failed jobs. PyPI never accepts a version twice,
-   even after it is deleted, so once the upload has succeeded a fix needs a new version.
+5. Check that the Release workflow succeeds, then delete the release branch. If the check or the
+   documentation build fails, nothing has been published: delete the tag
+   (`git push --delete origin X.Y.Z`, then `git tag -d X.Y.Z`), fix the cause on the release
+   branch, which you keep until the release has succeeded, then tag its new last commit, merge it
+   into `master` again and push the tag. If the deployment or the upload fails, fix the settings
+   below and re-run the failed jobs. PyPI never accepts a version twice, even after it is deleted,
+   so once the upload has succeeded a fix needs a new version.
 
 GitHub Pages needs two settings, made once by a repository admin. Under **Settings → Pages**, set
 the source to **GitHub Actions**. Under **Settings → Environments → github-pages**, add a
