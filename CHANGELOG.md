@@ -6,6 +6,13 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-29
+
+### Added
+
+- alphatonic is on [PyPI](https://pypi.org/project/alphatonic/): install it with
+  `python -m pip install "alphatonic[report]"`.
+
 ## [0.1.0] - 2026-10-29
 
 First public version.

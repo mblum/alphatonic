@@ -136,9 +136,11 @@ when running `zensical serve`.
 A release is a tag `X.Y.Z` on `master`, without a `v` prefix, equal to the version in
 `pyproject.toml`. Pushing the tag runs `.github/workflows/release.yml`, which builds the
 documentation from the tag and publishes it to GitHub Pages at
-<https://mblum.github.io/alphatonic/>. The workflow stops before it publishes anything if the tag
-is not on `master`, does not match the version, or has no section in `CHANGELOG.md`. Tags of any
-other form, such as `v1.0.0` or `1.0.0rc1`, do not start it.
+<https://mblum.github.io/alphatonic/>, and builds the distributions from the tag and uploads them
+to [PyPI](https://pypi.org/project/alphatonic/). The workflow stops before it publishes anything if
+the tag is not on `master`, does not match the version, or has no section in `CHANGELOG.md`, or if
+the documentation does not build. Tags of any other form, such as `v1.0.0` or `1.0.0rc1`, do not
+start it.
 
 1. On a branch, set the version with `uv version X.Y.Z` (or `uv version --bump minor`), which
    updates `pyproject.toml` and `uv.lock`. In `CHANGELOG.md`, rename `[Unreleased]` to
@@ -152,13 +154,21 @@ other form, such as `v1.0.0` or `1.0.0rc1`, do not start it.
     git push origin X.Y.Z
     ```
 
-3. Check that the Release workflow succeeds. If the check or the build fails, delete the tag
-   (`git push --delete origin X.Y.Z`, then `git tag -d X.Y.Z`), fix the cause on `master` and
-   tag again. If only the deployment fails, fix the settings below and re-run the workflow.
-4. Build the distributions with `uv build`, check them with `uvx twine check dist/*`, and upload
-   them to PyPI (preferably with [trusted publishing](https://docs.pypi.org/trusted-publishers/)).
+3. Check that the Release workflow succeeds. If the check or the documentation build fails,
+   nothing has been published: delete the tag (`git push --delete origin X.Y.Z`, then
+   `git tag -d X.Y.Z`), fix the cause on `master` and tag again. If the deployment or the upload
+   fails, fix the settings below and re-run the failed jobs. PyPI never accepts a version twice,
+   even after it is deleted, so once the upload has succeeded a fix needs a new version.
 
 GitHub Pages needs two settings, made once by a repository admin. Under **Settings → Pages**, set
 the source to **GitHub Actions**. Under **Settings → Environments → github-pages**, add a
 deployment tag rule `[0-9]*.[0-9]*.[0-9]*`: by default the environment accepts deployments only
 from `master`, and it rejects the tag.
+
+The upload uses [trusted publishing](https://docs.pypi.org/trusted-publishers/), so the
+repository keeps no PyPI token. On PyPI, add a GitHub publisher with owner `mblum`, repository
+`alphatonic`, workflow `release.yml` and environment `pypi`. Before the first release the project
+does not exist yet, so add it as a pending publisher at
+<https://pypi.org/manage/account/publishing/>; later, a project owner manages it under the
+project's **Publishing** settings. In GitHub, under **Settings → Environments**, create the
+environment `pypi` and give it the same deployment tag rule, so that only release tags can upload.

@@ -1,7 +1,8 @@
 name: Release
 
 # A release is a tag X.Y.Z (no "v") on master, equal to the version in pyproject.toml.
-# Pushing the tag publishes the documentation, built from the tag, to GitHub Pages.
+# Pushing the tag publishes the documentation, built from the tag, to GitHub Pages, and uploads
+# the distributions, also built from the tag, to PyPI.
 on:
   push:
     tags: ["[0-9]+.[0-9]+.[0-9]+"]
@@ -55,3 +56,17 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+
+  # Nothing is uploaded unless the tag checks and the documentation build succeeded.
+  pypi:
+    needs: docs
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write  # trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv build
+      - run: uv publish
