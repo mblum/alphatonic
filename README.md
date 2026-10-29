@@ -18,6 +18,17 @@ result.summary.query("method == 'spearman'")[["horizon", "mean", "ci95_lower", "
 result.tearsheet("tearsheet.html")
 ```
 
+## Install
+
+Python 3.11 or newer. Install from [PyPI](https://pypi.org/project/alphatonic/):
+
+```sh
+python -m pip install "alphatonic[report]"
+```
+
+`alphatonic[report]` adds plotly and jinja2 for the tearsheet; evaluation itself depends only on
+NumPy, pandas and pydantic.
+
 ## What it measures
 
 An **information coefficient (IC)** measures the association between a score and a future return. A
@@ -37,17 +48,6 @@ are never filled. Results can be saved, reloaded and used to rebuild reports.
 
 For repeated experiments, a `Study` saves each completed trial, counts variants of the same idea and
 keeps in-sample return labels out of a holdout period. Browse its results with `alphatonic serve`.
-
-## Install
-
-Python 3.11 or newer. Install from [PyPI](https://pypi.org/project/alphatonic/):
-
-```sh
-python -m pip install "alphatonic[report]"
-```
-
-`alphatonic[report]` adds plotly and jinja2 for the tearsheet; evaluation itself depends only on
-NumPy, pandas and pydantic.
 
 ## Inputs
 
