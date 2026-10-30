@@ -72,7 +72,7 @@ body > footer { color: var(--pico-muted-color); font-size: .8rem; overflow-wrap:
 body > footer p { margin-bottom: .25rem; color: inherit; }
 .site-nav { position: sticky; top: 0; z-index: 5; background: var(--pico-background-color); border-bottom: 1px solid var(--pico-muted-border-color); padding-inline: max(1.5rem, calc((100% - 1280px) / 2 + 1.5rem)); }
 .site-nav ul { overflow-x: auto; scrollbar-width: none; }
-.site-nav li { padding-block: .65rem; white-space: nowrap; }
+.site-nav li { padding-block: calc(.65rem + 8px); white-space: nowrap; }
 .site-nav .brand { font-weight: 700; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
 .site-nav a { font-size: .9rem; }
 .site-nav a[aria-current] { color: var(--pico-color); background: var(--at-wash); }
