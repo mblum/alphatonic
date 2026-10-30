@@ -24,7 +24,7 @@ progress utilities live in the submodules shown below.
 
 ::: alphatonic.Study
     options:
-      members: [window, evaluate, trials, unreadable, trial, evaluation, board, to_dict]
+      members: [window, evaluate, trials, unreadable, trial, evaluation, render_tearsheet, board, to_dict]
 
 ::: alphatonic.Trial
 

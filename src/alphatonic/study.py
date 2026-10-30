@@ -9,11 +9,13 @@ in-sample evaluations and counts each look at it.
 Each trial is a directory `<study>/<id>/`:
 
     record.json      what was evaluated, on which window and sample, and the flat metrics
-    tearsheet.html   the tearsheet
     tables/          the tables, reloadable with `Evaluation.load`
+    tearsheet.html   the tearsheet, only if the evaluation was asked to write it
 
 `record.json` is written last, so a directory without one is an evaluation that did not finish,
-and the study ignores it.
+and the study ignores it. A tearsheet can be as large as the compressed tables, so by default none
+is stored: [`Study.render_tearsheet`][alphatonic.Study.render_tearsheet] and the server draw it
+from the tables when it is asked for.
 """
 
 from __future__ import annotations
@@ -35,6 +37,7 @@ from alphatonic.evaluation import Evaluation, evaluate
 from alphatonic.export import FORMAT_VERSION as JSON_FORMAT_VERSION
 from alphatonic.export import jsonable
 from alphatonic.inputs import utc_index
+from alphatonic.persistence import METADATA
 from alphatonic.progress import ProgressFactory, silent
 
 RECORD: Final = "record.json"
@@ -279,7 +282,7 @@ class Study:
         context: dict[str, str] | None = None,
         versions: dict[str, str | None] | None = None,
         note: str | None = None,
-        report: bool = True,
+        report: bool = False,
         progress: ProgressFactory = silent,
         **options: Any,
     ) -> Trial:
@@ -303,7 +306,10 @@ class Study:
                 Keys must differ from the columns of [`board`][alphatonic.Study.board].
             versions: Versions to record next to alphatonic's, such as your code's commit.
             note: A note stored with the trial.
-            report: Write the tearsheet. Needs `alphatonic[report]`.
+            report: Also write the tearsheet into the trial's directory. By default it is not
+                stored, because it can be as large as the compressed tables; draw it from them with
+                [`render_tearsheet`][alphatonic.Study.render_tearsheet] or the server. Needs
+                `alphatonic[report]`.
             progress: A progress display; see `alphatonic.progress`.
             **options: Fields of `EvaluationConfig`, instead of `config`.
 
@@ -396,6 +402,32 @@ class Study:
         self.trial(identifier)
         return Evaluation.load(self.directory / identifier / TABLES)
 
+    def render_tearsheet(self, identifier: str) -> str:
+        """Return the tearsheet of one finished trial as a page of HTML, drawn from its tables.
+
+        The page is the one `evaluate(report=True)` writes: the study's name, the trial's context
+        and note, and its place in its family's count ("2 of momentum, this one included").
+        Nothing is recomputed. Needs `alphatonic[report]`.
+
+        Raises:
+            UnknownTrialError: If the identifier is malformed or no finished trial has it.
+            FileNotFoundError: If the trial has no saved tables.
+        """
+        trial = self.trial(identifier)
+        if not self._has_tables(identifier):
+            raise FileNotFoundError(f"trial {identifier!r} has no saved tables to draw from")
+        # Trials are never deleted, so those of the family created up to this one are the trials
+        # that were counted when it ran.
+        count = sum(
+            item.family == trial.family
+            and (item.created_at, item.id) <= (trial.created_at, trial.id)
+            for item in self.trials()
+        )
+        return self.evaluation(identifier).render_tearsheet(**self._tearsheet(trial, count))
+
+    def _has_tables(self, identifier: str) -> bool:
+        return (self.directory / identifier / TABLES / METADATA).is_file()
+
     def board(
         self,
         horizon: int | None = None,
@@ -472,7 +504,9 @@ class Study:
         rows = []
         for identifier, row in board.iterrows():
             trial = records[str(identifier)]
-            tearsheet = self.directory / trial.id / TEARSHEET
+            # A tearsheet that was not stored is drawn from the tables when the server is asked.
+            stored = (self.directory / trial.id / TEARSHEET).is_file()
+            tearsheet = stored or self._has_tables(trial.id)
             rows.append(
                 {
                     "id": trial.id,
@@ -495,7 +529,7 @@ class Study:
                     "context": trial.context,
                     "files": {
                         "record": f"{trial.id}/{RECORD}",
-                        "tearsheet": f"{trial.id}/{TEARSHEET}" if tearsheet.is_file() else None,
+                        "tearsheet": f"{trial.id}/{TEARSHEET}" if tearsheet else None,
                     },
                 }
             )

@@ -4,8 +4,10 @@ The server uses only the standard library and renders the list with `alphatonic[
 reads the records on every request, so a trial saved while it runs appears on the next reload. It
 serves the list at `/`, the same list as JSON ([`Study.to_dict`][alphatonic.Study.to_dict]) at
 `/study.json`, and, for each finished trial, `/<id>/tearsheet.html` and `/<id>/record.json`;
-every other path is not found. It binds to the local machine by default and is meant for one
-researcher, not for the open internet.
+every other path is not found. A tearsheet that the study did not store is drawn from the trial's
+tables when it is asked for, which takes a few seconds; the server keeps the last few pages it drew.
+It binds to the local machine by default and is meant for one researcher, not for the open
+internet.
 """
 
 from __future__ import annotations
@@ -13,7 +15,7 @@ from __future__ import annotations
 import contextlib
 import json
 from dataclasses import dataclass
-from functools import partial
+from functools import lru_cache, partial
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -87,6 +89,12 @@ def respond(study: Study, target: str) -> Response:
         file = study.directory / identifier / name
         if file.is_file():
             return Response(HTTPStatus.OK, _FILES[name], file.read_bytes())
+        if name == TEARSHEET:
+            try:
+                page = _drawn_tearsheet(study, identifier)
+            except FileNotFoundError as error:
+                return _not_found(f"{error}\n")
+            return Response(HTTPStatus.OK, _FILES[name], page)
     return _not_found()
 
 
@@ -107,8 +115,14 @@ def serve(study: Study, host: str = "127.0.0.1", port: int = 8000) -> None:
         server.serve_forever()
 
 
-def _not_found() -> Response:
-    return Response(HTTPStatus.NOT_FOUND, "text/plain; charset=utf-8", b"Not found\n")
+@lru_cache(maxsize=4)
+def _drawn_tearsheet(study: Study, identifier: str) -> bytes:
+    """Draw a trial's tearsheet from its tables; a trial never changes, so the page is reusable."""
+    return study.render_tearsheet(identifier).encode("utf-8")
+
+
+def _not_found(message: str = "Not found\n") -> Response:
+    return Response(HTTPStatus.NOT_FOUND, "text/plain; charset=utf-8", message.encode())
 
 
 class _Handler(BaseHTTPRequestHandler):

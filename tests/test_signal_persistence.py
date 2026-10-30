@@ -167,7 +167,7 @@ def test_saved_tables_report_and_legacy_compatibility(tmp_path):
     assert "Normalised change" in html
     result.persistence = None
     result.save(tmp_path)
-    assert not list(tmp_path.glob("persistence_*.csv"))
+    assert not list(tmp_path.glob("persistence_*.csv*"))
     legacy = Evaluation.load(tmp_path)
     assert legacy.persistence is None
     assert "This saved evaluation has no signal persistence tables." in legacy.render_tearsheet()
@@ -181,7 +181,7 @@ def test_real_legacy_formats_have_no_persistence(tmp_path, version):
     scores = pd.DataFrame({"a": np.arange(6.0)}, index=index)
     result = evaluate(scores, scores + 100, time_series={"bootstrap_samples": 0})
     result.save(tmp_path)
-    for path in tmp_path.glob("persistence_*.csv"):
+    for path in tmp_path.glob("persistence_*.csv*"):
         path.unlink()
     metadata_path = tmp_path / "evaluation.json"
     metadata = json.loads(metadata_path.read_text())

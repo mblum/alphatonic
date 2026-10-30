@@ -167,10 +167,11 @@ class Evaluation:
         }
 
     def save(self, directory: str | Path) -> Path:
-        """Write the tables as CSV files and the configuration as JSON.
+        """Write the tables as gzip-compressed CSV files and the configuration as JSON.
 
-        Forward returns are not saved; they follow from the prices and the configuration.
-        Existing files of the same names are replaced.
+        Each table is a `.csv.gz` file that `pandas.read_csv` reads as it is. Forward returns are
+        not saved; they follow from the prices and the configuration. Existing files of the same
+        tables are replaced, including the plain `.csv` files that earlier versions wrote.
 
         Returns:
             The directory.

@@ -4,8 +4,9 @@ Use a `Study` to keep related experiments in one directory. It saves each comple
 variants of the same idea and reports cross-sectional p-values adjusted for that count. You can also
 reserve a holdout period and track how often you evaluate it.
 
-Install the `report` extra for the examples below. Pass `report=False` to `study.evaluate` if you
-only need tables and records.
+Evaluating needs no extra. Browsing the trials and drawing their tearsheets needs the `report`
+extra. A study stores tables and records; it draws a tearsheet from the tables when you ask for one,
+and stores it only if you pass `report=True` to `study.evaluate`.
 
 ## Run evaluations through a study
 
@@ -33,8 +34,8 @@ for window in (1, 5, 20):
     )
 ```
 
-Each successful call saves a trial: its tables, its tearsheet, and a `record.json` written last.
-Failed or interrupted calls without a record are not counted. An in-sample evaluation ends at
+Each successful call saves a trial: its tables and a `record.json` written last. Failed or
+interrupted calls without a record are not counted. An in-sample evaluation ends at
 `holdout_start`, so no label reads a price from the holdout. When the prices end earlier, the window
 ends with them and the record says so.
 
@@ -129,7 +130,9 @@ groups the cross-sectional statistics, the multiple-testing columns (the family'
 trials` and the sample, with repeated looks at the holdout flagged), the time-series statistics and
 the data. Sort it by any column, switch the horizon, filter by signal, and open each trial's
 tearsheet from its name. It reads the records on every request, so a trial saved while it runs
-appears on the next reload:
+appears on the next reload. A tearsheet that was not stored is drawn from the trial's tables when
+you open it, which takes a few seconds; the server keeps the last few pages it drew. Pass `--name`
+to show the study's name in those tearsheets, because the server knows only what you give it:
 
 ```bash
 alphatonic serve smoothing-study    # http://127.0.0.1:8000
@@ -153,8 +156,13 @@ serves nothing but the list and the trials' tearsheets and records.
 ```python
 latest = study.trials()[0]
 tables = study.evaluation(latest.id)
+page = study.render_tearsheet(latest.id)
 print(latest.signal, latest.sample, round(tables.metrics()["cs.h5.spearman.mean"], 4))
 ```
+
+`study.render_tearsheet(latest.id)` returns the trial's tearsheet as HTML, drawn from its tables
+with the study's name, the trial's context and its place in its family's count. It needs
+`alphatonic[report]`.
 
 `study.trials()` returns completed trials newest first. It skips directories without a
 `record.json`: evaluations that did not finish. Records that exist but cannot be read are listed by
