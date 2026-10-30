@@ -13,6 +13,8 @@ All notable changes are listed here. The format follows
 - `Study.render_tearsheet(id)` returns the tearsheet of a finished trial as HTML, drawn from its
   saved tables: the same page `Study.evaluate(report=True)` writes, with the study's name, the
   trial's context and its place in its family's count.
+- The tearsheet served by `alphatonic serve` has a Download button that saves the page to disk,
+  and the list of trials shows a message while a tearsheet that was not stored is being drawn.
 
 ### Changed
 

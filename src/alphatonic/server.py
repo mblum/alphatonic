@@ -4,8 +4,10 @@ The server uses only the standard library and renders the list with `alphatonic[
 reads the records on every request, so a trial saved while it runs appears on the next reload. It
 serves the list at `/`, the same list as JSON ([`Study.to_dict`][alphatonic.Study.to_dict]) at
 `/study.json`, and, for each finished trial, `/<id>/tearsheet.html` and `/<id>/record.json`;
-every other path is not found. A tearsheet that the study did not store is drawn from the trial's
-tables when it is asked for, which takes a few seconds; the server keeps the last few pages it drew.
+every other path is not found. A request for a trial's file with `?download` in the query makes the
+browser save it as `<id>-<name>` instead of showing it. A tearsheet that the study did not store is
+drawn from the trial's tables when it is asked for, which takes a few seconds; the server keeps the
+last few pages it drew.
 It binds to the local machine by default and is meant for one researcher, not for the open
 internet.
 """
@@ -40,6 +42,9 @@ class Response:
     body: bytes
     """The body."""
 
+    filename: str | None = None
+    """Name under which the browser should save the body, or `None` to show it."""
+
 
 def respond(study: Study, target: str) -> Response:
     """Answer a GET request for `target`, a path with an optional query string.
@@ -50,7 +55,8 @@ def respond(study: Study, target: str) -> Response:
 
     Returns:
         The list for `/`, the list as JSON for `/study.json` (400 for an unknown `sort`), a
-        finished trial's tearsheet or record, or 404 for anything else.
+        finished trial's tearsheet or record (an attachment if the query has `download`), or 404
+        for anything else.
     """
     url = urlsplit(target)
     path = unquote(url.path)
@@ -86,15 +92,20 @@ def respond(study: Study, target: str) -> Response:
             study.trial(identifier)
         except (UnknownTrialError, ValueError):
             return _not_found()
+        saved_as = (
+            f"{identifier}-{name}"
+            if "download" in parse_qs(url.query, keep_blank_values=True)
+            else None
+        )
         file = study.directory / identifier / name
         if file.is_file():
-            return Response(HTTPStatus.OK, _FILES[name], file.read_bytes())
+            return Response(HTTPStatus.OK, _FILES[name], file.read_bytes(), saved_as)
         if name == TEARSHEET:
             try:
                 page = _drawn_tearsheet(study, identifier)
             except FileNotFoundError as error:
                 return _not_found(f"{error}\n")
-            return Response(HTTPStatus.OK, _FILES[name], page)
+            return Response(HTTPStatus.OK, _FILES[name], page, saved_as)
     return _not_found()
 
 
@@ -151,6 +162,8 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_response(response.status)
         self.send_header("Content-Type", response.content_type)
         self.send_header("Content-Length", str(len(response.body)))
+        if response.filename:
+            self.send_header("Content-Disposition", f'attachment; filename="{response.filename}"')
         self.end_headers()
         if body:
             self.wfile.write(response.body)
