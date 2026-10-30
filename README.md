@@ -14,6 +14,13 @@ HTML report offline.
 <!-- Screenshot slot: add a readable tearsheet crop using synthetic data, descriptive alt text
 and a caption. Link it to the documentation guide to reading a tearsheet. -->
 
+**Keep track of your research.** Browse completed trials, compare results and open their tearsheets
+from a local study server with `alphatonic serve`. See
+[Keep every trial in a study](https://mblum.github.io/alphatonic/how-to/run-a-study/).
+
+<!-- Screenshot slot: add a smaller study-list screenshot below the tearsheet, using synthetic
+trials and descriptive alt text. Link it to the study guide above. -->
+
 ## Try it
 
 Python 3.11 or newer. Install from [PyPI](https://pypi.org/project/alphatonic/):
