@@ -16,10 +16,10 @@ DOCS = ROOT / "docs"
 PAGES = sorted({p.resolve() for p in [*ROOT.glob("*.md"), *DOCS.rglob("*.md")]})
 # Pages of the site that are symlinks to root files, which GitHub and PyPI also show.
 SHARED_PAGES = {
-    "docs/index.md": "README.md",
     "docs/changelog.md": "CHANGELOG.md",
     "docs/contributing/development.md": "CONTRIBUTING.md",
 }
+ROOT_PAGES = ["README.md", *SHARED_PAGES.values()]
 SITE = "https://mblum.github.io/alphatonic/"
 SOURCES = "https://github.com/mblum/alphatonic/blob/master/"
 
@@ -100,7 +100,7 @@ def test_link_targets_finds_every_link_form_outside_code():
     assert link_targets(text) == ["docs/a.md", "docs/b.md", "docs/c.md", "docs/d.md"]
 
 
-@pytest.mark.parametrize("source", SHARED_PAGES.values())
+@pytest.mark.parametrize("source", ROOT_PAGES)
 def test_root_page_links_work_outside_the_repository(source):
     """Shared pages must not rely on repository-relative link resolution."""
     for target in link_targets((ROOT / source).read_text(encoding="utf-8")):
@@ -108,7 +108,7 @@ def test_root_page_links_work_outside_the_repository(source):
         assert url.scheme or url.netloc or not url.path, target
 
 
-@pytest.mark.parametrize("source", SHARED_PAGES.values())
+@pytest.mark.parametrize("source", ROOT_PAGES)
 def test_root_page_links_into_the_project_name_existing_files(source):
     """Absolute links to the site and the sources must not outlive the page or file they name."""
     for target in link_targets((ROOT / source).read_text(encoding="utf-8")):
@@ -121,3 +121,9 @@ def test_root_page_links_into_the_project_name_existing_files(source):
         else:
             continue
         assert any(candidate.is_file() for candidate in candidates), target
+
+
+def test_documentation_home_is_independent():
+    home = DOCS / "index.md"
+    assert not home.is_symlink()
+    assert home.read_text() != (ROOT / "README.md").read_text()

@@ -139,14 +139,15 @@ not prove that the surrounding explanation is correct.
 
 ### Shared pages
 
-Edit `README.md` for the site home page, `CHANGELOG.md` for the changelog, and this file for
-contributor guidance. The matching pages under `docs/` are symlinks to these root files, so
+Edit `README.md` for the GitHub and PyPI introduction and `docs/index.md` for the documentation
+home page. These are independent pages. Edit `CHANGELOG.md` for the changelog and this file for
+contributor guidance. The latter two pages under `docs/` are symlinks to their root files, so
 Zensical renders their contents directly. The `watch` setting in `zensical.toml` includes the
 root files so changes trigger a rebuild during preview.
 
 Use absolute web URLs in the root Markdown files so their links also work on PyPI and GitHub.
 The example tests read each source file once, resolving symlinks to avoid duplicate runs.
-`tests/test_docs.py` also checks that the three site pages are still symlinks, that these files
+`tests/test_docs.py` also checks that the two shared site pages are still symlinks, that these files
 have no repository-relative links, and that their links to the site and to files on `master` name
 an existing page or file. It does not check external sites or `#anchors`. After changing links,
 build the site with `--strict` and check the rendered destinations.

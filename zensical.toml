@@ -8,7 +8,7 @@ repo_name = "mblum/alphatonic"
 edit_uri = "edit/master/docs/"
 site_url = "https://mblum.github.io/alphatonic/"
 # The shared pages in docs/ are symlinks to these root files.
-watch = ["README.md", "CHANGELOG.md", "CONTRIBUTING.md"]
+watch = ["CHANGELOG.md", "CONTRIBUTING.md"]
 
 nav = [
   { "Home" = "index.md" },
@@ -33,6 +33,7 @@ nav = [
   ] },
   { "Explanation" = [
     { "Evaluation methodology" = "explanation/methodology.md" },
+    { "Scope and alternatives" = "explanation/scope.md" },
     { "Signal persistence" = "explanation/signal-persistence.md" },
     { "Report design" = "explanation/report-design.md" },
     { "Design decisions" = "explanation/design.md" },
