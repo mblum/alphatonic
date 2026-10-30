@@ -42,6 +42,7 @@
     <li><a href="#time-series">Time series</a></li>
     <li><a href="#signal-persistence">Persistence</a></li>
     <li><a href="#methods">Methods</a></li>
+    <li><a href="?download" role="button" class="outline secondary" id="download" hidden>Download</a></li>
   </ul>
 </nav>
 <header id="top">
@@ -357,6 +358,8 @@
 <script type="application/json" id="chart-data">{{ charts | tojson }}</script>
 <script>{{ chart_script | safe }}</script>
 <script>
+  // Only a page served by `alphatonic serve` can be saved this way; a saved copy is the file itself.
+  if (location.protocol.startsWith('http')) document.getElementById('download').hidden = false;
   const disclosures = [...document.querySelectorAll('details')];
   const panels = [...document.querySelectorAll('[role=tabpanel]')];
   function selectTab(tab, focus) {

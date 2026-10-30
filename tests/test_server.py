@@ -299,3 +299,49 @@ def test_statistics_keep_their_decimals_however_small(study):
 
     assert ">0.0000<" in page and "e-0" not in page
     assert "&lt; 0.001" in page
+
+
+def test_a_download_request_names_the_file_after_its_trial(study):
+    shown = respond(study, "/bollinger-run/tearsheet.html")
+    saved = respond(study, "/bollinger-run/tearsheet.html?download")
+    record = respond(study, "/bollinger-run/record.json?download")
+
+    assert shown.filename is None
+    assert saved.filename == "bollinger-run-tearsheet.html" and saved.body == shown.body
+    assert record.filename == "bollinger-run-record.json"
+
+
+def test_a_drawn_tearsheet_can_be_downloaded(evaluated):
+    study, _, second = evaluated
+
+    response = respond(study, f"/{second.id}/tearsheet.html?download")
+
+    assert response.filename == f"{second.id}-tearsheet.html"
+    assert b"<dt>Study</dt>" in response.body
+
+
+def test_the_server_sends_a_download_as_an_attachment(study):
+    import threading
+    from urllib.request import urlopen
+
+    server = make_server(study, port=0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/bollinger-run/tearsheet.html"
+        with urlopen(url + "?download") as saved, urlopen(url) as shown:
+            disposition = saved.headers["Content-Disposition"]
+            plain = shown.headers["Content-Disposition"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+    assert disposition == 'attachment; filename="bollinger-run-tearsheet.html"'
+    assert plain is None
+
+
+def test_the_list_says_when_a_tearsheet_is_being_drawn(study):
+    page = _page(study)
+
+    assert 'id="loading"' in page and "Drawing the tearsheet" in page

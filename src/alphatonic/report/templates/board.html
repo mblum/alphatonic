@@ -32,6 +32,7 @@
   {% endif %}
 </header>
 <main>
+  <p class="loading" id="loading" role="status" aria-busy="true" hidden>Drawing the tearsheet from its saved tables, which takes a few seconds…</p>
   {% if data.unreadable %}
   <p class="notice">{{ data.unreadable | length }} record{{ '' if data.unreadable | length == 1 else 's' }} could not be read: {{ data.unreadable | join(', ') }}</p>
   {% endif %}
@@ -110,4 +111,17 @@
     </div>
   </details>
 </main>
+<script>
+  // A tearsheet that was not stored is drawn when it is asked for. Say so, if the wait is noticeable.
+  const loading = document.getElementById('loading');
+  let waiting;
+  document.querySelectorAll('a[href$="tearsheet.html"]').forEach(link => {
+    link.addEventListener('click', event => {
+      if (event.defaultPrevented || event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      waiting = setTimeout(() => { loading.hidden = false; }, 300);
+    });
+  });
+  // Coming back to the list from the browser's cache must not show the message again.
+  addEventListener('pageshow', () => { clearTimeout(waiting); loading.hidden = true; });
+</script>
 {% endblock %}
