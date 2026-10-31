@@ -33,6 +33,14 @@
   --at-down: #a2501c;
   --at-warn-background: #fff4e8;
   --at-cell: .45rem .75rem;
+  /* Page frame. The bar, the header, the main part and the footer share one width, one gutter and
+     one place for the vertical rhythm, so that their edges line up at any window width. */
+  --at-page-width: 1280px;
+  --at-gutter: 1.5rem;
+  --at-edge: max(var(--at-gutter), calc((100% - var(--at-page-width)) / 2 + var(--at-gutter)));
+  --at-nav-height: 3.5rem;
+  --at-block-gap: 1rem;
+  --at-section-gap: 3rem;
   /* Chart palette. Series take --at-c1 to --at-c8 in order and are never cycled; the first three
      are royal blue (the accent), orange and aqua. The set passes the lightness, chroma,
      colour-vision-deficiency and contrast checks against the card colour of each theme; yellow and
@@ -53,7 +61,9 @@
     --at-low: #d4694a; --at-mid: #2f343f;
   }
 }
-html { background-color: var(--at-wash); scroll-behavior: smooth; scroll-padding-top: 4.5rem; }
+/* Reserve the scrollbar's width, so a page too short to scroll (the drawing page) centres its column
+   exactly where a long one does. */
+html { scrollbar-gutter: stable; background-color: var(--at-wash); scroll-behavior: smooth; scroll-padding-top: calc(var(--at-nav-height) + 1rem); }
 h1 { --pico-font-size: 2rem; }
 h2 { --pico-font-size: 1.45rem; }
 h3 { --pico-font-size: 1.1rem; }
@@ -64,16 +74,21 @@ small, .muted { color: var(--pico-muted-color); }
 .skip-link { position: absolute; left: 1rem; top: -100px; z-index: 10; padding: .5rem 1rem; background: var(--pico-background-color); }
 .skip-link:focus { top: .5rem; }
 
-/* Page frame: a sticky bar of section links over a wide column. */
-body > header, body > main, body > footer { max-width: 1280px; padding-inline: 1.5rem; }
+/* Page frame: a sticky bar over a header, a main part and a footer, all children of the body.
+   Pico gives these a width of its own at each breakpoint; one rule replaces that. Each child spans
+   the window, and its horizontal padding (--at-edge) centres the content in a column of
+   --at-page-width. Only the vertical padding differs: the header opens the page, the footer ends it. */
+body > nav, body > header, body > main, body > footer { width: 100%; max-width: none; margin: 0; padding-inline: var(--at-edge); }
+body > header, body > main, body > footer { padding-block: var(--at-block-gap); }
 body > header { padding-top: 2rem; }
 body > footer { color: var(--pico-muted-color); font-size: .8rem; overflow-wrap: anywhere; }
 body > footer p { margin-bottom: .25rem; color: inherit; }
-.site-nav { position: sticky; top: 0; z-index: 5; background: var(--pico-background-color); border-bottom: 1px solid var(--pico-muted-border-color); padding-inline: max(1.5rem, calc((100% - 1280px) / 2 + 1.5rem)); }
-.site-nav { align-items: center; }
-.site-nav .toolbar { padding-block: .5rem; }
+
+/* The bar is at least --at-nav-height tall, whatever it holds, and centres its rows vertically.
+   Its lists take no vertical padding of their own; a bar that wraps grows by the bar's padding. */
+.site-nav { position: sticky; top: 0; z-index: 5; align-items: center; gap: .5rem 1.5rem; min-height: var(--at-nav-height); padding-block: .5rem; background: var(--pico-background-color); border-bottom: 1px solid var(--pico-muted-border-color); }
 .site-nav ul { overflow-x: auto; scrollbar-width: none; }
-.site-nav li { padding-block: calc(.65rem + 8px); white-space: nowrap; }
+.site-nav li { padding-block: 0; white-space: nowrap; }
 .site-nav .brand { font-size: 1.2rem; font-weight: 700; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
 .site-nav a { font-size: .9rem; }
 .site-nav .brand a, .site-nav .brand a:hover { font-size: inherit; color: var(--pico-h1-color); text-decoration: none; }
@@ -87,7 +102,7 @@ body > footer p { margin-bottom: .25rem; color: inherit; }
 .facts .wide { grid-column: 1 / -1; }
 
 /* Sections and cards. */
-main > section { margin-bottom: 3rem; }
+main > section { margin-bottom: var(--at-section-gap); }
 main > section > h2 { margin-bottom: .35rem; }
 article { box-shadow: none; border: 1px solid var(--pico-muted-border-color); padding: 1.25rem; }
 article > header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem 1rem; margin: -1.25rem -1.25rem 1rem; padding: .75rem 1.25rem; }
@@ -208,8 +223,7 @@ main > .key { margin: .25rem 0 .5rem; }
 /* Methods: reference text at a reading width. */
 
 @media (max-width: 640px) {
-  body > header, body > main, body > footer { padding-inline: 1rem; }
-  .site-nav { padding-inline: 1rem; }
+  :root { --at-gutter: 1rem; }
   .site-nav .brand { display: none; }
   article { padding: 1rem; }
   article > header { margin: -1rem -1rem 1rem; padding: .75rem 1rem; }
@@ -218,7 +232,7 @@ main > .key { margin: .25rem 0 .5rem; }
 @media print {
   html { background: white; }
   body { font-size: 11px; }
-  body > header, body > main, body > footer { max-width: none; padding: 0; }
+  body > header, body > main, body > footer { padding: 0; }
   .site-nav, .skip-link, .method-link, [role=tablist], .toolbar { display: none !important; }
   [role=tabpanel][hidden] { display: block !important; }
   main > section { margin-bottom: 1.5rem; }

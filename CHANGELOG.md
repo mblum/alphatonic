@@ -25,6 +25,9 @@ All notable changes are listed here. The format follows
   and data columns are set in a lighter colour so that the rank IC and `p × trials` stand out.
 - The name in the header bar is larger and leads back to the list of trials on the pages that
   `alphatonic serve` shows.
+- The header bar, the page header, the main part and the footer of the tearsheet and the list of
+  trials now share one width, one side margin and one set of vertical spacings, so their edges
+  line up at every window width and the bar keeps the same height on every page.
 
 ## [0.2.0] - 2026-10-31
 
