@@ -2,30 +2,8 @@
 {% set order = 'desc' if data.descending else 'asc' %}
 {% block title %}Trials · {{ title }}{% endblock %}
 {% block html_attributes %} data-page="board"{% endblock %}
-{% block nav_label %}Show trials{% endblock %}
+{% block nav_label %}Study{% endblock %}
 {% block brand %}<a href="./">alphatonic</a>{% endblock %}
-{% block nav %}
-  {% if data.horizons %}
-  <form class="toolbar" method="get" aria-label="Show trials">
-    <div class="control">
-      <span id="horizon-label">Horizon</span>
-      <div class="segmented" role="group" aria-labelledby="horizon-label">
-        {% for h in data.horizons %}<a href="{{ link(horizon=h) }}"{% if h == data.horizon %} aria-current="true"{% endif %}>{{ h }} bar{{ '' if h == 1 else 's' }}</a>{% endfor %}
-      </div>
-    </div>
-    <input type="hidden" name="horizon" value="{{ data.horizon }}">
-    <label>Signal
-      <select name="signal" onchange="this.form.submit()">
-        <option value="">All signals</option>
-        {% for name in signals %}<option value="{{ name }}"{% if name == signal %} selected{% endif %}>{{ name }}</option>{% endfor %}
-      </select>
-    </label>
-    <input type="hidden" name="sort" value="{{ data.sort }}">
-    <input type="hidden" name="order" value="{{ order }}">
-    <noscript><button type="submit">Show</button></noscript>
-  </form>
-  {% endif %}
-{% endblock %}
 {% block body %}
 <header>
   <h1>Trials · {{ title }}</h1>
@@ -54,13 +32,43 @@
   {% if data.unreadable %}
   <p class="notice">{{ data.unreadable | length }} record{{ '' if data.unreadable | length == 1 else 's' }} could not be read: {{ data.unreadable | join(', ') }}</p>
   {% endif %}
+  {% if data.horizons %}
+  <form class="toolbar" method="get" aria-label="Show trials">
+    <div class="control">
+      <span id="horizon-label">Horizon</span>
+      <div class="segmented" role="group" aria-labelledby="horizon-label">
+        {% for h in data.horizons %}<a href="{{ link(horizon=h) }}"{% if h == data.horizon %} aria-current="true"{% endif %}>{{ h }} bar{{ '' if h == 1 else 's' }}</a>{% endfor %}
+      </div>
+    </div>
+    <input type="hidden" name="horizon" value="{{ data.horizon }}">
+    <label>Signal
+      <select name="signal" onchange="this.form.submit()">
+        <option value="">All signals</option>
+        {% for name in signals %}<option value="{{ name }}"{% if name == signal %} selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select>
+    </label>
+    <fieldset class="control groups">
+      <legend id="columns-label">Columns</legend>
+      <input type="hidden" name="show" value="">
+      {% for toggle in toggles %}
+      <label><input type="checkbox" name="show" value="{{ toggle.name }}"{% if toggle.on %} checked{% endif %} onchange="this.form.submit()"{% if toggle.forced %} title="Shown while the list is sorted by one of its columns"{% endif %}>{{ toggle.label }}</label>
+      {% endfor %}
+    </fieldset>
+    <input type="hidden" name="sort" value="{{ data.sort }}">
+    <input type="hidden" name="order" value="{{ order }}">
+    <noscript><button type="submit">Show</button></noscript>
+  </form>
+  {% endif %}
   {% if rows %}
   <p class="key">
-    {%- if extent %}<span class="swatch dot" style="--swatch: var(--at-c1)"></span>mean rank IC
-    <span class="swatch line" style="--swatch: var(--at-context); --thickness: 3px"></span>95% interval
-    <span class="swatch zero"></span>zero, on one axis from −{{ extent }} to {{ extent }} for every row{% endif %}
-    {%- if ranked_by %}{{ ' · ' if extent }}# ranks by {{ ranked_by }}{% endif %}
+    {%- if extents %}<span class="swatch dot" style="--swatch: var(--at-c1)"></span>mean IC
+    <span class="swatch line" style="--swatch: var(--at-context); --thickness: 3px"></span>95% interval (Newey–West for the cross-section, block bootstrap for the time series)
+    <span class="swatch zero"></span>zero, on one axis for every row in each column{% endif %}
+    {%- if ranked_by %}{{ ' · ' if extents }}# ranks by {{ ranked_by }}{% endif %}
   </p>
+  {% if testing_hidden %}
+  <p class="notice">The multiple-testing columns are hidden. Read each interval against the number of alternatives tried in its family: the intervals do not account for it.</p>
+  {% endif %}
   <div class="table-scroll board" role="region" aria-label="Trials" tabindex="0">
     <table>
       <caption class="sr-only">Trials at a horizon of {{ data.horizon }} bars, sorted by {{ data.sort }}</caption>
@@ -72,9 +80,9 @@
           {% for column in columns %}
           <th scope="col" class="{{ 'number' if column.numeric else '' }}"
               aria-sort="{{ ('descending' if data.descending else 'ascending') if column.key == data.sort else 'none' }}">
-            <a href="?{{ {'sort': column.key, 'order': column.order, 'horizon': data.horizon, 'signal': signal or ''} | urlencode }}">{{ column.heading }}{% if column.key == data.sort %} {{ '▼' if data.descending else '▲' }}{% endif %}</a>
-            {%- if column.key == 'cs_ic' and extent %}
-            <span class="axis" aria-hidden="true"><span>−{{ extent }}</span><span>0</span><span>{{ extent }}</span></span>
+            <a href="{{ link(sort=column.key, order=column.order) }}">{{ column.heading }}{% if column.key == data.sort %} {{ '▼' if data.descending else '▲' }}{% endif %}</a>
+            {%- if column.key in extents %}
+            <span class="axis" aria-hidden="true"><span>−{{ extents[column.key] }}</span><span>0</span><span>{{ extents[column.key] }}</span></span>
             {%- endif %}
           </th>
           {% endfor %}
@@ -99,14 +107,15 @@
               </div>
             </div>
           </th>
-          {% elif key == 'cs_ic' %}
-          <td class="number"><div class="ic-cell"><span class="ic">{{ number(trial.cs_ic, 4) }}</span>
-            {%- if trial.plot %}<span class="forest" role="img" aria-label="{{ trial.plot.text }}" title="{{ trial.plot.text }}">
-              {%- if trial.plot.low is not none %}<span class="whisker" style="left: {{ trial.plot.low }}%; width: {{ (trial.plot.high - trial.plot.low) | round(2) }}%"></span>{% endif -%}
-              <span class="dot{{ '' if trial.plot.low is not none else ' open' }}" style="left: {{ trial.plot.at }}%"></span></span>
+          {% elif key in plotted %}
+          {% set plot = trial.plots[key] %}
+          <td class="number"><div class="ic-cell"><span class="ic">{{ number(trial[key], 4) }}</span>
+            {%- if plot %}<span class="forest" role="img" aria-label="{{ plot.text }}" title="{{ plot.text }}">
+              {%- if plot.low is not none %}<span class="whisker" style="left: {{ plot.low }}%; width: {{ (plot.high - plot.low) | round(2) }}%"></span>{% endif -%}
+              <span class="dot{{ '' if plot.low is not none else ' open' }}" style="left: {{ plot.at }}%"></span></span>
             {%- else %}<span class="forest empty" aria-hidden="true"></span>{% endif -%}
           </div></td>
-          {% elif key.startswith('ts_') %}<td class="number subtle">{{ number(trial[key], 4) }}</td>
+          {% elif key.startswith('ts_') %}<td class="number">{{ number(trial[key], 4) }}</td>
           {% elif key == 'cs_z' %}<td class="number subtle">{{ number(trial.cs_z, 2) }}</td>
           {% elif key == 'cs_p' %}<td class="number subtle">{{ p_value(trial.cs_p) }}</td>
           {% elif key == 'adjusted_p' %}<td class="number">{% if trial.adjusted_p is not none and trial.adjusted_p <= significant %}<strong>{{ p_value(trial.adjusted_p) }}</strong>{% else %}{{ p_value(trial.adjusted_p) }}{% endif %}</td>

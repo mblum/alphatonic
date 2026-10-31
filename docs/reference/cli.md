@@ -41,6 +41,7 @@ alphatonic serve DIRECTORY [--host ADDRESS] [--port N] [--name NAME]
 Serving requires the `report` extra. Open `http://127.0.0.1:8000` with the defaults. The page links
 to trial tearsheets and records, and reloads saved records on each request. A tearsheet that the
 study did not store is drawn from the trial's tables when you open it. `/study.json` provides
-the [JSON board](results.md#json-documents). Press Ctrl+C in the terminal to stop the server.
+the [JSON board](results.md#json-documents). On the page, the `show` query parameter chooses the
+column groups (`cs`, `testing`, `ts`, `data`, `record`), for example `/?show=ts`. Press Ctrl+C in the terminal to stop the server.
 
 For a complete workflow, see [keep every trial in a study](../how-to/run-a-study.md).

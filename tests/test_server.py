@@ -257,13 +257,15 @@ def test_an_estimate_without_an_interval_is_drawn_hollow_and_alone(study):
 
     assert 'class="whisker"' not in page
     assert 'class="dot open"' in rows["old-momentum"]
-    assert "the 95% interval is undefined at this horizon" in rows["old-momentum"]
-    assert "dot" not in rows["new-momentum"] and 'class="forest empty"' in rows["new-momentum"]
+    assert "Rank IC 0.0200; the 95% interval is undefined" in rows["old-momentum"]
+    # new-momentum has no rank IC: its cell is empty, and only the time-series marks are drawn.
+    assert 'aria-label="Rank IC' not in rows["new-momentum"]
+    assert rows["new-momentum"].count('class="forest empty"') == 1
 
 
 def test_a_study_without_a_rank_ic_has_no_axis(tmp_path):
     study = Study(tmp_path / "study")
-    saved(study, record("a", cs_ic=None, p=None))
+    saved(study, record("a", metrics={}))
 
     page = _page(study)
 
@@ -585,3 +587,119 @@ def test_the_server_keeps_only_the_last_few_drawn_tearsheets(evaluated, monkeypa
 
 def test_the_list_does_not_announce_a_tearsheet_being_drawn(study):
     assert "Drawing the tearsheet" not in _page(study)
+
+
+def _time_series(identifier, ic, lower, upper, **fields):
+    """A trial with a time-series rank IC and its bootstrap interval at horizon 1."""
+    metrics = {
+        "ts.h1.spearman.mean": ic,
+        "ts.h1.spearman.ci95_lower": lower,
+        "ts.h1.spearman.ci95_upper": upper,
+        "ts.h1.cosine.mean": 0.5 * ic,
+    }
+    return record(identifier, cs_ic=None, p=None, metrics=metrics, **fields)
+
+
+def test_the_time_series_rank_ic_is_drawn_with_its_bootstrap_interval_on_its_own_axis(tmp_path):
+    study = Study(tmp_path / "study")
+    saved(
+        study,
+        _time_series("up", 0.04, 0.02, 0.08, hours=1),
+        _time_series("down", -0.02, -0.04, 0.0, hours=2),
+    )
+
+    page = _page(study)
+    rows = _rows(page)
+
+    assert "<span>−0.1</span><span>0</span><span>0.1</span>" in page
+    assert 'class="whisker" style="left: 60.0%; width: 30.0%"' in rows["up"]
+    assert 'class="dot" style="left: 70.0%"' in rows["up"]
+    assert "Time-series rank IC 0.0400, 95% bootstrap interval 0.0200 to 0.0800" in rows["up"]
+    # The cosine IC has no interval here: it is drawn hollow, on an axis of its own.
+    assert "Time-series cosine IC 0.0200; the 95% bootstrap interval is undefined" in rows["up"]
+    assert "<span>−0.02</span><span>0</span><span>0.02</span>" in page
+
+
+def test_to_dict_carries_the_time_series_intervals_at_the_horizon(study):
+    metrics = {
+        "ts.h1.spearman.mean": 0.03,
+        "ts.h1.spearman.ci95_lower": 0.01,
+        "ts.h1.spearman.ci95_upper": 0.05,
+        "ts.h1.cosine.ci95_lower": -0.01,
+        "ts.h1.cosine.ci95_upper": 0.02,
+    }
+    saved(study, record("with", hours=1, metrics=metrics), record("without", hours=2))
+
+    one = {trial["id"]: trial for trial in study.to_dict()["trials"]}
+
+    assert (one["with"]["ts_ci_lower"], one["with"]["ts_ci_upper"]) == (0.01, 0.05)
+    assert (one["with"]["ts_cosine_ci_lower"], one["with"]["ts_cosine_ci_upper"]) == (-0.01, 0.02)
+    assert one["without"]["ts_ci_lower"] is None and one["without"]["ts_cosine_ci_upper"] is None
+    json.dumps(study.to_dict(), allow_nan=False)
+
+
+def _headings(page):
+    return re.findall(r'<th scope="col"[^>]*>\s*<a href="[^"]*">([^<]*?)(?: [▲▼])?</a>', page)
+
+
+def test_every_group_of_columns_is_shown_by_default(study):
+    page = _page(study)
+
+    assert _headings(page) == [
+        "Signal", "Rank IC", "z", "p", "Trials", "p × trials", "Sample", "Rank IC", "Cosine",
+        "Timing", "Window", "Bars", "Assets", "Returns", "Created",
+    ]  # fmt: skip
+    assert page.count('type="checkbox"') == 5 and "checked" in page
+
+
+def test_show_keeps_the_chosen_groups_and_the_signal(study):
+    page = _page(study, "/?show=ts")
+
+    assert _headings(page) == ["Signal", "Rank IC", "Cosine", "Timing"]
+    assert re.findall(r'<th scope="colgroup"[^>]*>([^<]*)<', page) == ["Trial", "Time-series"]
+    assert _ids(page) == _ids(_page(study))
+
+
+def test_show_accepts_repeated_and_comma_separated_names_and_ignores_others(study):
+    expected = _headings(_page(study, "/?show=cs,testing"))
+
+    assert expected == ["Signal", "Rank IC", "z", "p", "Trials", "p × trials", "Sample"]
+    assert _headings(_page(study, "/?show=cs&show=testing")) == expected
+    assert _headings(_page(study, "/?show=cs,testing,bogus")) == expected
+
+
+def test_an_empty_show_hides_every_group_but_the_trial(study):
+    assert _headings(_page(study, "/?show=")) == ["Signal"]
+
+
+def test_a_column_that_the_list_is_sorted_by_is_shown_whatever_the_groups(study):
+    page = _page(study, "/?show=data&sort=cs_ic")
+
+    assert _headings(page)[:2] == ["Signal", "Rank IC"]
+    assert 'aria-sort="descending"' in page
+
+
+def test_links_keep_the_chosen_groups_but_not_the_default(study):
+    chosen = _page(study, "/?show=cs,ts")
+    default = _page(study)
+
+    assert "show=cs%2Cts" in chosen.split("<tbody>")[0]
+    assert "show=" not in default.split("<tbody>")[0].replace('name="show"', "")
+
+
+def test_hiding_the_multiple_testing_columns_says_so_beside_the_intervals(study):
+    hidden = _page(study, "/?show=cs,ts")
+
+    assert "multiple-testing columns are hidden" in hidden
+    assert "multiple-testing columns are hidden" not in _page(study)
+    assert "multiple-testing columns are hidden" not in _page(study, "/?show=data")
+
+
+def test_the_filters_sit_directly_above_the_table_and_not_in_the_header_bar(study):
+    page = _page(study)
+    bar = page.split("<nav")[1].split("</nav>")[0]
+    before_table = page.split("<table")[0]
+
+    assert "<form" not in bar
+    assert before_table.rindex('<form class="toolbar"') > before_table.index("<main>")
+    assert 'name="show"' in before_table and 'aria-labelledby="horizon-label"' in before_table

@@ -1,14 +1,15 @@
 """The trials of a study as one HTML page, sorted by any column.
 
 The page renders [`Study.to_dict`][alphatonic.Study.to_dict] at one horizon, so it shows what
-the JSON document holds. Sorting, the horizon and a filter by signal are query parameters, so a
-sorted view is a link that can be shared. Links to a trial's files are relative to the study's
-directory, which is how the server lays them out.
+the JSON document holds. Sorting, the horizon, a filter by signal and the column groups shown are
+query parameters, so a view is a link that can be shared. Links to a trial's files are relative to
+the study's directory, which is how the server lays them out.
 """
 
 from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
+from collections.abc import Sequence
 from datetime import datetime
 from math import floor, log10
 from typing import Any
@@ -37,6 +38,27 @@ COLUMNS: tuple[tuple[str, str, str], ...] = (
 """The sortable columns of the page by board column, with their headings and groups, in display
 order. The caller's context keys join the `Data` group after `assets`."""
 
+GROUPS: dict[str, str] = {
+    "Cross-sectional": "cs",
+    "Multiple testing": "testing",
+    "Time-series": "ts",
+    "Data": "data",
+    "Record": "record",
+}
+"""The groups of columns that can be shown or hidden, by group heading, with the name that the
+`show` parameter uses. The `Trial` group, which names the row, is always shown."""
+
+PLOTS: dict[str, tuple[str, str]] = {
+    "cs_ic": ("cs_ci", "Rank IC"),
+    "ts_ic": ("ts_ci", "Time-series rank IC"),
+    "ts_cosine": ("ts_cosine_ci", "Time-series cosine IC"),
+}
+"""The columns drawn as a dot with an interval, each with the prefix of its interval's keys in
+[`Study.to_dict`][alphatonic.Study.to_dict] and the name of the estimate in the text of the mark."""
+
+INTERVALS: dict[str, str] = {"cs": "95% interval", "ts": "95% bootstrap interval"}
+"""What to call the interval of a plotted column, by the first two letters of its key."""
+
 SIGNIFICANT = 0.05
 """Adjusted p-values at or below this are set in bold, to be found, not to be believed: the
 trial count is a lower bound on the alternatives tried."""
@@ -61,6 +83,7 @@ def render_board(
     sort: str | None = None,
     order: str | None = None,
     signal: str | None = None,
+    show: str | Sequence[str] | None = None,
 ) -> str:
     """Render the list of the study's trials as a standalone HTML page.
 
@@ -70,6 +93,10 @@ def render_board(
         sort: Board column to sort by; default, or an unknown one: `created_at`.
         order: `asc` or `desc`; default: the column's own direction.
         signal: Show only the trials of this signal.
+        show: The column groups to show, as names of `GROUPS` (`cs`, `testing`, `ts`, `data`,
+            `record`), in one string separated by commas or in several. Names that are not groups
+            are ignored, and an empty string shows only the trial. Default: every group. A column
+            that the page is sorted by, other than `created_at`, is shown whatever the groups.
 
     Returns:
         The HTML.
@@ -97,8 +124,29 @@ def render_board(
         for key, heading, group in [*COLUMNS[:position], *((k, k, "Data") for k in keys)]
         + list(COLUMNS[position:])
     ]
+    chosen_groups = _chosen(show)
+    on = set(GROUPS.values()) if chosen_groups is None else chosen_groups
+    # The default order, newest first, needs no column to explain it.
+    forced = None if data["sort"] == "created_at" else data["sort"]
+    sorted_group = next((c["group"] for c in columns if c["key"] == forced), None)
+    visible = [
+        column
+        for column in columns
+        if column["group"] == "Trial" or GROUPS[column["group"]] in on or column["key"] == forced
+    ]
+    toggles = [
+        {
+            "name": name,
+            "label": label,
+            "on": name in on,
+            "forced": label == sorted_group and name not in on,
+        }
+        for label, name in GROUPS.items()
+    ]
+    # Every group is shown by default, which a link leaves unsaid.
+    shown_groups = None if chosen_groups is None else ",".join(sorted(chosen_groups))
     groups: list[dict[str, Any]] = []
-    for column in columns:
+    for column in visible:
         if groups and groups[-1]["label"] == column["group"]:
             groups[-1]["span"] += 1
         else:
@@ -115,17 +163,26 @@ def render_board(
             "order": "desc" if data["descending"] else "asc",
             "horizon": data["horizon"],
             "signal": shown or "",
+            "show": shown_groups,
             **changes,
         }
         return "?" + urlencode({key: value for key, value in query.items() if value is not None})
 
     # The scale is that of every trial at this horizon, so that choosing a signal moves no mark.
-    extent = _extent(data["trials"])
+    extents = {
+        key: extent
+        for key, (prefix, _) in PLOTS.items()
+        if (extent := _extent(data["trials"], key, prefix)) is not None
+    }
     larger = RANKED.get(data["sort"])
     ranks = _ranks([row[data["sort"]] for row in rows], larger) if larger is not None else None
     tiles = _tiles(rows, data)
     rows = [
-        {**trial, "plot": _plot(trial, extent), "rank": None if ranks is None else ranks[i]}
+        {
+            **trial,
+            "plots": {key: _plot(trial, key, extents.get(key)) for key in PLOTS},
+            "rank": None if ranks is None else ranks[i],
+        }
         for i, trial in enumerate(rows)
     ]
     ranked_by = None
@@ -143,13 +200,17 @@ def render_board(
             data=data,
             rows=rows,
             tiles=tiles,
-            columns=columns,
+            columns=visible,
             groups=groups,
+            toggles=toggles,
+            plotted=list(PLOTS),
+            testing_hidden="testing" not in on and bool({"cs", "ts"} & on),
             signals=signals,
             signal=shown,
             asked_signal=signal,
             link=link,
-            extent=None if extent is None else f"{extent:g}",
+            extents={key: f"{extent:g}" for key, extent in extents.items()},
+            intervals=INTERVALS,
             ranked_by=ranked_by,
             holdout_uses=sum(family["holdout_uses"] for family in families.values()),
             significant=SIGNIFICANT,
@@ -201,24 +262,34 @@ def _nice(value: float) -> float:
     return float(f"{step * 10.0**exponent:.12g}")
 
 
-def _extent(trials: list[dict[str, Any]]) -> float | None:
-    """Half the width of the rank IC axis: the reach of any estimate or interval, rounded up.
+def _chosen(show: str | Sequence[str] | None) -> set[str] | None:
+    """The group names asked for, or `None` for the default of every group."""
+    if show is None:
+        return None
+    parts = [show] if isinstance(show, str) else show
+    return {name.strip() for part in parts for name in part.split(",")} & set(GROUPS.values())
+
+
+def _extent(trials: list[dict[str, Any]], key: str, prefix: str) -> float | None:
+    """Half the width of a column's axis: the reach of any estimate or interval, rounded up.
 
     The axis runs from minus to plus this value around zero, the same for every row. It is `None`
-    if no trial has a rank IC at the horizon, or all of them are zero.
+    if no trial has an estimate in the column at the horizon, or all of them are zero.
     """
-    keys = ("cs_ic", "cs_ci_lower", "cs_ci_upper")
-    reach = max((abs(t[key]) for t in trials for key in keys if t[key] is not None), default=0.0)
+    keys = (key, f"{prefix}_lower", f"{prefix}_upper")
+    reach = max((abs(t[k]) for t in trials for k in keys if t[k] is not None), default=0.0)
     return _nice(reach) if reach > 0 else None
 
 
-def _plot(trial: dict[str, Any], extent: float | None) -> dict[str, Any] | None:
-    """Place a trial's rank IC and its 95% interval on the axis, in percent of its width.
+def _plot(trial: dict[str, Any], key: str, extent: float | None) -> dict[str, Any] | None:
+    """Place a trial's estimate and its 95% interval on the column's axis, in percent of its width.
 
     `low` and `high` are `None` when the interval is undefined: the estimate is then drawn alone
     and hollow, because a dot without a whisker would suggest that it is exact.
     """
-    estimate, lower, upper = trial["cs_ic"], trial["cs_ci_lower"], trial["cs_ci_upper"]
+    prefix, name = PLOTS[key]
+    interval = INTERVALS[key[:2]]
+    estimate, lower, upper = trial[key], trial[f"{prefix}_lower"], trial[f"{prefix}_upper"]
     if estimate is None or extent is None:
         return None
 
@@ -226,9 +297,9 @@ def _plot(trial: dict[str, Any], extent: float | None) -> dict[str, Any] | None:
         return round(50 + 50 * value / extent, 2)
 
     if lower is None or upper is None:
-        text = f"Rank IC {estimate:.4f}; the 95% interval is undefined at this horizon"
+        text = f"{name} {estimate:.4f}; the {interval} is undefined at this horizon"
         return {"at": place(estimate), "low": None, "high": None, "text": text}
-    text = f"Rank IC {estimate:.4f}, 95% interval {lower:.4f} to {upper:.4f}"
+    text = f"{name} {estimate:.4f}, {interval} {lower:.4f} to {upper:.4f}"
     return {"at": place(estimate), "low": place(lower), "high": place(upper), "text": text}
 
 

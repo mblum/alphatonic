@@ -87,6 +87,7 @@ def respond(study: Study, target: str) -> Response:
             sort=query.get("sort"),
             order=query.get("order"),
             signal=query.get("signal"),
+            show=parse_qs(url.query, keep_blank_values=True).get("show"),
         )
         return Response(HTTPStatus.OK, "text/html; charset=utf-8", page.encode("utf-8"))
     parts = path.strip("/").split("/")

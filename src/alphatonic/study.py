@@ -94,6 +94,14 @@ _STATISTICS: Final = {
 }
 """Board columns read from the metrics, by the metric name at a horizon."""
 
+_INTERVALS: Final = {
+    "cs_ci": "cs.h{horizon}.spearman.ci95",
+    "ts_ci": "ts.h{horizon}.spearman.ci95",
+    "ts_cosine_ci": "ts.h{horizon}.cosine.ci95",
+}
+"""Interval columns of [`Study.to_dict`][alphatonic.Study.to_dict], each with the prefix of the
+metrics that hold its `_lower` and `_upper` ends."""
+
 Sample = Literal["in_sample", "holdout"]
 """Which side of the holdout boundary a trial evaluated."""
 
@@ -470,9 +478,12 @@ class Study:
         The trials come in the order of [`board`][alphatonic.Study.board] with the same
         arguments, newest first by default, and carry the board's columns, so a page that lists
         them needs nothing else. Each trial also carries the 95% interval of its cross-sectional
-        rank IC as `cs_ci_lower` and `cs_ci_upper`, which are `None` when the trial has no
-        inference at the horizon. Missing statistics are `None`, timestamps are ISO 8601 strings
-        in UTC, and `json.dumps(..., allow_nan=False)` succeeds. The results reference describes
+        rank IC as `cs_ci_lower` and `cs_ci_upper`, and the 95% bootstrap intervals of its
+        time-series rank IC as `ts_ci_lower` and `ts_ci_upper` and of its time-series cosine IC as
+        `ts_cosine_ci_lower` and `ts_cosine_ci_upper`. Each is `None` when the trial has no
+        inference at the horizon, and the time-series ones when the bootstrap was off. Missing
+        statistics are `None`, timestamps are ISO 8601 strings in UTC, and
+        `json.dumps(..., allow_nan=False)` succeeds. The results reference describes
         the layout.
 
         Args:
@@ -509,7 +520,8 @@ class Study:
             stored = (self.directory / trial.id / TEARSHEET).is_file()
             tearsheet = stored or self._has_tables(trial.id)
             interval = {
-                f"cs_ci_{side}": trial.metrics.get(f"cs.h{horizon}.spearman.ci95_{side}")
+                f"{column}_{side}": trial.metrics.get(f"{name.format(horizon=horizon)}_{side}")
+                for column, name in _INTERVALS.items()
                 for side in ("lower", "upper")
             }
             rows.append(

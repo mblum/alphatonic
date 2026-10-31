@@ -18,6 +18,16 @@ All notable changes are listed here. The format follows
 - `Study.to_dict()` and `/study.json` give each trial the 95% interval of its cross-sectional rank
   IC as `cs_ci_lower` and `cs_ci_upper`, null where the trial has no inference at the horizon.
 
+- The list of trials draws the time-series rank IC and the time-series cosine IC as a dot with its
+  95% bootstrap interval, each on an axis of its own, as it does for the cross-sectional rank IC.
+  The time-series columns are no longer set in a lighter colour.
+- Checkboxes above the list of trials show or hide the column groups, and the `show` query parameter
+  does the same in a link (`/?show=ts`, `/?show=cs,testing`). The sorted column stays visible, and
+  hiding the multiple-testing columns is noted on the page.
+- `Study.to_dict()` and `/study.json` give each trial the 95% bootstrap intervals of its
+  time-series rank IC and cosine IC as `ts_ci_lower`, `ts_ci_upper`, `ts_cosine_ci_lower` and
+  `ts_cosine_ci_upper`, null where the bootstrap was off.
+
 ### Changed
 
 - The selected section in the tearsheet header now matches the height and rounded corners of the download button.

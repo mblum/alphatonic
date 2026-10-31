@@ -172,7 +172,9 @@ Each trial carries the record's `id`, `created_at`, `signal`, `family`, `summary
 count), `cs_ic`, `cs_z`, `cs_p`, `adjusted_p`, `ts_ic`, `ts_cosine`, `ts_timing`, `trials` and
 `holdout_uses` at the document's horizon; the 95% interval of `cs_ic` as `cs_ci_lower` and
 `cs_ci_upper` (the Newey–West normal-approximation interval of the evaluation, null where it has no
-inference at that horizon); its `context` as an object; and `files`, the paths of its
+inference at that horizon); the 95% block-bootstrap intervals of the mean over assets of `ts_ic` as
+`ts_ci_lower` and `ts_ci_upper`, and of `ts_cosine` as `ts_cosine_ci_lower` and
+`ts_cosine_ci_upper` (null where the bootstrap was off or had too few draws); its `context` as an object; and `files`, the paths of its
 `record` and `tearsheet` relative to the study's directory. `tearsheet` is null if the trial has
 neither a stored tearsheet nor tables to draw one from.
 
