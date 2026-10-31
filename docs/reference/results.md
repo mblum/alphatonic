@@ -170,7 +170,9 @@ assets, horizons and rolling windows: 30 assets, three horizons and 1,500 daily 
 Each trial carries the record's `id`, `created_at`, `signal`, `family`, `summary`, `parameters`,
 `note`, `sample`, `start`, `end`, `horizons`, `delay` and `bar_seconds`; the board's `assets` (a
 count), `cs_ic`, `cs_z`, `cs_p`, `adjusted_p`, `ts_ic`, `ts_cosine`, `ts_timing`, `trials` and
-`holdout_uses` at the document's horizon; its `context` as an object; and `files`, the paths of its
+`holdout_uses` at the document's horizon; the 95% interval of `cs_ic` as `cs_ci_lower` and
+`cs_ci_upper` (the Newey–West normal-approximation interval of the evaluation, null where it has no
+inference at that horizon); its `context` as an object; and `files`, the paths of its
 `record` and `tearsheet` relative to the study's directory. `tearsheet` is null if the trial has
 neither a stored tearsheet nor tables to draw one from.
 

@@ -469,7 +469,9 @@ class Study:
 
         The trials come in the order of [`board`][alphatonic.Study.board] with the same
         arguments, newest first by default, and carry the board's columns, so a page that lists
-        them needs nothing else. Missing statistics are `None`, timestamps are ISO 8601 strings
+        them needs nothing else. Each trial also carries the 95% interval of its cross-sectional
+        rank IC as `cs_ci_lower` and `cs_ci_upper`, which are `None` when the trial has no
+        inference at the horizon. Missing statistics are `None`, timestamps are ISO 8601 strings
         in UTC, and `json.dumps(..., allow_nan=False)` succeeds. The results reference describes
         the layout.
 
@@ -506,6 +508,10 @@ class Study:
             # A tearsheet that was not stored is drawn from the tables when the server is asked.
             stored = (self.directory / trial.id / TEARSHEET).is_file()
             tearsheet = stored or self._has_tables(trial.id)
+            interval = {
+                f"cs_ci_{side}": trial.metrics.get(f"cs.h{horizon}.spearman.ci95_{side}")
+                for side in ("lower", "upper")
+            }
             rows.append(
                 {
                     "id": trial.id,
@@ -523,6 +529,7 @@ class Study:
                     "assets": len(trial.assets) or None,
                     "bar_seconds": trial.bar_seconds,
                     **{column: row[column] for column in (*_STATISTICS, "adjusted_p")},
+                    **interval,
                     "trials": row["trials"],
                     "holdout_uses": row["holdout_uses"],
                     "context": trial.context,

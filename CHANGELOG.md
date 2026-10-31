@@ -6,6 +6,24 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The list of trials that `alphatonic serve` shows is easier to read at a glance. Four tiles lead
+  it: the lowest `p × trials`, the highest rank IC with its `p × trials`, the family with the most
+  trials, and the looks at the holdout. Each row draws the cross-sectional rank IC as a dot with its
+  95% interval on one axis shared by every row. Sorted by a statistic, the rows are numbered from
+  its best value, and equal values share a rank.
+- `Study.to_dict()` and `/study.json` give each trial the 95% interval of its cross-sectional rank
+  IC as `cs_ci_lower` and `cs_ci_upper`, null where the trial has no inference at the horizon.
+
+### Changed
+
+- The tearsheet no longer ends with a "Methods and interpretation" section, and the list of trials
+  no longer has an "About these columns" panel. Their links now lead to the matching pages of the
+  documentation.
+- On the list of trials the horizon is chosen with buttons instead of a menu, and the time-series
+  and data columns are set in a lighter colour so that the rank IC and `p × trials` stand out.
+
 ## [0.2.0] - 2026-10-31
 
 ### Added

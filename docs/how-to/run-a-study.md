@@ -125,10 +125,15 @@ except HoldoutError as error:
 
 ## Browse the trials
 
-`alphatonic serve` shows the board as a web page. Each row names the signal and its parameters, then
-groups the cross-sectional statistics, the multiple-testing columns (the family's trial count, `p ×
+`alphatonic serve` shows the board as a web page. Four tiles lead it: the lowest `p × trials`, the
+highest rank IC with its `p × trials` beside it, the family with the most trials, and the number of
+looks at the holdout. Each row names the signal and its parameters and draws the cross-sectional
+rank IC as a dot with its 95% interval, on one axis shared by every row. The columns follow in
+groups: the cross-sectional statistics, the multiple-testing columns (the family's trial count, `p ×
 trials` and the sample, with repeated looks at the holdout flagged), the time-series statistics and
-the data. Sort it by any column, switch the horizon, filter by signal, and open each trial's
+the data. Sort it by any column, and when the column is a statistic the rows are numbered from its
+best value, with equal values sharing a rank. Switch the horizon with the buttons above the table,
+filter by signal, and open each trial's
 tearsheet from its name. It reads the records on every request, so a trial saved while it runs
 appears on the next reload. A tearsheet that was not stored is drawn from the trial's tables when
 you open it, which takes a few seconds; the page opens at once with a spinner and shows the

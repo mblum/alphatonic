@@ -1,6 +1,7 @@
 import json
 import re
 from datetime import UTC, datetime, timedelta
+from statistics import NormalDist
 
 import numpy as np
 import pandas as pd
@@ -418,6 +419,34 @@ def test_to_dict_lists_the_trials_in_board_order_as_plain_json(study, boundary):
     assert none["cs_ic"] is None and none["adjusted_p"] is None
     assert none["files"]["tearsheet"] is None  # No stored page and no tables to draw one from.
     assert (none["note"], none["parameters"], none["context"]) == ("smoothed", {"window": 5}, {})
+
+
+def test_to_dict_carries_the_interval_of_the_rank_ic_at_the_horizon(study):
+    metrics = {
+        "cs.h1.spearman.mean": 0.03,
+        "cs.h1.spearman.ci95_lower": 0.01,
+        "cs.h1.spearman.ci95_upper": 0.05,
+    }
+    saved(study, record("with", hours=1, metrics=metrics), record("without", hours=2))
+
+    one = {trial["id"]: trial for trial in study.to_dict()["trials"]}
+    four = {trial["id"]: trial for trial in study.to_dict(4)["trials"]}
+
+    assert (one["with"]["cs_ci_lower"], one["with"]["cs_ci_upper"]) == (0.01, 0.05)
+    assert (one["without"]["cs_ci_lower"], one["without"]["cs_ci_upper"]) == (None, None)
+    assert (four["with"]["cs_ci_lower"], four["with"]["cs_ci_upper"]) == (None, None)
+    json.dumps(study.to_dict(), allow_nan=False)
+
+
+def test_the_interval_of_an_evaluated_trial_is_the_one_its_z_statistic_implies(study, market):
+    factor, prices = market
+    study.evaluate(factor, prices, signal="momentum", **QUICK)
+
+    (row,) = study.to_dict()["trials"]
+
+    reach = NormalDist().inv_cdf(0.975) * row["cs_ic"] / row["cs_z"]
+    assert row["cs_ci_lower"] == pytest.approx(row["cs_ic"] - reach)
+    assert row["cs_ci_upper"] == pytest.approx(row["cs_ic"] + reach)
 
 
 def test_to_dict_takes_the_boards_horizon_and_order(study):

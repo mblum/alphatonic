@@ -8,8 +8,11 @@ directory, which is how the server lays them out.
 
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from datetime import datetime
+from math import floor, log10
 from typing import Any
+from urllib.parse import urlencode
 
 from alphatonic.report.figures import span
 from alphatonic.report.page import environment
@@ -37,6 +40,18 @@ order. The caller's context keys join the `Data` group after `assets`."""
 SIGNIFICANT = 0.05
 """Adjusted p-values at or below this are set in bold, to be found, not to be believed: the
 trial count is a lower bound on the alternatives tried."""
+
+RANKED: dict[str, bool] = {
+    "cs_ic": True,
+    "cs_z": True,
+    "cs_p": False,
+    "adjusted_p": False,
+    "ts_ic": True,
+    "ts_cosine": True,
+    "ts_timing": True,
+}
+"""The statistics the page numbers its rows by when it is sorted by one, each with whether a
+larger value is better. Rank 1 is the best value however the page is ordered."""
 
 
 def render_board(
@@ -89,8 +104,37 @@ def render_board(
         else:
             groups.append({"label": column["group"], "span": 1})
     signals = sorted({trial["signal"] for trial in data["trials"]})
+    shown = signal if signal in signals else None
     rows = [trial for trial in data["trials"] if not signal or trial["signal"] == signal]
     families = data["families"]
+
+    def link(**changes: Any) -> str:
+        """The query of this view with some parameters changed, so a link keeps the rest."""
+        query = {
+            "sort": data["sort"],
+            "order": "desc" if data["descending"] else "asc",
+            "horizon": data["horizon"],
+            "signal": shown or "",
+            **changes,
+        }
+        return "?" + urlencode({key: value for key, value in query.items() if value is not None})
+
+    # The scale is that of every trial at this horizon, so that choosing a signal moves no mark.
+    extent = _extent(data["trials"])
+    larger = RANKED.get(data["sort"])
+    ranks = _ranks([row[data["sort"]] for row in rows], larger) if larger is not None else None
+    tiles = _tiles(rows, data)
+    rows = [
+        {**trial, "plot": _plot(trial, extent), "rank": None if ranks is None else ranks[i]}
+        for i, trial in enumerate(rows)
+    ]
+    ranked_by = None
+    if larger is not None:
+        column = next(column for column in columns if column["key"] == data["sort"])
+        ranked_by = (
+            f"{column['heading']} ({column['group'].lower()}): "
+            f"1 is the {'largest' if larger else 'smallest'}"
+        )
     return (
         environment()
         .get_template("board.html")
@@ -98,11 +142,15 @@ def render_board(
             title=study.name or study.directory.name,
             data=data,
             rows=rows,
+            tiles=tiles,
             columns=columns,
             groups=groups,
             signals=signals,
-            signal=signal if signal in signals else None,
+            signal=shown,
             asked_signal=signal,
+            link=link,
+            extent=None if extent is None else f"{extent:g}",
+            ranked_by=ranked_by,
             holdout_uses=sum(family["holdout_uses"] for family in families.values()),
             significant=SIGNIFICANT,
             number=_number,
@@ -127,6 +175,134 @@ def render_drawing(signal: str, title: str) -> str:
         The HTML.
     """
     return environment().get_template("drawing.html").render(signal=signal, title=title)
+
+
+def _ranks(values: list[float | None], larger: bool) -> list[int | None]:
+    """Rank values from the best, which is rank 1; equal values share a rank, as in a league table.
+
+    A missing value has no rank. The ranks do not depend on the order of `values`.
+    """
+    defined = sorted(value for value in values if value is not None)
+    ranks: list[int | None] = []
+    for value in values:
+        if value is None:
+            ranks.append(None)
+        elif larger:  # The trials with a strictly larger value come first.
+            ranks.append(len(defined) - bisect_right(defined, value) + 1)
+        else:
+            ranks.append(bisect_left(defined, value) + 1)
+    return ranks
+
+
+def _nice(value: float) -> float:
+    """Round a positive number up to 1, 2, 5 or 10 times a power of ten."""
+    exponent = floor(log10(value))
+    step = next(step for step in (1, 2, 5, 10) if step * 10.0**exponent >= value)
+    return float(f"{step * 10.0**exponent:.12g}")
+
+
+def _extent(trials: list[dict[str, Any]]) -> float | None:
+    """Half the width of the rank IC axis: the reach of any estimate or interval, rounded up.
+
+    The axis runs from minus to plus this value around zero, the same for every row. It is `None`
+    if no trial has a rank IC at the horizon, or all of them are zero.
+    """
+    keys = ("cs_ic", "cs_ci_lower", "cs_ci_upper")
+    reach = max((abs(t[key]) for t in trials for key in keys if t[key] is not None), default=0.0)
+    return _nice(reach) if reach > 0 else None
+
+
+def _plot(trial: dict[str, Any], extent: float | None) -> dict[str, Any] | None:
+    """Place a trial's rank IC and its 95% interval on the axis, in percent of its width.
+
+    `low` and `high` are `None` when the interval is undefined: the estimate is then drawn alone
+    and hollow, because a dot without a whisker would suggest that it is exact.
+    """
+    estimate, lower, upper = trial["cs_ic"], trial["cs_ci_lower"], trial["cs_ci_upper"]
+    if estimate is None or extent is None:
+        return None
+
+    def place(value: float) -> float:
+        return round(50 + 50 * value / extent, 2)
+
+    if lower is None or upper is None:
+        text = f"Rank IC {estimate:.4f}; the 95% interval is undefined at this horizon"
+        return {"at": place(estimate), "low": None, "high": None, "text": text}
+    text = f"Rank IC {estimate:.4f}, 95% interval {lower:.4f} to {upper:.4f}"
+    return {"at": place(estimate), "low": place(lower), "high": place(upper), "text": text}
+
+
+def _tiles(rows: list[dict[str, Any]], data: dict[str, Any]) -> list[dict[str, Any]]:
+    """The headline figures of the trials shown, each with the trial or family behind it.
+
+    The best-looking rank IC comes with its adjusted p-value, so that it is never read without the
+    number of alternatives tried. A figure that cannot be computed is a dash with the reason.
+    """
+    if not rows:
+        return []
+
+    def named(trial: dict[str, Any]) -> str:
+        details = ", ".join(f"{name}={value}" for name, value in trial["parameters"].items())
+        return f"{trial['signal']} ({details})" if details else trial["signal"]
+
+    def about(trial: dict[str, Any] | None) -> dict[str, Any]:
+        if trial is None:
+            return {"name": None, "href": None}
+        return {"name": named(trial), "href": trial["files"]["tearsheet"]}
+
+    adjusted = [trial for trial in rows if trial["adjusted_p"] is not None]
+    lowest = min(adjusted, key=lambda trial: trial["adjusted_p"], default=None)
+    defined = [trial for trial in rows if trial["cs_ic"] is not None]
+    highest = max(defined, key=lambda trial: trial["cs_ic"], default=None)
+    biggest = max(rows, key=lambda trial: trial["trials"])
+    uses = {trial["family"]: trial["holdout_uses"] for trial in rows}
+    repeated = sum(count > 1 for count in uses.values())
+    if repeated:
+        looked = f"{repeated} {'family' if repeated == 1 else 'families'} looked more than once"
+    elif data["holdout_start"]:
+        looked = f"holdout from {_when(data['holdout_start'])} UTC"
+    else:
+        looked = "no holdout set"
+    return [
+        {
+            "label": "Lowest p × trials",
+            "figure": "–" if lowest is None else _p_value(lowest["adjusted_p"]),
+            "detail": (
+                "no p-value at this horizon"
+                if lowest is None
+                else (
+                    f"p {_p_value(lowest['cs_p'])} · {lowest['trials']} "
+                    f"trial{'' if lowest['trials'] == 1 else 's'} in its family"
+                )
+            ),
+            **about(lowest),
+        },
+        {
+            "label": "Highest rank IC",
+            "figure": "–" if highest is None else _number(highest["cs_ic"], 4),
+            "detail": (
+                "no rank IC at this horizon"
+                if highest is None
+                else f"p × trials {_p_value(highest['adjusted_p'])}"
+            ),
+            **about(highest),
+        },
+        {
+            "label": "Largest family",
+            "figure": f"{biggest['trials']} trial{'' if biggest['trials'] == 1 else 's'}",
+            "detail": f"family {biggest['family']}",
+            "name": None,
+            "href": None,
+        },
+        {
+            "label": "Holdout looks",
+            "figure": str(sum(uses.values())),
+            "detail": looked,
+            "badge": "re-used" if repeated else None,
+            "name": None,
+            "href": None,
+        },
+    ]
 
 
 def _next_order(key: str, sort: str, descending: bool) -> str:

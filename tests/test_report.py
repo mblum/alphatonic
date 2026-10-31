@@ -54,6 +54,14 @@ def test_every_link_inside_the_page_has_a_target(page):
     assert targets and targets <= identifiers, targets - identifiers
 
 
+def test_definitions_are_linked_to_the_documentation_not_repeated(page):
+    assert "Methods and interpretation" not in page and 'id="methods"' not in page
+    assert (
+        'href="https://mblum.github.io/alphatonic/explanation/methodology/#quantile-response"'
+        in page
+    )
+
+
 def test_caller_text_is_shown_literally(page):
     assert "&lt;b&gt;Momentum&lt;/b&gt;" in page and "<b>Momentum</b>" not in page
     assert "&lt;i&gt;eight&lt;/i&gt; assets" in page
