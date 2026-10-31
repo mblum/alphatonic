@@ -4,11 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mblum/alphatonic/blob/master/LICENSE)
 
 alphatonic is a Python library for testing trading signals. Give alphatonic your scores 
-and prices, and it measures how well the scores predict future returns. Inspect the 
-results as pandas tables or open them as an interactive HTML report. Organise 
-and browse results from a local study server. Start with the
-[first-evaluation tutorial](https://mblum.github.io/alphatonic/tutorials/first-evaluation/),
-or browse the [docs](https://mblum.github.io/alphatonic/).
+and prices, and it measures how well the scores predict future returns. 
 
 With alphatonic you can:
 
@@ -17,6 +13,10 @@ With alphatonic you can:
 - Assess how costly a signal would be to trade, using rank-persistence and bucket-turnover
   statistics.
 - Render an offline HTML tearsheet, and browse your trials with `alphatonic serve`.
+
+Start with the
+[tutorial](https://mblum.github.io/alphatonic/tutorials/first-evaluation/),
+or browse the [docs](https://mblum.github.io/alphatonic/).
 
 alphatonic evaluates predictive association; it does not build factors or simulate portfolios,
 costs or P&L. See [scope and alternatives](https://mblum.github.io/alphatonic/explanation/scope/).

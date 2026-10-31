@@ -100,13 +100,14 @@ def _snap(values: np.ndarray) -> np.ndarray:
 def cosine_parts(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Return the cosine of each column pair and the part of it that comes from the means.
 
-    The cosine of the finite pairs splits exactly into a timing and a static part:
+    The cosine of the finite pairs splits exactly into a timing and a static part (with population
+    moments, and `rms` the root mean square):
 
         cosine = cov(x, y) / (rms(x) * rms(y)) + mean(x) * mean(y) / (rms(x) * rms(y))
 
-    with population moments and `rms` the root mean square. The static part is what the average
-    position earns from the average target. Both are `NaN` without three pairs or with only zeros
-    on one side, and values within `ZERO_TOLERANCE` of zero are exactly zero.
+    The static part is what the average position earns from the average target. Both are `NaN`
+    without three pairs or with only zeros on one side, and values within `ZERO_TOLERANCE` of zero
+    are exactly zero.
 
     Returns:
         `(cosine, static)`, one value per column each.

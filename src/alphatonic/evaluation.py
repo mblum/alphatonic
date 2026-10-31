@@ -283,13 +283,16 @@ def evaluate(
         TypeError: If an input has the wrong type or index.
         ValueError: If an input is malformed or the options are invalid.
 
-    Example:
-        >>> from alphatonic import evaluate
-        >>> from alphatonic.demo import synthetic_market
-        >>> factor, prices = synthetic_market(n_assets=20, n_bars=300, seed=1)
-        >>> result = evaluate(factor, prices, horizons=[1, 5], time_series={"bootstrap_samples": 0})
-        >>> result.summary.loc[result.summary.method == "spearman", "horizon"].tolist()
-        [1, 5]
+    Examples:
+        ```python
+        from alphatonic import evaluate
+        from alphatonic.demo import synthetic_market
+
+        factor, prices = synthetic_market(n_assets=20, n_bars=300, seed=1)
+        result = evaluate(factor, prices, horizons=[1, 5], time_series={"bootstrap_samples": 0})
+        horizons = result.summary.loc[result.summary.method == "spearman", "horizon"].tolist()
+        print(horizons)  # [1, 5]
+        ```
     """
     if config is not None and options:
         raise TypeError("pass either a config or keyword options, not both")

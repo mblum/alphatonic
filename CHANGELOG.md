@@ -53,6 +53,11 @@ All notable changes are listed here. The format follows
   section. The home page now links to the documentation instead of listing the guides, and the
   README's links are web URLs that also work on PyPI.
 
+### Fixed
+
+- The example under `evaluate` in the API reference is shown as a code block you can paste. Before,
+  it ran together as nested quotations.
+
 ### Removed
 
 - `alphatonic[report]` no longer installs plotly; it installs jinja2 alone.
