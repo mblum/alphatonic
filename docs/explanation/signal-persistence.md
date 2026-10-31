@@ -45,11 +45,13 @@ first `lag` rows' structural counts as actual entries: their comparison status i
 
 For each asset, let S contain valid endpoint pairs `(a, b)` at the chosen lag:
 
-```text
-normalised change = sum_S |a − b| / sum_S ((|a| + |b|) / 2)
-sign-change fraction = count_S(sign(a) * sign(b) == −1) / |S|
-zero-transition fraction = count_S(exactly one endpoint equals zero) / |S|
-```
+$$
+\begin{aligned}
+\text{normalised change} &= \frac{\sum_S |a - b|}{\sum_S (|a| + |b|)/2} \\
+\text{sign-change fraction} &= \frac{\#_S\{\operatorname{sign}(a)\operatorname{sign}(b) = -1\}}{|S|} \\
+\text{zero-transition fraction} &= \frac{\#_S\{\text{exactly one endpoint equals zero}\}}{|S|}
+\end{aligned}
+$$
 
 Normalised change is in **multiples of typical absolute signal over the lag**, without
 annualisation. Its range is 0 to 2, and positive constant rescaling leaves it unchanged. It is a

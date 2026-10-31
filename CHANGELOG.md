@@ -8,6 +8,7 @@ All notable changes are listed here. The format follows
 
 ### Added
 
+- Render the formulas in the documentation as typeset math instead of code blocks.
 - Compare alphatonic's signal evaluation with Alphalens, Alphalens Reloaded, Qlib and Spectre in
   the documentation.
 - `Study.render_tearsheet(id)` returns the tearsheet of a finished trial as HTML, drawn from its

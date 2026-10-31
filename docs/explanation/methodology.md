@@ -14,9 +14,9 @@ be used to estimate volatility; prices at or after `end` never enter a label.
 
 For a score observed at row `t`, horizon `h` and delay `d`, the label is
 
-```text
-price[t + d + h] / price[t + d] - 1
-```
+$$
+\text{label}_t = \frac{\text{price}_{t+d+h}}{\text{price}_{t+d}} - 1
+$$
 
 The whole path from `t` through `t + d + h` must have prices. A gap never turns an `h`-bar label
 into a longer return, and a delisted or suspended asset has no labels across its gap. Labels must
@@ -30,13 +30,13 @@ Each analysis correlates the scores with a **target** built from the label:
 | `target` | Value | Default for |
 | --- | --- | --- |
 | `return` | The label. | Cross-section (`target`) |
-| `vol_scaled` | `label / (σ̂[t] · sqrt(h))` | Time series (`time_series.target`) |
+| `vol_scaled` | $\text{label} / (\hat\sigma_t \sqrt{h})$ | Time series (`time_series.target`) |
 
-`σ̂[t]` is the exponentially weighted standard deviation of one-bar returns ending at or before row
+$\hat\sigma_t$ is the exponentially weighted standard deviation of one-bar returns ending at or before row
 `t` (`vol_span`, default 60 bars), available once `vol_min_bars` (20) returns have been seen. It
 uses only prices known at the observation, including prices before `start`, so it adds no
 look-ahead; across a gap the last estimate carries forward, and an estimate of zero (constant
-prices) is missing. The `sqrt(h)` factor gives the target roughly unit variance at every horizon. A
+prices) is missing. The $\sqrt{h}$ factor gives the target roughly unit variance at every horizon. A
 label without an estimate is missing, so when prices begin at `start` the first bars have no
 vol-scaled target. `Evaluation.volatility` holds `σ̂` on the evaluation grid.
 
@@ -84,16 +84,17 @@ methods:
 
 - **Spearman**, ranks recomputed within each paired sample: monotone timing, robust to fat tails.
 - **Pearson**, linear timing.
-- **Cosine**, the uncentred correlation `Σ s·r / sqrt(Σ s² · Σ r²)`. It treats the score as a
+- **Cosine**, the uncentred correlation $\sum s r \big/ \sqrt{\sum s^2 \sum r^2}$. It treats the score as a
   position, so its zero point matters: a signal that is long on average earns the asset's drift.
   It can resemble a per-bar Sharpe ratio in some settings, but it is not a portfolio Sharpe
   ratio. See [the distinction](targets-and-scaling.md#cosine-is-not-a-sharpe-ratio).
 
 The cosine splits exactly into two parts, reported as `ic_timing` and `ic_static`:
 
-```text
-cosine = cov(s, r) / (rms(s) · rms(r))  +  mean(s) · mean(r) / (rms(s) · rms(r))
-```
+$$
+\text{cosine} = \underbrace{\frac{\operatorname{cov}(s, r)}{\operatorname{rms}(s)\,\operatorname{rms}(r)}}_{\text{timing}}
++ \underbrace{\frac{\bar s\,\bar r}{\operatorname{rms}(s)\,\operatorname{rms}(r)}}_{\text{static}}
+$$
 
 with population moments over the valid pairs. The **timing** part is the covariance, Pearson's
 correlation rescaled by `sd/rms` on both sides. The **static** part is what the average position
@@ -144,7 +145,7 @@ reproducible and independent between horizons.
 
 Score buckets (`quantiles`, default 5) are formed from average ranks within each timestamp
 (cross-sectional) or within each eligible asset's full sample (time series), and average each
-analysis's target: returns, or vol-scaled returns in multiples of `σ̂ · sqrt(h)`. Tied scores share
+analysis's target: returns, or vol-scaled returns in multiples of $\hat\sigma \sqrt{h}$. Tied scores share
 a bucket, and empty buckets stay missing. In the report, buckets are averaged with equal weight per
 timestamp or per asset. They are retrospective: they describe what happened in the sample and are
 not trading thresholds.
