@@ -247,11 +247,7 @@
     {% else %}<p class="unavailable">This saved evaluation has no signal persistence tables.</p>{% endif %}
   </section>
 </main>
-<footer>
-  <p>These results measure predictive association. Return labels exclude fees, slippage, financing and market impact.</p>
-  <p>Generated {{ generated_at }} · {% for package, version in versions.items() %}{{ package }} {{ version }}{% if not loop.last %} / {% endif %}{% endfor %} · styled with Pico CSS (MIT), charts drawn with Observable Plot and d3 (ISC)</p>
-  {% for line in footer %}<p>{{ line }}</p>{% endfor %}
-</footer>
+
 <script type="application/json" id="chart-data">{{ charts | tojson }}</script>
 <script>{{ chart_script | safe }}</script>
 <script>
@@ -332,4 +328,10 @@
     printState = undefined;
   });
 </script>
+{% endblock %}
+
+{% block footer_content %}
+  <p>These results measure predictive association. Return labels exclude fees, slippage, financing and market impact.</p>
+  <p>Generated {{ generated_at }} · {% for package, version in versions.items() %}{{ package }} {{ version }}{% if not loop.last %} / {% endif %}{% endfor %} · styled with Pico CSS (MIT), charts drawn with Observable Plot and d3 (ISC)</p>
+  {% for line in footer %}<p>{{ line }}</p>{% endfor %}
 {% endblock %}

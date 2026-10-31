@@ -8,6 +8,8 @@ All notable changes are listed here. The format follows
 
 ### Added
 
+- Report pages link to the project on GitHub, its documentation and its licence in the footer.
+
 - The list of trials that `alphatonic serve` shows is easier to read at a glance. Four tiles lead
   it: the lowest `p × trials`, the highest rank IC with its `p × trials`, the family with the most
   trials, and the looks at the holdout. Each row draws the cross-sectional rank IC as a dot with its
@@ -18,6 +20,7 @@ All notable changes are listed here. The format follows
 
 ### Changed
 
+- The selected section in the tearsheet header now matches the height and rounded corners of the download button.
 - The tearsheet no longer ends with a "Methods and interpretation" section, and the list of trials
   no longer has an "About these columns" panel. Their links now lead to the matching pages of the
   documentation.

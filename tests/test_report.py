@@ -82,6 +82,16 @@ def test_the_bar_names_the_tool_and_no_label_sits_above_the_title(page):
     assert 'class="eyebrow"' not in page
 
 
+def test_footer_links_on_report_pages(page, tmp_path):
+    board = render_board(Study(tmp_path / "study", name="demo"))
+    drawing = render_drawing("momentum", "demo")
+    for html in (page, board, drawing):
+        footer = html.split("<footer>")[-1].split("</footer>")[0]
+        assert 'href="https://github.com/mblum/alphatonic"' in footer
+        assert 'href="https://mblum.github.io/alphatonic/"' in footer
+        assert 'href="https://github.com/mblum/alphatonic/blob/HEAD/LICENSE"' in footer
+
+
 def test_the_brand_leads_back_to_the_list_of_trials(page, tmp_path):
     board = render_board(Study(tmp_path / "study", name="demo"))
 
