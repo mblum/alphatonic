@@ -36,9 +36,9 @@ it does not rerun inference. Saved tables can be rendered again with different d
 because a p-value is honest only next to the number of tries. Facts it cannot check, such as how a
 signal was computed, are recorded as the caller states them.
 
-**Small dependency footprint.** Evaluation needs NumPy, pandas and pydantic (for validated, immutable
-configuration). Jinja2 is an optional extra for the report. The list of a study's trials
-is served by the standard library's HTTP server, so browsing it adds nothing beyond that extra. Both
+**Small dependency footprint.** Alphatonic needs NumPy, pandas and pydantic (for validated, immutable
+configuration), and Jinja2 for the report pages. The list of a study's trials
+is served by the standard library's HTTP server, so browsing it adds nothing beyond that. Both
 pages are styled by Pico CSS, a classless stylesheet, and the tearsheet's charts are drawn by
 Observable Plot and d3. All are vendored in the package and written into each page, so there is no
 front-end build and a tearsheet still opens offline. A front end of another

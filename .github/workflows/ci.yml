@@ -59,5 +59,5 @@ jobs:
       - name: The wheel installs and imports without the dev tools
         run: |
           python -m venv /tmp/clean
-          /tmp/clean/bin/pip install "$(ls dist/*.whl)[report]"
+          /tmp/clean/bin/pip install "$(ls dist/*.whl)"
           /tmp/clean/bin/python -c "import alphatonic, alphatonic.report; print(alphatonic.__version__)"

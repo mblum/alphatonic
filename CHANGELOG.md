@@ -19,9 +19,11 @@ All notable changes are listed here. The format follows
 
 ### Changed
 
+- Jinja2 is now a core dependency, so `pip install alphatonic` is enough to write a tearsheet or
+  run `alphatonic serve`. The `report` extra still exists and is empty, so
+  `pip install "alphatonic[report]"` keeps working. The upper bound `<4` on Jinja2 is gone.
 - The README gives a shorter introduction with prominent documentation links; the documentation
   home page now guides readers to tutorials, task guides, reference and explanations.
-
 - `Evaluation.save` writes each table as gzip-compressed CSV (`ic_summary.csv.gz`, and so on), as
   format 4 of the saved evaluation. A saved evaluation is about seven times smaller: 22 MB instead
   of 158 MB for 20 assets of hourly bars over five years. Directories of formats 1 to 3, which hold

@@ -308,8 +308,7 @@ class Study:
             note: A note stored with the trial.
             report: Also write the tearsheet into the trial's directory. By default it is not
                 stored, because it can be as large as the compressed tables; draw it from them with
-                [`render_tearsheet`][alphatonic.Study.render_tearsheet] or the server. Needs
-                `alphatonic[report]`.
+                [`render_tearsheet`][alphatonic.Study.render_tearsheet] or the server.
             progress: A progress display; see `alphatonic.progress`.
             **options: Fields of `EvaluationConfig`, instead of `config`.
 
@@ -407,7 +406,7 @@ class Study:
 
         The page is the one `evaluate(report=True)` writes: the study's name, the trial's context
         and note, and its place in its family's count ("2 of momentum, this one included").
-        Nothing is recomputed. Needs `alphatonic[report]`.
+        Nothing is recomputed.
 
         Raises:
             UnknownTrialError: If the identifier is malformed or no finished trial has it.

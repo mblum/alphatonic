@@ -26,11 +26,8 @@ costs or P&L. See [scope and alternatives](https://mblum.github.io/alphatonic/ex
 Python 3.11 or newer. Install from [PyPI](https://pypi.org/project/alphatonic/):
 
 ```sh
-python -m pip install "alphatonic[report]"
+python -m pip install alphatonic
 ```
-
-`alphatonic[report]` adds jinja2 for the tearsheet; evaluation itself depends only on NumPy,
-pandas and pydantic.
 
 ```python
 from alphatonic import evaluate

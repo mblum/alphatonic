@@ -207,7 +207,7 @@ class Evaluation:
         context: dict[str, str] | None = None,
         footer: list[str] | None = None,
     ) -> str:
-        """Render the tearsheet as a standalone HTML document. Needs `alphatonic[report]`.
+        """Render the tearsheet as a standalone HTML document.
 
         Args:
             options: Display options of the cross-sectional charts.
@@ -233,7 +233,7 @@ class Evaluation:
         )
 
     def tearsheet(self, path: str | Path, **options: Any) -> Path:
-        """Write the tearsheet to `path` and return it. Needs `alphatonic[report]`.
+        """Write the tearsheet to `path` and return it.
 
         Accepts the keyword arguments of `render_tearsheet`. A directory writes
         `tearsheet.html` inside it.
