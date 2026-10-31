@@ -3,23 +3,23 @@
 [![CI](https://github.com/mblum/alphatonic/actions/workflows/ci.yml/badge.svg)](https://github.com/mblum/alphatonic/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mblum/alphatonic/blob/master/LICENSE)
 
-alphatonic is a Python library for testing trading signals. Give it scores and prices to measure how
-well the scores predict future returns. Inspect the results as pandas tables or open an interactive
-HTML report offline.
+alphatonic is a Python library for testing trading signals. Give alphatonic your scores 
+and prices, and it measures how well the scores predict future returns. Inspect the 
+results as pandas tables or open them as an interactive HTML report. Organise 
+and browse results from a local study server. Start with the
+[first-evaluation tutorial](https://mblum.github.io/alphatonic/tutorials/first-evaluation/),
+or browse the [docs](https://mblum.github.io/alphatonic/).
 
-**[Documentation](https://mblum.github.io/alphatonic/) ·
-[First evaluation](https://mblum.github.io/alphatonic/tutorials/first-evaluation/) ·
-[API reference](https://mblum.github.io/alphatonic/reference/api/)**
+With alphatonic you can:
 
-<!-- Screenshot slot: add a readable tearsheet crop using synthetic data, descriptive alt text
-and a caption. Link it to the documentation guide to reading a tearsheet. -->
+- Measure cross-sectional and time-series information coefficients, including single-asset signals.
+- Estimate uncertainty with Newey–West standard errors and a block bootstrap.
+- Assess how costly a signal would be to trade, using rank-persistence and bucket-turnover
+  statistics.
+- Render an offline HTML tearsheet, and browse your trials with `alphatonic serve`.
 
-**Keep track of your research.** Browse completed trials, compare results and open their tearsheets
-from a local study server with `alphatonic serve`. See
-[Keep every trial in a study](https://mblum.github.io/alphatonic/how-to/run-a-study/).
-
-<!-- Screenshot slot: add a smaller study-list screenshot below the tearsheet, using synthetic
-trials and descriptive alt text. Link it to the study guide above. -->
+alphatonic evaluates predictive association; it does not build factors or simulate portfolios,
+costs or P&L. See [scope and alternatives](https://mblum.github.io/alphatonic/explanation/scope/).
 
 ## Try it
 
@@ -45,12 +45,18 @@ result.tearsheet("tearsheet.html")
 
 Open `tearsheet.html` in your browser.
 
-- Measure cross-sectional and time-series information coefficients, including single-asset signals.
-- Estimate uncertainty with Newey–West standard errors and a block bootstrap.
-- Save and reload results, and keep every completed trial in a `Study`.
+## Development
 
-alphatonic evaluates predictive association; it does not build factors or simulate portfolios,
-costs or P&L. See [scope and alternatives](https://mblum.github.io/alphatonic/explanation/scope/).
+```sh
+uv sync --all-extras --locked
+uv run pytest
+uv run ruff check . && uv run ruff format --check .
+uv run pyright
+```
 
-[Contributing](https://mblum.github.io/alphatonic/contributing/development/) ·
-[MIT License](https://github.com/mblum/alphatonic/blob/master/LICENSE)
+See [Contributing](https://mblum.github.io/alphatonic/contributing/development/)
+for setup, tests and the release process.
+
+## License
+
+[MIT License](https://github.com/mblum/alphatonic/blob/master/LICENSE). Copyright 2026 Manuel Blum.
