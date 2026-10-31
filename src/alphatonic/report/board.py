@@ -113,6 +113,22 @@ def render_board(
     )
 
 
+def render_drawing(signal: str, title: str) -> str:
+    """Render the page that stands in for a tearsheet while the server draws it.
+
+    The page shows a spinner and a message, asks for the tearsheet with `?render`, and replaces
+    itself with the answer. If the drawing fails, it shows the error and a link to the list.
+
+    Args:
+        signal: The trial's signal, shown as the heading.
+        title: The study's name, shown in the page's title.
+
+    Returns:
+        The HTML.
+    """
+    return environment().get_template("drawing.html").render(signal=signal, title=title)
+
+
 def _next_order(key: str, sort: str, descending: bool) -> str:
     """The order a click on a heading asks for: the opposite one, or the column's own."""
     if key == sort:

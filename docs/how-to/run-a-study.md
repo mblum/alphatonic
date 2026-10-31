@@ -131,7 +131,8 @@ trials` and the sample, with repeated looks at the holdout flagged), the time-se
 the data. Sort it by any column, switch the horizon, filter by signal, and open each trial's
 tearsheet from its name. It reads the records on every request, so a trial saved while it runs
 appears on the next reload. A tearsheet that was not stored is drawn from the trial's tables when
-you open it, which takes a few seconds; the server keeps the last few pages it drew. Pass `--name`
+you open it, which takes a few seconds; the page opens at once with a spinner and shows the
+tearsheet when it is ready, and the server keeps the last few pages it drew. Pass `--name`
 to show the study's name in those tearsheets, because the server knows only what you give it:
 
 ```bash

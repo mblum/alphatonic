@@ -8,22 +8,18 @@ All notable changes are listed here. The format follows
 
 ### Added
 
-- Render the formulas in the documentation as typeset math instead of code blocks.
-- Compare alphatonic's signal evaluation with Alphalens, Alphalens Reloaded, Qlib and Spectre in
-  the documentation.
 - `Study.render_tearsheet(id)` returns the tearsheet of a finished trial as HTML, drawn from its
   saved tables: the same page `Study.evaluate(report=True)` writes, with the study's name, the
   trial's context and its place in its family's count.
 - The tearsheet served by `alphatonic serve` has a Download button that saves the page to disk,
-  and the list of trials shows a message while a tearsheet that was not stored is being drawn.
+  and a tearsheet that was not stored opens at once with a spinner and a message while the server
+  draws it, then replaces itself with the tearsheet.
 
 ### Changed
 
 - Jinja2 is now a core dependency, so `pip install alphatonic` is enough to write a tearsheet or
   run `alphatonic serve`. The `report` extra still exists and is empty, so
   `pip install "alphatonic[report]"` keeps working. The upper bound `<4` on Jinja2 is gone.
-- The README gives a shorter introduction with prominent documentation links; the documentation
-  home page now guides readers to tutorials, task guides, reference and explanations.
 - `Evaluation.save` writes each table as gzip-compressed CSV (`ic_summary.csv.gz`, and so on), as
   format 4 of the saved evaluation. A saved evaluation is about seven times smaller: 22 MB instead
   of 158 MB for 20 assets of hourly bars over five years. Directories of formats 1 to 3, which hold
@@ -49,14 +45,12 @@ All notable changes are listed here. The format follows
   styled like the menus of the list of trials, instead of one inside the chart.
 - A printed tearsheet uses the type size its print stylesheet asks for. Before, the page was printed
   at about two thirds of it, so it now takes more pages.
-- Condense the README, which is also the documentation home page, into one short "Main concepts"
-  section. The home page now links to the documentation instead of listing the guides, and the
-  README's links are web URLs that also work on PyPI.
-
-### Fixed
-
-- The example under `evaluate` in the API reference is shown as a code block you can paste. Before,
-  it ran together as nested quotations.
+- Improve the documentation. Formulas are typeset as math instead of code blocks. The documentation
+  compares alphatonic's signal evaluation with Alphalens, Alphalens Reloaded, Qlib and Spectre. The
+  README, which is also the documentation home page, is a shorter introduction with one "Main
+  concepts" section and prominent links to the tutorials, task guides, reference and explanations;
+  its links are web URLs that also work on PyPI. The example under `evaluate` in the API reference
+  is a code block you can paste; before, it ran together as nested quotations.
 
 ### Removed
 

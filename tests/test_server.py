@@ -7,7 +7,7 @@ import urllib.request
 import pytest
 
 from alphatonic import Evaluation, Study
-from alphatonic.server import _drawn_tearsheet, make_server, respond
+from alphatonic.server import _KEPT, make_server, respond
 from alphatonic.study import RECORD, TEARSHEET
 from conftest import regular_panel
 from test_study import QUICK, record, saved
@@ -115,25 +115,25 @@ def test_a_tearsheet_that_was_not_stored_is_drawn_from_the_tables(evaluated):
     study, first, second = evaluated
     assert not (study.directory / second.id / TEARSHEET).exists()
 
-    response = respond(study, f"/{second.id}/tearsheet.html")
+    response = respond(study, f"/{second.id}/tearsheet.html?render")
 
     assert response.status == 200 and response.content_type.startswith("text/html")
     page = response.body.decode("utf-8")
     assert "<dt>Study</dt><dd>demo</dd>" in page
     assert "2 of momentum, this one included" in page
-    assert "1 of momentum, this one included" in _page(study, f"/{first.id}/tearsheet.html")
+    assert "1 of momentum, this one included" in _page(study, f"/{first.id}/tearsheet.html?render")
 
 
 def test_a_drawn_tearsheet_is_kept_for_the_next_request(evaluated, monkeypatch):
     study, _, second = evaluated
-    _drawn_tearsheet.cache_clear()
+    _KEPT.clear()
     drawn = []
     original = Evaluation.render_tearsheet
     monkeypatch.setattr(
         Evaluation, "render_tearsheet", lambda *a, **k: drawn.append(1) or original(*a, **k)
     )
 
-    first = respond(study, f"/{second.id}/tearsheet.html")
+    first = respond(study, f"/{second.id}/tearsheet.html?render")
     again = respond(study, f"/{second.id}/tearsheet.html")
 
     assert len(drawn) == 1
@@ -341,7 +341,51 @@ def test_the_server_sends_a_download_as_an_attachment(study):
     assert plain is None
 
 
-def test_the_list_says_when_a_tearsheet_is_being_drawn(study):
-    page = _page(study)
+def test_a_tearsheet_that_has_to_be_drawn_is_answered_at_once_with_a_page_that_waits(
+    evaluated, monkeypatch
+):
+    study, _, second = evaluated
+    _KEPT.clear()
+    monkeypatch.setattr(
+        Evaluation, "render_tearsheet", lambda *a, **k: pytest.fail("drew the tearsheet")
+    )
 
-    assert 'id="loading"' in page and "Drawing the tearsheet" in page
+    response = respond(study, f"/{second.id}/tearsheet.html")
+
+    assert response.status == 200 and response.filename is None
+    page = response.body.decode("utf-8")
+    assert "<h1>momentum</h1>" in page and "<title>momentum · demo</title>" in page
+    assert 'aria-busy="true"' in page and "Drawing the tearsheet" in page
+    assert "fetch('?render')" in page
+    assert 'href="../"' in page
+
+
+def test_the_page_that_waits_is_not_sent_for_a_tearsheet_that_is_kept(evaluated):
+    study, _, second = evaluated
+    _KEPT.clear()
+    respond(study, f"/{second.id}/tearsheet.html?render")
+
+    page = _page(study, f"/{second.id}/tearsheet.html")
+
+    assert "<dt>Study</dt><dd>demo</dd>" in page and "fetch('?render')" not in page
+
+
+def test_a_trial_without_tables_gets_no_page_that_waits(study):
+    (study.directory / "old-momentum" / TEARSHEET).unlink()
+
+    assert respond(study, "/old-momentum/tearsheet.html").status == 404
+
+
+def test_the_server_keeps_only_the_last_few_drawn_tearsheets(evaluated, monkeypatch):
+    study, first, second = evaluated
+    _KEPT.clear()
+    monkeypatch.setattr("alphatonic.server._KEPT_PAGES", 1)
+
+    respond(study, f"/{first.id}/tearsheet.html?render")
+    respond(study, f"/{second.id}/tearsheet.html?render")
+
+    assert [identifier for _, identifier in _KEPT] == [second.id]
+
+
+def test_the_list_does_not_announce_a_tearsheet_being_drawn(study):
+    assert "Drawing the tearsheet" not in _page(study)

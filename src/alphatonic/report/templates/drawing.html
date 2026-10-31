@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ signal }} · {{ title }}{% endblock %}
+{% block html_attributes %} data-page="drawing"{% endblock %}
+{% block body %}
+<header>
+  <p class="eyebrow">alphatonic · study</p>
+  <h1>{{ signal }}</h1>
+</header>
+<main>
+  <p class="loading" id="drawing" role="status" aria-busy="true">Drawing the tearsheet from its saved tables, which takes a few seconds…</p>
+  <p><a href="../">All trials</a></p>
+</main>
+<script>
+  // The tearsheet was not stored, so the server draws it. Ask for it, then become it.
+  const status = document.getElementById('drawing');
+  function fail(message) {
+    status.removeAttribute('aria-busy');
+    status.classList.add('failed');
+    status.textContent = 'The tearsheet could not be drawn: ' + message;
+  }
+  fetch('?render').then(response => {
+    if (!response.ok) return response.text().then(text => fail(text.trim() || response.statusText));
+    return response.text().then(page => { document.open(); document.write(page); document.close(); });
+  }).catch(error => fail(error.message));
+</script>
+{% endblock %}

@@ -6,8 +6,9 @@ serves the list at `/`, the same list as JSON ([`Study.to_dict`][alphatonic.Stud
 `/study.json`, and, for each finished trial, `/<id>/tearsheet.html` and `/<id>/record.json`;
 every other path is not found. A request for a trial's file with `?download` in the query makes the
 browser save it as `<id>-<name>` instead of showing it. A tearsheet that the study did not store is
-drawn from the trial's tables when it is asked for, which takes a few seconds; the server keeps the
-last few pages it drew.
+drawn from the trial's tables, which takes a few seconds; the server keeps the last few pages it
+drew. Until a page is kept, a request for it is answered at once with a page that says so and
+fetches the tearsheet with `?render`, which waits for the drawing.
 It binds to the local machine by default and is meant for one researcher, not for the open
 internet.
 """
@@ -16,8 +17,10 @@ from __future__ import annotations
 
 import contextlib
 import json
+import threading
+from collections import OrderedDict
 from dataclasses import dataclass
-from functools import lru_cache, partial
+from functools import partial
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -56,7 +59,8 @@ def respond(study: Study, target: str) -> Response:
     Returns:
         The list for `/`, the list as JSON for `/study.json` (400 for an unknown `sort`), a
         finished trial's tearsheet or record (an attachment if the query has `download`), or 404
-        for anything else.
+        for anything else. A tearsheet that is neither stored nor kept is answered with a page that
+        draws it, unless the query has `render` or `download`, which wait for the drawing.
     """
     url = urlsplit(target)
     path = unquote(url.path)
@@ -92,15 +96,19 @@ def respond(study: Study, target: str) -> Response:
             study.trial(identifier)
         except (UnknownTrialError, ValueError):
             return _not_found()
-        saved_as = (
-            f"{identifier}-{name}"
-            if "download" in parse_qs(url.query, keep_blank_values=True)
-            else None
-        )
+        flags = parse_qs(url.query, keep_blank_values=True)
+        saved_as = f"{identifier}-{name}" if "download" in flags else None
         file = study.directory / identifier / name
         if file.is_file():
             return Response(HTTPStatus.OK, _FILES[name], file.read_bytes(), saved_as)
         if name == TEARSHEET:
+            waits = not flags.keys() & {"render", "download"}
+            if waits and study._has_tables(identifier) and not _is_kept(study, identifier):
+                from alphatonic.report.board import render_drawing
+
+                title = study.name or study.directory.name
+                page = render_drawing(study.trial(identifier).signal, title)
+                return Response(HTTPStatus.OK, _FILES[name], page.encode("utf-8"))
             try:
                 page = _drawn_tearsheet(study, identifier)
             except FileNotFoundError as error:
@@ -126,10 +134,31 @@ def serve(study: Study, host: str = "127.0.0.1", port: int = 8000) -> None:
         server.serve_forever()
 
 
-@lru_cache(maxsize=4)
+_KEPT: OrderedDict[tuple[Study, str], bytes] = OrderedDict()
+"""The last drawn tearsheets, least recently used first."""
+_KEPT_PAGES = 4
+"""How many drawn tearsheets the server keeps."""
+_LOCK = threading.Lock()
+
+
+def _is_kept(study: Study, identifier: str) -> bool:
+    with _LOCK:
+        return (study, identifier) in _KEPT
+
+
 def _drawn_tearsheet(study: Study, identifier: str) -> bytes:
     """Draw a trial's tearsheet from its tables; a trial never changes, so the page is reusable."""
-    return study.render_tearsheet(identifier).encode("utf-8")
+    key = (study, identifier)
+    with _LOCK:
+        if key in _KEPT:
+            _KEPT.move_to_end(key)
+            return _KEPT[key]
+    page = study.render_tearsheet(identifier).encode("utf-8")
+    with _LOCK:
+        _KEPT[key] = page
+        while len(_KEPT) > _KEPT_PAGES:
+            _KEPT.popitem(last=False)
+    return page
 
 
 def _not_found(message: str = "Not found\n") -> Response:
