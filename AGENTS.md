@@ -120,6 +120,14 @@ supported version has. CI (`.github/workflows/ci.yml`) runs all of these.
 - `tests/test_docs.py` runs every Python block in the root Markdown files and `docs/`, in order, in one
   namespace per page. Examples must actually run. Put `<!-- notest -->` on the line above a
   block that must not run.
+- Docstrings are Markdown that mkdocstrings renders; write them so they render as well as read.
+  Put an example in an `Examples:` section (plural; Griffe reads `Example:`, `Note:` and any other
+  `Word:` heading as an admonition and renders its body as plain Markdown). Write it as a
+  fenced `python` block a reader can paste, never as `>>>` lines, which render as nested
+  quotations and cannot be pasted. Show a result as a comment (`print(x)  # [1, 5]`).
+  `tests/test_docs.py` checks the headings and the prompts, and runs these blocks. After you edit a
+  public docstring, build with `zensical build --clean --strict` (the cache can hide the change)
+  and look at the rendered section in `site/reference/api/index.html`.
 - Follow Diátaxis: reference pages state facts, explanation pages give reasons, how-to guides
   solve one task. Update the page that matches what you changed.
 - Write plain, concrete sentences. The prose uses British spelling (centre, neutralise,
