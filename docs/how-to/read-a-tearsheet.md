@@ -1,7 +1,7 @@
 # Read a tearsheet
 
 A tearsheet is a single HTML file with charts and tables; hover a chart to read exact values. Install the report extra using
-the [installation command](../index.md#install), then write a report:
+the [installation command](../tutorials/first-evaluation.md), then write a report:
 
 ```python
 from alphatonic import ReportOptions, evaluate

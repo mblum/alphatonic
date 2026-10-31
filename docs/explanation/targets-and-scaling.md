@@ -16,9 +16,9 @@ no extra credit just because the asset rose over the sample.
 
 Cosine keeps the means. For scores `s` and targets `r`, it is:
 
-```text
-cosine = mean(s · r) / (rms(s) · rms(r))
-```
+$$
+\text{cosine} = \frac{\operatorname{mean}(s r)}{\operatorname{rms}(s)\,\operatorname{rms}(r)}
+$$
 
 Here `rms` means root mean square. Adding a constant to the scores can change cosine because it
 changes the signal's average position. Multiplying every score by the same positive constant leaves
@@ -26,10 +26,10 @@ it unchanged.
 
 The numerator splits into covariance and the product of the means:
 
-```text
-cosine = cov(s, r) / (rms(s) · rms(r)) + mean(s) · mean(r) / (rms(s) · rms(r))
-         └──────── timing ──────────┘   └────────── static ─────────────┘
-```
+$$
+\text{cosine} = \underbrace{\frac{\operatorname{cov}(s, r)}{\operatorname{rms}(s)\,\operatorname{rms}(r)}}_{\text{timing}}
++ \underbrace{\frac{\bar s\,\bar r}{\operatorname{rms}(s)\,\operatorname{rms}(r)}}_{\text{static}}
+$$
 
 These use population moments over valid pairs. The timing part reflects how scores and targets vary
 together. The static part reflects the average score and average target. Both are signed, and they
@@ -64,9 +64,9 @@ targets are centred, cosine equals Pearson.
 A raw return of 2% means something different for a quiet asset than for a volatile one. A
 volatility-scaled target measures the return relative to estimated risk:
 
-```text
-target[t] = forward_return[t] / (volatility[t] · sqrt(horizon))
-```
+$$
+\text{target}_t = \frac{\text{forward return}_t}{\text{volatility}_t \sqrt{\text{horizon}}}
+$$
 
 The volatility estimate is the exponentially weighted standard deviation of one-bar returns. By
 default its span is 60 bars and it needs at least 20 returns. It includes the return ending at the

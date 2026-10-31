@@ -45,11 +45,13 @@ first `lag` rows' structural counts as actual entries: their comparison status i
 
 For each asset, let S contain valid endpoint pairs `(a, b)` at the chosen lag:
 
-```text
-normalised change = sum_S |a − b| / sum_S ((|a| + |b|) / 2)
-sign-change fraction = count_S(sign(a) * sign(b) == −1) / |S|
-zero-transition fraction = count_S(exactly one endpoint equals zero) / |S|
-```
+$$
+\begin{aligned}
+\text{normalised change} &= \frac{\sum_S |a - b|}{\sum_S (|a| + |b|)/2} \\
+\text{sign-change fraction} &= \frac{\#_S\{\operatorname{sign}(a)\operatorname{sign}(b) = -1\}}{|S|} \\
+\text{zero-transition fraction} &= \frac{\#_S\{\text{exactly one endpoint equals zero}\}}{|S|}
+\end{aligned}
+$$
 
 Normalised change is in **multiples of typical absolute signal over the lag**, without
 annualisation. Its range is 0 to 2, and positive constant rescaling leaves it unchanged. It is a
@@ -79,9 +81,6 @@ A score can stay constant while volatility scaling changes the position. Holding
 prices move, so the trade needed to reach a target depends on the holdings before the trade. Neither
 effect is measured by score persistence. Costs require position rules, execution timing and an
 asset-specific accounting model; they cannot be subtracted from IC.
-
-The [reference-exposure proposal](../contributing/reference-exposures.md) records requirements for
-possible future cost analysis. It is not implemented.
 
 ## Research basis
 

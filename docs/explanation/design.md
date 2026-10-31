@@ -61,9 +61,7 @@ These are boundaries, not a roadmap commitment: some, such as cost analysis and 
 natural extensions if there is demand.
 
 [Signal persistence](signal-persistence.md) is available independently of return labels. It measures
-score and bucket changes, not traded notional. The [reference-exposure
-proposal](../contributing/reference-exposures.md) describes possible future cost analysis; it is not
-an available feature.
+score and bucket changes, not traded notional. Cost analysis is not an available feature.
 
 ## Performance model
 

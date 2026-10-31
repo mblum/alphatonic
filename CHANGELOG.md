@@ -8,8 +8,9 @@ All notable changes are listed here. The format follows
 
 ### Added
 
+- Render the formulas in the documentation as typeset math instead of code blocks.
 - Compare alphatonic's signal evaluation with Alphalens, Alphalens Reloaded, Qlib and Spectre in
-  the README.
+  the documentation.
 - `Study.render_tearsheet(id)` returns the tearsheet of a finished trial as HTML, drawn from its
   saved tables: the same page `Study.evaluate(report=True)` writes, with the study's name, the
   trial's context and its place in its family's count.
@@ -17,6 +18,9 @@ All notable changes are listed here. The format follows
   and the list of trials shows a message while a tearsheet that was not stored is being drawn.
 
 ### Changed
+
+- The README gives a shorter introduction with prominent documentation links; the documentation
+  home page now guides readers to tutorials, task guides, reference and explanations.
 
 - `Evaluation.save` writes each table as gzip-compressed CSV (`ic_summary.csv.gz`, and so on), as
   format 4 of the saved evaluation. A saved evaluation is about seven times smaller: 22 MB instead
