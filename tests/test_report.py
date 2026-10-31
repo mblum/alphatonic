@@ -7,7 +7,7 @@ import pytest
 
 from alphatonic import Study, evaluate
 from alphatonic.config import ReportOptions
-from alphatonic.report.board import render_board
+from alphatonic.report.board import render_board, render_drawing
 from alphatonic.report.figures import (
     STATUSES,
     coverage_figures,
@@ -78,8 +78,19 @@ def test_the_glance_shows_each_horizons_estimates_with_their_intervals(page):
 
 
 def test_the_bar_names_the_tool_and_no_label_sits_above_the_title(page):
-    assert '<li class="brand">alphatonic</li>' in page
+    assert '<li class="brand"><a id="brand">alphatonic</a></li>' in page
     assert 'class="eyebrow"' not in page
+
+
+def test_the_brand_leads_back_to_the_list_of_trials(page, tmp_path):
+    board = render_board(Study(tmp_path / "study", name="demo"))
+
+    assert '<li class="brand"><a href="./">alphatonic</a></li>' in board
+    assert '<li class="brand"><a href="../">alphatonic</a></li>' in render_drawing(
+        "momentum", "demo"
+    )
+    # A tearsheet is also a file on its own: it links back only when a server shows it.
+    assert "getElementById('brand').href = '../'" in page
 
 
 def test_each_horizon_has_a_tab_and_only_the_first_is_shown(page):

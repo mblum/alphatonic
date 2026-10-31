@@ -44,6 +44,7 @@
 {% block head %}<script>{{ libraries | safe }}</script>{% endblock %}
 {% block skip_link %}<a class="skip-link" href="#main-content">Skip to the report</a>{% endblock %}
 {% block nav_label %}Report sections{% endblock %}
+{% block brand %}<a id="brand">alphatonic</a>{% endblock %}
 {% block nav %}
   <ul>
     <li><a href="#top" data-section="study-design">Study design</a></li>
@@ -255,7 +256,10 @@
 <script>{{ chart_script | safe }}</script>
 <script>
   // Only a page served by `alphatonic serve` can be saved this way; a saved copy is the file itself.
-  if (location.protocol.startsWith('http')) document.getElementById('download').hidden = false;
+  if (location.protocol.startsWith('http')) {
+    document.getElementById('download').hidden = false;
+    document.getElementById('brand').href = '../';  // served by a study: back to its list of trials
+  }
   const disclosures = [...document.querySelectorAll('details')];
   const panels = [...document.querySelectorAll('[role=tabpanel]')];
   function selectTab(tab, focus) {

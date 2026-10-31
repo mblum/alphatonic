@@ -23,6 +23,8 @@ All notable changes are listed here. The format follows
   documentation.
 - On the list of trials the horizon is chosen with buttons instead of a menu, and the time-series
   and data columns are set in a lighter colour so that the rank IC and `p × trials` stand out.
+- The name in the header bar is larger and leads back to the list of trials on the pages that
+  `alphatonic serve` shows.
 
 ## [0.2.0] - 2026-10-31
 
