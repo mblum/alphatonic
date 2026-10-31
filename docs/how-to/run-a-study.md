@@ -147,8 +147,7 @@ alphatonic list smoothing-study --sort adjusted_p
 
 The same list is served as JSON at `/study.json`, with the page's `horizon`, `sort` and `order`
 parameters, and `study.to_dict()` returns it in Python; the [results
-reference](../reference/results.md#json-documents) describes it. The page needs
-`alphatonic[report]`. The server listens on this machine only unless you pass `--host`, and it
+reference](../reference/results.md#json-documents) describes it. The server listens on this machine only unless you pass `--host`, and it
 serves nothing but the list and the trials' tearsheets and records.
 
 ## Read the trials back
@@ -161,8 +160,7 @@ print(latest.signal, latest.sample, round(tables.metrics()["cs.h5.spearman.mean"
 ```
 
 `study.render_tearsheet(latest.id)` returns the trial's tearsheet as HTML, drawn from its tables
-with the study's name, the trial's context and its place in its family's count. It needs
-`alphatonic[report]`.
+with the study's name, the trial's context and its place in its family's count.
 
 `study.trials()` returns completed trials newest first. It skips directories without a
 `record.json`: evaluations that did not finish. Records that exist but cannot be read are listed by

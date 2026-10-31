@@ -1,4 +1,4 @@
-"""The trials of a study as one HTML page, sorted by any column. Needs `alphatonic[report]`.
+"""The trials of a study as one HTML page, sorted by any column.
 
 The page renders [`Study.to_dict`][alphatonic.Study.to_dict] at one horizon, so it shows what
 the JSON document holds. Sorting, the horizon and a filter by signal are query parameters, so a

@@ -16,7 +16,7 @@ Local development uses Python 3.13 (`.python-version`); the library supports Pyt
 [uv](https://docs.astral.sh/uv/). Run commands from the repository root:
 
 ```sh
-uv sync --all-extras --locked      # create .venv with the dev tools and the report extra
+uv sync --all-extras --locked      # create .venv with the dev tools
 uv run pytest                      # in parallel, under 40 seconds
 uv run ruff check .
 uv run ruff format --check .

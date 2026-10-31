@@ -16,7 +16,7 @@ Use [uv](https://docs.astral.sh/uv/) and run from the repository root. Local dev
 Python 3.13 (`.python-version`), but the code must run on 3.11 to 3.14.
 
 ```sh
-uv sync --all-extras --locked                  # set up .venv with the dev tools and the report extra
+uv sync --all-extras --locked                  # set up .venv with the dev tools
 uv run pytest                                  # whole suite, in parallel, under 40 seconds
 uv run pytest tests/test_stats.py -k hac -n 0  # one file or test, in one process
 uv run ruff check .                            # lint (add --fix for safe fixes)
@@ -89,11 +89,10 @@ supported version has. CI (`.github/workflows/ci.yml`) runs all of these.
   model and give errors that say what is wrong and what is accepted.
 - Keep `src/` vectorised. Loops over timestamps belong in the reference implementation, not in
   the library.
-- Keep the dependencies small: evaluation needs only NumPy, pandas and pydantic. Jinja2
-  belongs to the optional `report` extra, so import `alphatonic.report` lazily, inside
-  the function that needs it (as `Evaluation.render_tearsheet` does). `alphatonic`,
-  `alphatonic.server` and `alphatonic.cli` must import without them, and
-  `tests/test_public_api.py` checks this.
+- Keep the dependencies small: NumPy, pandas, pydantic and Jinja2 (for the report). Import
+  `alphatonic.report` lazily, inside the function that needs it (as
+  `Evaluation.render_tearsheet` does), so that `alphatonic`, `alphatonic.server` and
+  `alphatonic.cli` import without loading Jinja2; `tests/test_public_api.py` checks this.
   Ask before you add a runtime dependency or raise a lower bound, and give the reason in the
   pull request.
 - The public API is `alphatonic.__all__`. A new public name needs a docstring, an entry in

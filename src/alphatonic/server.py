@@ -1,6 +1,6 @@
 """Serve a study's trials as a sortable list linking to their tearsheets.
 
-The server uses only the standard library and renders the list with `alphatonic[report]`. It
+The server uses only the standard library and renders the list with Jinja2. It
 reads the records on every request, so a trial saved while it runs appears on the next reload. It
 serves the list at `/`, the same list as JSON ([`Study.to_dict`][alphatonic.Study.to_dict]) at
 `/study.json`, and, for each finished trial, `/<id>/tearsheet.html` and `/<id>/record.json`;
@@ -115,7 +115,7 @@ def make_server(study: Study, host: str = "127.0.0.1", port: int = 8000) -> Thre
 
 
 def serve(study: Study, host: str = "127.0.0.1", port: int = 8000) -> None:
-    """Serve the study's trials until interrupted. Needs `alphatonic[report]`.
+    """Serve the study's trials until interrupted.
 
     Args:
         study: The study to serve.

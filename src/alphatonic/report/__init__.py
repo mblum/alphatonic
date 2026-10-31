@@ -1,4 +1,4 @@
-"""The offline HTML tearsheet. Needs the `report` extra: `pip install "alphatonic[report]"`."""
+"""The offline HTML tearsheet."""
 
 from __future__ import annotations
 
@@ -12,25 +12,16 @@ import numpy as np
 import pandas as pd
 
 from alphatonic.config import EvaluationConfig, ReportOptions
-
-try:
-    from alphatonic.report.figures import (
-        Spec,
-        coverage_figures,
-        horizon_label,
-        method_figures,
-        quantile_figure,
-        span,
-    )
-    from alphatonic.report.page import environment
-    from alphatonic.report.ts_figures import horizon_figures
-except ModuleNotFoundError as error:  # pragma: no cover - exercised only without the extra
-    if error.name and error.name.split(".")[0] == "jinja2":
-        raise ImportError(
-            f"The tearsheet needs jinja2 ({error.name} is missing): "
-            'pip install "alphatonic[report]"'
-        ) from error
-    raise
+from alphatonic.report.figures import (
+    Spec,
+    coverage_figures,
+    horizon_label,
+    method_figures,
+    quantile_figure,
+    span,
+)
+from alphatonic.report.page import environment
+from alphatonic.report.ts_figures import horizon_figures
 
 if TYPE_CHECKING:
     from alphatonic.evaluation import Evaluation

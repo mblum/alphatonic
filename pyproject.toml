@@ -35,13 +35,13 @@ dependencies = [
     "numpy>=1.26",
     "pandas>=2.2.2",
     "pydantic>=2.6",
+    "jinja2>=3.1",
 ]
 
 [project.optional-dependencies]
-# The offline HTML tearsheet. Evaluation itself needs only the core dependencies.
-report = [
-    "jinja2>=3.1,<4",
-]
+# Kept empty so that `pip install "alphatonic[report]"` keeps working; jinja2 is now a core
+# dependency. Remove it in a later release.
+report = []
 
 [project.scripts]
 alphatonic = "alphatonic.cli:main"
@@ -60,7 +60,6 @@ dev = [
     "ruff>=0.9",
     "scipy>=1.11",
     "statsmodels>=0.14",
-    "jinja2>=3.1,<4",
     "pyright>=1.1.414",
     "pandas-stubs>=3.0.5.260914",
     "pytest-xdist>=3.6",
@@ -69,7 +68,6 @@ dev = [
 docs = [
     "mkdocstrings[python]>=1.0.6",
     "zensical>=0.0.63",
-    "jinja2>=3.1,<4",
 ]
 
 [build-system]
