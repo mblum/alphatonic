@@ -14,12 +14,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 PAGES = sorted({p.resolve() for p in [*ROOT.glob("*.md"), *DOCS.rglob("*.md")]})
-# Pages of the site that are symlinks to root files, which GitHub and PyPI also show.
-SHARED_PAGES = {
-    "docs/index.md": "README.md",
-    "docs/changelog.md": "CHANGELOG.md",
-    "docs/contributing/development.md": "CONTRIBUTING.md",
-}
+# Root files that GitHub and PyPI show, and that are not part of the site.
+ROOT_PAGES = ["README.md", "CONTRIBUTING.md", "CHANGELOG.md"]
 SITE = "https://mblum.github.io/alphatonic/"
 SOURCES = "https://github.com/mblum/alphatonic/blob/master/"
 
@@ -84,12 +80,6 @@ def test_examples_exist_in_the_main_pages():
     assert {"README.md", "first-evaluation.md", "prepare-inputs.md"} <= names
 
 
-@pytest.mark.parametrize("page, source", SHARED_PAGES.items(), ids=list(SHARED_PAGES))
-def test_shared_pages_are_symlinks_to_the_root_files(page, source):
-    """A copy under `docs/` would drift from the root file, and its examples would run twice."""
-    assert (ROOT / page).resolve() == ROOT / source
-
-
 def test_link_targets_finds_every_link_form_outside_code():
     text = (
         '[a](docs/a.md) and [b](<docs/b.md> "title")\n\n'
@@ -100,7 +90,7 @@ def test_link_targets_finds_every_link_form_outside_code():
     assert link_targets(text) == ["docs/a.md", "docs/b.md", "docs/c.md", "docs/d.md"]
 
 
-@pytest.mark.parametrize("source", SHARED_PAGES.values())
+@pytest.mark.parametrize("source", ROOT_PAGES)
 def test_root_page_links_work_outside_the_repository(source):
     """Shared pages must not rely on repository-relative link resolution."""
     for target in link_targets((ROOT / source).read_text(encoding="utf-8")):
@@ -108,7 +98,7 @@ def test_root_page_links_work_outside_the_repository(source):
         assert url.scheme or url.netloc or not url.path, target
 
 
-@pytest.mark.parametrize("source", SHARED_PAGES.values())
+@pytest.mark.parametrize("source", ROOT_PAGES)
 def test_root_page_links_into_the_project_name_existing_files(source):
     """Absolute links to the site and the sources must not outlive the page or file they name."""
     for target in link_targets((ROOT / source).read_text(encoding="utf-8")):
@@ -121,3 +111,9 @@ def test_root_page_links_into_the_project_name_existing_files(source):
         else:
             continue
         assert any(candidate.is_file() for candidate in candidates), target
+
+
+def test_documentation_home_is_independent():
+    home = DOCS / "index.md"
+    assert not home.is_symlink()
+    assert home.read_text() != (ROOT / "README.md").read_text()

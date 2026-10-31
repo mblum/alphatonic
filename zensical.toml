@@ -1,18 +1,22 @@
 # The documentation site, built with Zensical: `uv run --group docs zensical serve`.
 
 [project]
-site_name = "alphatonic"
+site_name = "alphatonic docs"
 site_description = "Test trading signals with information coefficients, uncertainty estimates and offline reports."
 repo_url = "https://github.com/mblum/alphatonic"
 repo_name = "mblum/alphatonic"
 edit_uri = "edit/master/docs/"
 site_url = "https://mblum.github.io/alphatonic/"
-# The shared pages in docs/ are symlinks to these root files.
-watch = ["README.md", "CHANGELOG.md", "CONTRIBUTING.md"]
+
+extra_javascript = [
+  "javascripts/katex.js",
+  "https://unpkg.com/katex@0.19.1/dist/katex.min.js",
+  "https://unpkg.com/katex@0.19.1/dist/contrib/auto-render.min.js",
+]
+extra_css = ["https://unpkg.com/katex@0.19.1/dist/katex.min.css"]
 
 nav = [
   { "Home" = "index.md" },
-  { "Changelog" = "changelog.md" },
   { "Tutorials" = [
     { "Your first evaluation" = "tutorials/first-evaluation.md" },
   ] },
@@ -22,7 +26,7 @@ nav = [
     { "Measure signal persistence" = "how-to/measure-persistence.md" },
     { "Read a tearsheet" = "how-to/read-a-tearsheet.md" },
     { "Save and reload results" = "how-to/save-and-reload.md" },
-    { "Compare factors and parameters" = "how-to/compare-factors.md" },
+    { "Compare factors" = "how-to/compare-factors.md" },
     { "Keep every trial in a study" = "how-to/run-a-study.md" },
     { "Troubleshooting" = "how-to/troubleshooting.md" },
   ] },
@@ -33,14 +37,11 @@ nav = [
   ] },
   { "Explanation" = [
     { "Evaluation methodology" = "explanation/methodology.md" },
+    { "Scope and alternatives" = "explanation/scope.md" },
     { "Signal persistence" = "explanation/signal-persistence.md" },
     { "Report design" = "explanation/report-design.md" },
     { "Design decisions" = "explanation/design.md" },
-    { "Targets, scaling and the cosine IC" = "explanation/targets-and-scaling.md" },
-  ] },
-  { "Contributing" = [
-    { "Contributor guide" = "contributing/development.md" },
-    { "Reference-exposure proposal" = "contributing/reference-exposures.md" },
+    { "Targets and scaling" = "explanation/targets-and-scaling.md" },
   ] },
 ]
 
@@ -114,6 +115,7 @@ footnotes = {}
 md_in_html = {}
 toc.toc_depth = 3
 toc.permalink = true
+pymdownx.arithmatex.generic = true
 pymdownx.betterem = {}
 pymdownx.caret = {}
 pymdownx.details = {}

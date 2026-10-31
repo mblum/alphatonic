@@ -8,8 +8,9 @@ All notable changes are listed here. The format follows
 
 ### Added
 
+- Render the formulas in the documentation as typeset math instead of code blocks.
 - Compare alphatonic's signal evaluation with Alphalens, Alphalens Reloaded, Qlib and Spectre in
-  the README.
+  the documentation.
 - `Study.render_tearsheet(id)` returns the tearsheet of a finished trial as HTML, drawn from its
   saved tables: the same page `Study.evaluate(report=True)` writes, with the study's name, the
   trial's context and its place in its family's count.
@@ -21,6 +22,8 @@ All notable changes are listed here. The format follows
 - Jinja2 is now a core dependency, so `pip install alphatonic` is enough to write a tearsheet or
   run `alphatonic serve`. The `report` extra still exists and is empty, so
   `pip install "alphatonic[report]"` keeps working. The upper bound `<4` on Jinja2 is gone.
+- The README gives a shorter introduction with prominent documentation links; the documentation
+  home page now guides readers to tutorials, task guides, reference and explanations.
 - `Evaluation.save` writes each table as gzip-compressed CSV (`ic_summary.csv.gz`, and so on), as
   format 4 of the saved evaluation. A saved evaluation is about seven times smaller: 22 MB instead
   of 158 MB for 20 assets of hourly bars over five years. Directories of formats 1 to 3, which hold
