@@ -169,9 +169,17 @@ bump and changelog and nothing else.
    `pyright`, the docs build, and `uv build && uvx twine check dist/*`. If one fails, fix the
    cause only when it is in the release commit itself; otherwise report it.
 5. Commit with the message "Release X.Y.Z", push the branch and open a pull request into
-   `master`. In the description, list the changelog entries and the checks you ran, and say what
-   remains: once CI is green, tag the last commit of the branch locally, merge the branch into
-   `master` with a merge commit, and push the tag after CI on `master` is green.
+   `master`. In the description, list the changelog entries and the checks you ran, and add a
+   section "To finish the release" with the steps the human follows, as commands they can copy
+   (steps 2 to 5 of "Releasing" in `CONTRIBUTING.md`, with `X.Y.Z` filled in):
+   1. Wait until CI on the branch is green.
+   2. Tag the last commit locally and do not push the tag yet:
+      `git switch release-X.Y.Z && git pull --ff-only && git tag -a X.Y.Z -m "alphatonic X.Y.Z"`.
+   3. Merge the pull request with a merge commit, not a squash or a rebase. If `master` has moved
+      and conflicts, merge locally as `CONTRIBUTING.md` describes instead.
+   4. Once CI on `master` is green, push the tag: `git push origin X.Y.Z`. This publishes the
+      documentation and uploads the package to PyPI, which accepts a version only once.
+   5. Check that the Release workflow succeeds, then delete the release branch.
 
 Don't merge the pull request, create a tag or push a tag unless asked. If you are asked to finish
 the release, follow steps 2 to 5 of "Releasing" in the order given: tag the branch, merge with a

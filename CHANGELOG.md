@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-31
+
 ### Added
 
 - `Study.render_tearsheet(id)` returns the tearsheet of a finished trial as HTML, drawn from its
