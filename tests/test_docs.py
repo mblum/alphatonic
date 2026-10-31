@@ -14,12 +14,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 PAGES = sorted({p.resolve() for p in [*ROOT.glob("*.md"), *DOCS.rglob("*.md")]})
-# Pages of the site that are symlinks to root files, which GitHub and PyPI also show.
-SHARED_PAGES = {
-    "docs/changelog.md": "CHANGELOG.md",
-    "docs/contributing/development.md": "CONTRIBUTING.md",
-}
-ROOT_PAGES = ["README.md", *SHARED_PAGES.values()]
+# Root files that GitHub and PyPI show, and that are not part of the site.
+ROOT_PAGES = ["README.md", "CONTRIBUTING.md", "CHANGELOG.md"]
 SITE = "https://mblum.github.io/alphatonic/"
 SOURCES = "https://github.com/mblum/alphatonic/blob/master/"
 
@@ -82,12 +78,6 @@ def test_examples_run(page, tmp_path, monkeypatch):
 def test_examples_exist_in_the_main_pages():
     names = {p.name for p in pages_with_examples()}
     assert {"README.md", "first-evaluation.md", "prepare-inputs.md"} <= names
-
-
-@pytest.mark.parametrize("page, source", SHARED_PAGES.items(), ids=list(SHARED_PAGES))
-def test_shared_pages_are_symlinks_to_the_root_files(page, source):
-    """A copy under `docs/` would drift from the root file, and its examples would run twice."""
-    assert (ROOT / page).resolve() == ROOT / source
 
 
 def test_link_targets_finds_every_link_form_outside_code():

@@ -59,7 +59,7 @@ uv run ruff check . && uv run ruff format --check .
 uv run pyright
 ```
 
-See [Contributing](https://mblum.github.io/alphatonic/contributing/development/)
+See [Contributing](https://github.com/mblum/alphatonic/blob/master/CONTRIBUTING.md)
 for setup, tests and the release process.
 
 ## License

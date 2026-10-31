@@ -80,9 +80,6 @@ prices move, so the trade needed to reach a target depends on the holdings befor
 effect is measured by score persistence. Costs require position rules, execution timing and an
 asset-specific accounting model; they cannot be subtracted from IC.
 
-The [reference-exposure proposal](../contributing/reference-exposures.md) records requirements for
-possible future cost analysis. It is not implemented.
-
 ## Research basis
 
 - [Alphalens performance source](https://github.com/stefan-jansen/alphalens-reloaded/blob/main/src/alphalens/performance.py): rank persistence and quantile membership conventions.

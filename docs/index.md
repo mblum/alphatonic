@@ -28,4 +28,8 @@ Once your first tearsheet is open, these stops take you from the synthetic examp
 Check [troubleshooting](how-to/troubleshooting.md), or
 [report an issue](https://github.com/mblum/alphatonic/issues).
 
-[Changelog](changelog.md) · [Contributing](contributing/development.md)
+## Project
+
+See what changed in each release in the
+[changelog](https://github.com/mblum/alphatonic/blob/master/CHANGELOG.md). To work on alphatonic
+itself, read the [contributing guide](https://github.com/mblum/alphatonic/blob/master/CONTRIBUTING.md).
