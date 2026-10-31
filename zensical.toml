@@ -1,7 +1,7 @@
 # The documentation site, built with Zensical: `uv run --group docs zensical serve`.
 
 [project]
-site_name = "alphatonic"
+site_name = "alphatonic docs"
 site_description = "Test trading signals with information coefficients, uncertainty estimates and offline reports."
 repo_url = "https://github.com/mblum/alphatonic"
 repo_name = "mblum/alphatonic"

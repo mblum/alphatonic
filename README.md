@@ -45,6 +45,11 @@ result.tearsheet("tearsheet.html")
 
 Open `tearsheet.html` in your browser.
 
+## Changelog
+
+See the [changelog](https://github.com/mblum/alphatonic/blob/master/CHANGELOG.md) for what
+changed in each release.
+
 ## Development
 
 ```sh
