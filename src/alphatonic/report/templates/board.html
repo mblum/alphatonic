@@ -2,9 +2,8 @@
 {% set order = 'desc' if data.descending else 'asc' %}
 {% block title %}Trials · {{ title }}{% endblock %}
 {% block html_attributes %} data-page="board"{% endblock %}
-{% block body %}
-<nav class="site-nav" aria-label="Show trials">
-  <ul><li class="brand">alphatonic</li></ul>
+{% block nav_label %}Show trials{% endblock %}
+{% block nav %}
   {% if data.horizons %}
   <form class="toolbar" method="get" aria-label="Show trials">
     <div class="control">
@@ -25,7 +24,8 @@
     <noscript><button type="submit">Show</button></noscript>
   </form>
   {% endif %}
-</nav>
+{% endblock %}
+{% block body %}
 <header>
   <h1>Trials · {{ title }}</h1>
   <p class="lead">

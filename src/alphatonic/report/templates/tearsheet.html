@@ -42,10 +42,9 @@
 
 {% block title %}{{ title }}{% if subtitle %} · {{ subtitle }}{% endif %}{% endblock %}
 {% block head %}<script>{{ libraries | safe }}</script>{% endblock %}
-{% block body %}
-<a class="skip-link" href="#main-content">Skip to the report</a>
-<nav class="site-nav" aria-label="Report sections">
-  <ul><li class="brand">alphatonic</li></ul>
+{% block skip_link %}<a class="skip-link" href="#main-content">Skip to the report</a>{% endblock %}
+{% block nav_label %}Report sections{% endblock %}
+{% block nav %}
   <ul>
     <li><a href="#top" data-section="study-design">Study design</a></li>
     <li><a href="#at-a-glance">At a glance</a></li>
@@ -54,7 +53,8 @@
     <li><a href="#signal-persistence">Persistence</a></li>
     <li><a href="?download" role="button" class="outline secondary" id="download" hidden>Download</a></li>
   </ul>
-</nav>
+{% endblock %}
+{% block body %}
 <header id="top">
   {% if eyebrow %}<p class="eyebrow">{{ eyebrow }}</p>{% endif %}
   <h1>{{ title }}</h1>
