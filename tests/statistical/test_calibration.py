@@ -99,7 +99,7 @@ def test_paired_block_bootstrap_null_coverage_predeclared(record_property):
         x = pd.DataFrame(rng.normal(size=(60, 2)), index=index, columns=["a", "b"])
         common = rng.normal(size=60)
         y = pd.DataFrame(common[:, None] + rng.normal(size=(60, 2)), index=index, columns=x.columns)
-        assets = window_table(x, y, options, 1, index[0], index[-1] + pd.Timedelta("1D"), index)
+        assets = window_table(x, y, options, 1, index[0], index[-1] + pd.Timedelta(1, "D"), index)
         config = options.model_copy(
             update={"time_series": options.time_series.model_copy(update={"seed": replication})}
         )

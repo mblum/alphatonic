@@ -75,7 +75,7 @@ def test_hand_authored_scalar_export_contract():
             "number": np.int64(2),
             "flag": np.bool_(True),
             "missing": np.nan,
-            "duration": pd.Timedelta(seconds=2.5),
+            "duration": pd.Timedelta(2.5, "s"),
         }
     )
     assert actual == expected

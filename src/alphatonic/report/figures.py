@@ -14,7 +14,7 @@ from typing import Any, cast
 import numpy as np
 import pandas as pd
 
-from alphatonic.config import ReportOptions
+from alphatonic.config import ReportOptions, parse_duration
 
 Spec = dict[str, Any]
 
@@ -76,7 +76,7 @@ def milliseconds(timestamps: pd.Series | pd.Index) -> list[int]:
     """List timestamps as milliseconds since the epoch, UTC. A timestamp without a zone is UTC."""
     index = pd.DatetimeIndex(pd.to_datetime(timestamps, utc=True))
     since_epoch = index - pd.Timestamp(0, tz="UTC")
-    return cast("list[int]", (since_epoch // pd.Timedelta(milliseconds=1)).tolist())
+    return cast("list[int]", (since_epoch // pd.Timedelta(1, "ms")).tolist())
 
 
 def status_slots(statuses: list[str]) -> dict[str, int]:
@@ -111,7 +111,7 @@ def method_figures(
     horizons = sorted(periods.horizon.unique())
     labels = [horizon_label(h, bar) for h in horizons]
     groups = [periods.loc[periods.horizon == h].set_index("timestamp") for h in horizons]
-    window = pd.Timedelta(options.rolling_window)
+    window = parse_duration(options.rolling_window)
     panels: list[Spec] = []
     monthly_means, monthly_counts = [], []
     months = pd.date_range(

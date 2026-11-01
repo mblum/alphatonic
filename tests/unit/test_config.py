@@ -3,6 +3,10 @@ import pytest
 from pydantic import ValidationError
 
 from alphatonic import EvaluationConfig, PersistenceOptions, ReportOptions, TimeSeriesOptions
+from alphatonic.config import parse_duration
+
+DAY = 86_400 * 10**9
+HOUR = 3_600 * 10**9
 
 
 @pytest.mark.parametrize(
@@ -64,6 +68,49 @@ def test_nonpositive_or_nonfixed_durations_rejected(duration):
         TimeSeriesOptions(rolling_step=duration)
 
 
+@pytest.mark.parametrize(
+    ("text", "nanoseconds"),
+    [
+        ("7D", 7 * DAY),
+        ("1W", 7 * DAY),
+        ("12h", 12 * HOUR),
+        ("1.5h", 3 * HOUR // 2),
+        ("90min", 90 * 60 * 10**9),
+        ("250ms", 250 * 10**6),
+        ("1 days", DAY),
+        ("1 days 00:00:00", DAY),
+        ("00:30:00", HOUR // 2),
+        ("-1h", -HOUR),
+        ("-1 days +23:00:00", -HOUR),
+        ("P1D", DAY),
+    ],
+)
+def test_duration_text_is_read_to_the_nanosecond(text, nanoseconds):
+    # Hand-written values: the grammar users may write in rolling_window, rolling_step and
+    # for_bars must not narrow when the parser changes.
+    assert parse_duration(text) == pd.Timedelta(nanoseconds, "ns")
+
+
+@pytest.mark.parametrize("text", ["NaT", "nat", ""])
+def test_missing_duration_text_is_nat(text):
+    assert pd.isna(parse_duration(text))
+
+
+@pytest.mark.parametrize("text", ["bad", "1ME", " ", "2 weeks"])
+def test_malformed_duration_text_raises(text):
+    with pytest.raises(ValueError):
+        parse_duration(text)
+
+
+def test_accepted_spellings_validate_and_are_kept_as_written():
+    for text in ["1 days", "00:30:00", "P1D", "90min"]:
+        assert ReportOptions(rolling_window=text).rolling_window == text
+        assert TimeSeriesOptions(rolling_step=text).rolling_step == text
+    # Durations given as objects are stored as text that reads back to the same length.
+    stored = TimeSeriesOptions(rolling_window=pd.Timedelta(12, "h")).rolling_window
+    assert parse_duration(stored) == pd.Timedelta(12 * HOUR, "ns")
+
+
 def test_coercion_utc_window_and_presets():
     assert EvaluationConfig(horizons=["3"]).horizons == (3,)
     assert EvaluationConfig(start="2024-01-01T01:00+01:00").start == pd.Timestamp(
@@ -73,7 +120,7 @@ def test_coercion_utc_window_and_presets():
         EvaluationConfig(start="2024-01-01", end="2024-01-01")
     for samples in [0, 100]:
         assert TimeSeriesOptions(bootstrap_samples=samples).bootstrap_samples == samples
-    threshold = pd.Timedelta("30D") / 125
+    threshold = pd.Timedelta(30, "D") / 125
     for delta, expected in [(-1, 100), (0, 100), (1, 15)]:
         assert (
             TimeSeriesOptions.for_bars(threshold + pd.Timedelta(delta, "ns")).min_pairs == expected

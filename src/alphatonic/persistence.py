@@ -188,6 +188,6 @@ def _window_bound(
 def _bar(metadata: dict, periods: pd.DataFrame) -> pd.Timedelta | None:
     if "bar_seconds" in metadata:
         seconds = metadata["bar_seconds"]
-        return None if seconds is None else pd.Timedelta(seconds=seconds)
+        return None if seconds is None else pd.Timedelta(seconds, "s")
     steps = periods.timestamp.drop_duplicates().sort_values().diff().dropna()
     return steps.iloc[0] if len(steps) and steps.nunique() == 1 else None

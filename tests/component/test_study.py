@@ -117,7 +117,7 @@ def test_fingerprint_tracks_raw_values_index_and_labels(panel):
     for changed in [
         x + 1,
         x.rename(columns=lambda c: c + "new"),
-        x.set_axis(x.index + pd.Timedelta("1h")),
+        x.set_axis(x.index + pd.Timedelta(1, "h")),
     ]:
         assert _fingerprint(changed, p) != expected
 
@@ -169,7 +169,7 @@ def test_failed_report_or_record_rename_has_no_commit(
 def test_holdout_clamps_actual_end_and_rejects_empty_data_window(panel, config, tmp_path):
     study = Study(tmp_path, holdout_start="2030-01-01")
     trial = study.evaluate(*panel, config, signal="clamped")
-    assert trial.end == panel[1].index[-1] + pd.Timedelta("1D")
+    assert trial.end == panel[1].index[-1] + pd.Timedelta(1, "D")
     with pytest.raises(ValueError, match="prices end"):
         study.evaluate(*panel, config, signal="outside", holdout=True)
     assert "Study(" in repr(study)
