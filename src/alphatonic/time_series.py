@@ -17,6 +17,10 @@ from alphatonic.stats import (
     bucket_means,
     correlations,
     cosine_parts,
+    ewc_dof,
+    ewc_long_run_variance,
+    standardized_products,
+    t_p_value,
 )
 
 TABLES = ("assets", "monthly", "rolling", "summary", "quantiles")
@@ -31,7 +35,8 @@ class TimeSeriesEvaluation:
     """
 
     assets: pd.DataFrame
-    """Full-period IC per asset with eligibility, monthly statistics and bootstrap intervals."""
+    """Full-period IC per asset with eligibility, monthly statistics, bootstrap intervals and
+    t-tests."""
 
     monthly: pd.DataFrame
     """IC recomputed inside each UTC calendar month."""
@@ -40,7 +45,7 @@ class TimeSeriesEvaluation:
     """IC recomputed inside trailing windows."""
 
     summary: pd.DataFrame
-    """Equal-asset summaries per horizon and method."""
+    """Equal-asset summaries per horizon and method, with bootstrap intervals and t-tests."""
 
     quantiles: pd.DataFrame
     """Mean return by score bucket within each eligible asset."""
@@ -339,6 +344,72 @@ def bootstrap_intervals(
     return asset_results, aggregate_results
 
 
+def hac_tests(
+    x: pd.DataFrame,
+    y: pd.DataFrame,
+    assets: pd.DataFrame,
+    horizon: int,
+    dof: int | None = None,
+) -> tuple[dict, dict]:
+    """Test that each asset's IC, and the mean IC over eligible assets, is zero.
+
+    Each bar contributes the product of the asset's standardised score and target, divided by the
+    asset's number of pairs, so the contributions add up to the IC (see `standardized_products`).
+    Under the null of no association they average zero. A bar without a pair contributes zero and
+    keeps its place in time. The mean over assets adds the eligible assets' contributions bar by
+    bar, as Driscoll and Kraay (1998) do, so dependence between assets enters its standard error.
+    A standard error is the square root of `n` times the equal-weighted cosine long-run variance of
+    the contributions of the `n` rows, with `dof` terms (by default `ewc_dof(n, horizon)`). The
+    t-statistic is the IC divided by it, and the p-value is two-sided, from Student's t with `dof`
+    degrees of freedom.
+
+    Args:
+        x: Scores of the bars whose label ends inside the window, as for the bootstrap.
+        y: Targets of the same bars.
+        assets: The full-period table, whose `ic` decides eligibility per method.
+        horizon: Label length in bars.
+        dof: Number of cosine terms; default: `ewc_dof(len(x), horizon)`.
+
+    Returns:
+        Per-asset results keyed by `(method, asset)` and aggregate results keyed by method, each
+        with `hac_dof`, `hac_se`, `hac_t` and `hac_p_value`. The last three are `NaN` where the IC
+        is `NaN`, where the rows are too few for one cosine term, and where the standard error is
+        zero.
+    """
+    n = len(x)
+    dof = ewc_dof(n, horizon) if dof is None else dof
+    scores, targets = x.to_numpy(float), y.to_numpy(float)
+    asset_results, aggregate_results = {}, {}
+    for method in TS_METHODS:
+        ic = (
+            assets.loc[assets.method == method]
+            .set_index("asset")
+            .ic.reindex(x.columns)
+            .to_numpy(float)
+        )
+        eligible = np.isfinite(ic)
+        # One entry per asset, then the mean over the eligible ones.
+        estimates = np.append(ic, ic[eligible].mean() if eligible.any() else np.nan)
+        se = np.full(len(estimates), np.nan)
+        if dof >= 1 and eligible.any():
+            products, counts = standardized_products(
+                scores[:, eligible], targets[:, eligible], method
+            )
+            contributions = products / counts
+            series = np.column_stack([contributions, contributions.mean(axis=1)])
+            se[np.append(eligible, True)] = np.sqrt(n * ewc_long_run_variance(series, dof))
+        se = np.where(se > 1e-12, se, np.nan)
+        t = estimates / se
+        p = t_p_value(t, dof) if dof >= 1 else np.full(len(t), np.nan)
+        results = [
+            {"hac_dof": dof, "hac_se": se[i], "hac_t": t[i], "hac_p_value": p[i]}
+            for i in range(len(estimates))
+        ]
+        asset_results.update({(method, asset): results[i] for i, asset in enumerate(x.columns)})
+        aggregate_results[method] = results[-1]
+    return asset_results, aggregate_results
+
+
 def monthly_statistics(series: pd.Series, minimum: int) -> dict:
     """Summarize monthly ICs, with an ICIR (mean / std) once `minimum` months are valid."""
     valid = series.dropna()
@@ -432,6 +503,7 @@ def evaluate_time_series(
         intervals, aggregate = bootstrap_intervals(
             x.loc[mature], y.loc[mature], assets, config, horizon, progress
         )
+        tests, aggregate_tests = hac_tests(x.loc[mature], y.loc[mature], assets, horizon)
         monthly_ic = {
             key: group.ic for key, group in monthly.groupby(["asset", "method"], sort=False)
         }
@@ -455,6 +527,7 @@ def evaluate_time_series(
             )
             row["bootstrap_block_bars"] = aggregate[method]["bootstrap_block_bars"]
             row["signal_autocorr_lag1"] = autocorrelation[method][positions[asset]]
+            row.update(tests[method, asset])
             assets_all.append(row)
         for method in TS_METHODS:
             group = assets.loc[assets.method == method]
@@ -478,6 +551,7 @@ def evaluate_time_series(
                     "mean_pair_coverage": float(group.pair_coverage.mean()),
                     **{f"universe_{k}": v for k, v in month_stats.items()},
                     **aggregate[method],
+                    **aggregate_tests[method],
                 }
             )
         eligible_assets = assets.loc[(assets.method == "spearman") & assets.ic.notna(), "asset"]

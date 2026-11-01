@@ -53,10 +53,12 @@ print(board[["parameters", "cs_ic", "cs_z", "cs_p", "adjusted_p", "trials"]].rou
 ```
 
 `trials` counts the trials of the same family, across all parameters and both samples, and
-`adjusted_p` is `cs_p` times that count, at most 1: Bonferroni's correction. Use the adjusted value
-when comparing trials within a family. This correction covers the recorded trial count, not every
-horizon, metric or unrecorded choice you may have inspected. A trial's family is its signal's name
-unless you name one; give variants of one idea a common family so that they are counted together:
+`adjusted_p` is `cs_p` times that count, at most 1: Bonferroni's correction. `ts_adjusted_p` and
+`ts_cosine_adjusted_p` do the same for the time-series p-values `ts_p` and `ts_cosine_p`. Use the
+adjusted values when comparing trials within a family. This correction covers the recorded trial
+count, not every horizon, metric or unrecorded choice you may have inspected. A trial's family is
+its signal's name unless you name one; give variants of one idea a common family so that they are
+counted together:
 
 ```python
 study.evaluate(
@@ -125,22 +127,24 @@ except HoldoutError as error:
 
 ## Browse the trials
 
-`alphatonic serve` shows the board as a web page. Four tiles lead it: the lowest `p × trials`, the
-highest rank IC with its `p × trials` beside it, the family with the most trials, and the number of
-looks at the holdout. Each row names the signal and its parameters and draws the cross-sectional
-rank IC, the time-series rank IC and the time-series cosine IC each as a dot with its 95% interval,
-on one axis per column shared by every row. The cross-sectional interval is the Newey–West normal
-interval; the time-series ones are block-bootstrap intervals of the mean over assets, and are drawn
-hollow and alone when the bootstrap was off. The columns follow in groups: the cross-sectional
-statistics, the multiple-testing columns (the family's trial count, `p × trials` and the sample,
-with repeated looks at the holdout flagged), the time-series statistics and the data.
+`alphatonic serve` shows the board as a web page. Four tiles lead it: the lowest cross-sectional
+`p × trials`, the highest cross-sectional rank IC with its `p × trials` beside it, the family with
+the most trials, and the number of looks at the holdout. Each row names the signal and its
+parameters and draws the cross-sectional rank IC, the time-series rank IC and the time-series cosine
+IC each as a dot with its 95% interval, on one axis per column shared by every row. The
+cross-sectional interval is the Newey–West normal interval; the time-series ones are
+block-bootstrap intervals of the mean over assets, and are drawn hollow and alone when the bootstrap
+was off. The columns follow in groups: the cross-sectional rank IC; the time-series
+rank IC; the cosine IC; the data; and the multiple-testing columns, the family's trial count and the sample, with repeated looks at the holdout flagged. Each IC is followed by its z- or t-statistic, its p-value and
+that p-value times the family's trial count (`p × trials`), and the cosine's group ends with its
+timing part.
 
 Choose the groups with the checkboxes above the table, or with `show` in the address: `?show=ts`
 lists the signal and the time-series group, `?show=cs,testing` the cross-sectional and
-multiple-testing groups, and `?show=` the signal alone. The names are `cs`, `testing`, `ts`, `data`
-and `record`, and the link of a view keeps them. The `p × trials` is computed from the
-cross-sectional p-value only, so hide the multiple-testing columns with care: the page then says
-that the intervals do not account for the alternatives tried. A column that the list is sorted by
+multiple-testing groups, and `?show=` the signal alone. The names are `cs`, `testing`, `ts`,
+`cosine` and `data`, and the link of a view keeps them. Hide the multiple-testing columns
+with care: the intervals do not account for the alternatives tried, and the page says so while the
+trial count is hidden. A column that the list is sorted by
 (other than `created_at`) stays visible. Sort it by any column, and when the column is a statistic the rows are numbered from its
 best value, with equal values sharing a rank. Switch the horizon with the buttons above the table,
 filter by signal, and open each trial's

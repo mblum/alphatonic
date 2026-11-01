@@ -16,7 +16,7 @@ import pandas as pd
 
 from alphatonic.study import Study
 
-_LISTED = ("signal", "sample", "cs_ic", "cs_z", "adjusted_p", "ts_ic", "trials")
+_LISTED = ("signal", "sample", "cs_ic", "cs_z", "adjusted_p", "ts_ic", "ts_t", "trials")
 """Board columns `alphatonic list` prints, after the identifier."""
 
 

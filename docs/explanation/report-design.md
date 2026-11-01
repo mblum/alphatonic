@@ -7,8 +7,9 @@ The overview uses rank IC and the difference between the highest and lowest scor
 panels show Pearson, cosine, variation across assets and changes over time. A missing statistic
 stays missing; sample and inference statuses explain why.
 
-The report omits p-values. A study board puts cross-sectional p-values beside the recorded trial
-count and its adjustment. The underlying result tables retain the inference statistics.
+The report omits p-values. A study board shows them: the cross-sectional, time-series and cosine
+groups each give a p-value beside its adjustment for the recorded trial count. The underlying
+result tables retain the inference statistics.
 
 The list of trials is read like a leaderboard and borrows from public ones, such as
 [Arena's agent leaderboard](https://arena.ai/leaderboard/agent/code) and

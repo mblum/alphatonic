@@ -320,6 +320,46 @@ def test_a_statistic_missing_at_the_horizon_is_nan(study):
     assert np.isnan(study.board().loc["b", "adjusted_p"])
 
 
+def test_the_board_reads_the_time_series_t_tests_at_the_horizon(study):
+    metrics = {
+        "ts.h1.spearman.mean": 0.04,
+        "ts.h1.spearman.hac_t": 2.5,
+        "ts.h1.spearman.hac_p_value": 0.02,
+        "ts.h1.cosine.mean": 0.01,
+        "ts.h1.cosine.hac_t": -1.0,
+        "ts.h1.cosine.hac_p_value": 0.4,
+    }
+    saved(study, record("a", hours=1, metrics=metrics), record("b", hours=2))
+
+    board = study.board()
+
+    columns = ["ts_t", "ts_p", "ts_cosine_t", "ts_cosine_p"]
+    assert board.loc["a", columns].tolist() == [2.5, 0.02, -1.0, 0.4]
+    assert board.loc["b", columns].isna().all()
+    assert study.board(sort="ts_t").index.tolist() == ["a", "b"]
+    assert study.to_dict()["trials"][1]["ts_cosine_p"] == 0.4
+
+
+def test_the_board_scales_the_time_series_p_values_by_the_trials_of_the_family(study):
+    metrics = {"ts.h1.spearman.hac_p_value": 0.02, "ts.h1.cosine.hac_p_value": 0.6}
+    saved(
+        study,
+        record("a", hours=1, metrics=metrics),
+        record("b", hours=2),
+        record("c", hours=3, signal="bollinger", metrics=metrics),
+    )
+
+    board = study.board()
+
+    columns = ["ts_adjusted_p", "ts_cosine_adjusted_p"]
+    # Two momentum trials: 0.02 × 2, and 0.6 × 2 capped at 1.
+    assert board.loc["a", columns].tolist() == pytest.approx([0.04, 1.0])
+    assert board.loc["c", columns].tolist() == pytest.approx([0.02, 0.6])
+    assert board.loc["b", columns].isna().all()
+    assert study.board(sort="ts_cosine_adjusted_p").index.tolist() == ["c", "a", "b"]
+    assert study.to_dict()["trials"][0]["ts_adjusted_p"] == pytest.approx(0.02)
+
+
 def test_context_keys_become_board_columns(study):
     saved(
         study,

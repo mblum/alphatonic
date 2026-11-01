@@ -114,7 +114,8 @@ note](../explanation/targets-and-scaling.md) explains when each view applies.
 The time-series bootstrap is usually the most expensive step. Its cost grows with the number of
 draws, assets, bars and horizons. The default is 1,000 draws. Use `time_series={"bootstrap_samples":
 0}` for a quick comparison; this removes time-series confidence intervals but keeps point estimates,
-windows, quantiles and sample diagnostics. Cross-sectional confidence intervals are unaffected.
+their t-tests, windows, quantiles and sample diagnostics. Cross-sectional confidence intervals are
+unaffected.
 
 Enable the bootstrap when you need its intervals. A nonzero `bootstrap_samples` must be at least
 100. Increase `time_series.rolling_step` to compute fewer trailing windows.

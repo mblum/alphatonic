@@ -24,26 +24,43 @@ COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("cs_ic", "Rank IC", "Cross-sectional"),
     ("cs_z", "z", "Cross-sectional"),
     ("cs_p", "p", "Cross-sectional"),
-    ("trials", "Trials", "Multiple testing"),
-    ("adjusted_p", "p × trials", "Multiple testing"),
-    ("sample", "Sample", "Multiple testing"),
+    ("adjusted_p", "p × trials", "Cross-sectional"),
     ("ts_ic", "Rank IC", "Time-series"),
-    ("ts_cosine", "Cosine", "Time-series"),
-    ("ts_timing", "Timing", "Time-series"),
+    ("ts_t", "t", "Time-series"),
+    ("ts_p", "p", "Time-series"),
+    ("ts_adjusted_p", "p × trials", "Time-series"),
+    ("ts_cosine", "Cosine", "Cosine"),
+    ("ts_cosine_t", "t", "Cosine"),
+    ("ts_cosine_p", "p", "Cosine"),
+    ("ts_cosine_adjusted_p", "p × trials", "Cosine"),
+    ("ts_timing", "Timing", "Cosine"),
     ("start", "Window", "Data"),
     ("bar", "Bars", "Data"),
     ("assets", "Assets", "Data"),
-    ("created_at", "Created", "Record"),
+    ("created_at", "Created", "Data"),
+    ("trials", "Trials", "Multiple testing"),
+    ("sample", "Sample", "Multiple testing"),
 )
 """The sortable columns of the page by board column, with their headings and groups, in display
 order. The caller's context keys join the `Data` group after `assets`."""
 
+NAMES: dict[str, str] = {
+    "cs_z": "z-statistic of the rank IC",
+    "cs_p": "p-value of the rank IC",
+    "ts_t": "t-statistic of the rank IC",
+    "ts_p": "p-value of the rank IC",
+    "ts_cosine_t": "t-statistic of the cosine IC",
+    "ts_cosine_p": "p-value of the cosine IC",
+}
+"""What the columns headed by a single letter hold, for their tooltips and for the line that
+explains a ranking."""
+
 GROUPS: dict[str, str] = {
     "Cross-sectional": "cs",
-    "Multiple testing": "testing",
     "Time-series": "ts",
+    "Cosine": "cosine",
     "Data": "data",
-    "Record": "record",
+    "Multiple testing": "testing",
 }
 """The groups of columns that can be shown or hidden, by group heading, with the name that the
 `show` parameter uses. The `Trial` group, which names the row, is always shown."""
@@ -69,7 +86,13 @@ RANKED: dict[str, bool] = {
     "cs_p": False,
     "adjusted_p": False,
     "ts_ic": True,
+    "ts_t": True,
+    "ts_p": False,
+    "ts_adjusted_p": False,
     "ts_cosine": True,
+    "ts_cosine_t": True,
+    "ts_cosine_p": False,
+    "ts_cosine_adjusted_p": False,
     "ts_timing": True,
 }
 """The statistics the page numbers its rows by when it is sorted by one, each with whether a
@@ -93,10 +116,11 @@ def render_board(
         sort: Board column to sort by; default, or an unknown one: `created_at`.
         order: `asc` or `desc`; default: the column's own direction.
         signal: Show only the trials of this signal.
-        show: The column groups to show, as names of `GROUPS` (`cs`, `testing`, `ts`, `data`,
-            `record`), in one string separated by commas or in several. Names that are not groups
-            are ignored, and an empty string shows only the trial. Default: every group. A column
-            that the page is sorted by, other than `created_at`, is shown whatever the groups.
+        show: The column groups to show, as names of `GROUPS` (`cs`, `testing`, `ts`, `cosine`,
+            `data`), in one string separated by commas or in several. Names that are not
+            groups are ignored, and an empty string shows only the trial. Default: every group. A
+            column that the page is sorted by, other than `created_at`, is shown whatever the
+            groups.
 
     Returns:
         The HTML.
@@ -116,6 +140,7 @@ def render_board(
         {
             "key": key,
             "heading": heading,
+            "name": NAMES.get(key),
             "group": group,
             "numeric": key in {"cs_ic", "cs_z", "cs_p", "trials", "adjusted_p", "assets"}
             or key.startswith("ts_"),
@@ -188,10 +213,11 @@ def render_board(
     ranked_by = None
     if larger is not None:
         column = next(column for column in columns if column["key"] == data["sort"])
-        ranked_by = (
-            f"{column['heading']} ({column['group'].lower()}): "
-            f"1 is the {'largest' if larger else 'smallest'}"
-        )
+        label, group = column["name"] or column["heading"], column["group"].lower()
+        # The group says which analysis the column belongs to, unless its label already does.
+        if group not in label.lower():
+            label = f"{label} ({group})"
+        ranked_by = f"{label}: 1 is the {'largest' if larger else 'smallest'}"
     return (
         environment()
         .get_template("board.html")
@@ -204,7 +230,7 @@ def render_board(
             groups=groups,
             toggles=toggles,
             plotted=list(PLOTS),
-            testing_hidden="testing" not in on and bool({"cs", "ts"} & on),
+            testing_hidden="testing" not in on and bool({"cs", "ts", "cosine"} & on),
             signals=signals,
             signal=shown,
             asked_signal=signal,

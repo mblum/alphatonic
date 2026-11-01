@@ -9,7 +9,8 @@ and prices, and it measures how well the scores predict future returns.
 With alphatonic you can:
 
 - Measure cross-sectional and time-series information coefficients, including single-asset signals.
-- Estimate uncertainty with Newey–West standard errors and a block bootstrap.
+- Estimate uncertainty with Newey–West and equal-weighted cosine standard errors and a block
+  bootstrap.
 - Assess how costly a signal would be to trade, using rank-persistence and bucket-turnover
   statistics.
 - Render an offline HTML tearsheet, and browse your trials with `alphatonic serve`.

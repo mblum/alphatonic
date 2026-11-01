@@ -210,9 +210,14 @@ def test_a_column_that_is_not_better_or_worse_gives_no_ranks(study, target):
 
 def test_the_key_says_which_column_the_ranks_follow(study):
     assert "# ranks by Rank IC (cross-sectional): 1 is the largest" in _page(study, "/?sort=cs_ic")
-    assert "# ranks by p × trials (multiple testing): 1 is the smallest" in _page(
+    assert "# ranks by p × trials (cross-sectional): 1 is the smallest" in _page(
         study, "/?sort=adjusted_p"
     )
+    assert "# ranks by p × trials (cosine): 1 is the smallest" in _page(
+        study, "/?sort=ts_cosine_adjusted_p"
+    )
+    # A label that names the group already is not followed by it again.
+    assert "# ranks by Cosine: 1 is the largest" in _page(study, "/?sort=ts_cosine")
 
 
 def test_the_rank_ic_is_drawn_with_its_interval_on_an_axis_shared_by_every_row(tmp_path):
@@ -620,6 +625,32 @@ def test_the_time_series_rank_ic_is_drawn_with_its_bootstrap_interval_on_its_own
     assert "<span>−0.02</span><span>0</span><span>0.02</span>" in page
 
 
+def test_the_time_series_t_tests_follow_their_ics(tmp_path):
+    study = Study(tmp_path / "study")
+    metrics = {
+        "ts.h1.spearman.mean": 0.04,
+        "ts.h1.spearman.hac_t": 3.456,
+        "ts.h1.spearman.hac_p_value": 0.0004,
+        "ts.h1.cosine.mean": 0.02,
+        "ts.h1.cosine.hac_t": -1.5,
+        "ts.h1.cosine.hac_p_value": 0.14,
+    }
+    saved(study, record("a", hours=1, cs_ic=None, p=None, metrics=metrics), record("b", hours=2))
+
+    page = _page(study, "/?show=ts,cosine")
+    cells = re.findall(r'<td class="number subtle">([^<]*)</td>', _rows(page)["a"])
+
+    assert cells == ["3.46", "&lt; 0.001", "-1.50", "0.140"]
+    assert re.findall(r'<td class="number subtle">([^<]*)</td>', _rows(page)["b"]) == ["–"] * 4
+    assert 'title="t-statistic of the cosine IC"' in page
+    assert "# ranks by t-statistic of the cosine IC: 1 is the largest" in _page(
+        study, "/?sort=ts_cosine_t"
+    )
+    assert "# ranks by p-value of the rank IC (time-series): 1 is the smallest" in _page(
+        study, "/?sort=ts_p"
+    )
+
+
 def test_to_dict_carries_the_time_series_intervals_at_the_horizon(study):
     metrics = {
         "ts.h1.spearman.mean": 0.03,
@@ -646,26 +677,75 @@ def test_every_group_of_columns_is_shown_by_default(study):
     page = _page(study)
 
     assert _headings(page) == [
-        "Signal", "Rank IC", "z", "p", "Trials", "p × trials", "Sample", "Rank IC", "Cosine",
-        "Timing", "Window", "Bars", "Assets", "Returns", "Created",
+        "Signal", "Rank IC", "z", "p", "p × trials", "Rank IC", "t", "p", "p × trials",
+        "Cosine", "t", "p", "p × trials", "Timing", "Window", "Bars", "Assets", "Returns",
+        "Created", "Trials", "Sample",
     ]  # fmt: skip
+    assert re.findall(r'name="show" value="([^" ]+)"', page) == [
+        "cs",
+        "ts",
+        "cosine",
+        "data",
+        "testing",
+    ]
     assert page.count('type="checkbox"') == 5 and "checked" in page
 
 
 def test_show_keeps_the_chosen_groups_and_the_signal(study):
     page = _page(study, "/?show=ts")
 
-    assert _headings(page) == ["Signal", "Rank IC", "Cosine", "Timing"]
+    assert _headings(page) == ["Signal", "Rank IC", "t", "p", "p × trials"]
     assert re.findall(r'<th scope="colgroup"[^>]*>([^<]*)<', page) == ["Trial", "Time-series"]
     assert _ids(page) == _ids(_page(study))
+
+
+def test_the_cosine_has_a_group_of_its_own(study):
+    page = _page(study, "/?show=cosine")
+
+    assert _headings(page) == ["Signal", "Cosine", "t", "p", "p × trials", "Timing"]
+    assert re.findall(r'<th scope="colgroup"[^>]*>([^<]*)<', page) == ["Trial", "Cosine"]
+    assert re.search(r'value="cosine" checked[^>]*>Cosine</label>', page)
+
+
+def test_each_measure_shows_its_p_value_times_the_trials_beside_it(tmp_path):
+    study = Study(tmp_path / "study")
+    metrics = {
+        "cs.h1.spearman.mean": 0.03,
+        "cs.h1.spearman.hac_p_value": 0.01,
+        "ts.h1.spearman.mean": 0.04,
+        "ts.h1.spearman.hac_p_value": 0.02,
+        "ts.h1.cosine.mean": 0.02,
+        "ts.h1.cosine.hac_p_value": 0.4,
+    }
+    saved(study, record("a", hours=1, metrics=metrics), record("b", hours=2))
+
+    page = _page(study, "/?show=cs,ts,cosine")
+    row = _rows(page)["a"]
+
+    assert _headings(page) == [
+        "Signal", "Rank IC", "z", "p", "p × trials", "Rank IC", "t", "p", "p × trials",
+        "Cosine", "t", "p", "p × trials", "Timing",
+    ]  # fmt: skip
+    # Two trials in the family: each p-value doubles, and the ones at 5% or less are bold.
+    cells = re.findall(r'<td class="number">(?:<strong>)?([^<]*)(?:</strong>)?</td>', row)
+    assert cells == ["0.020", "0.040", "0.800", "–"]  # The last is the timing, not a p-value.
+    assert re.findall(r"<strong>([^<]*)</strong>", row) == ["0.020", "0.040"]
 
 
 def test_show_accepts_repeated_and_comma_separated_names_and_ignores_others(study):
     expected = _headings(_page(study, "/?show=cs,testing"))
 
-    assert expected == ["Signal", "Rank IC", "z", "p", "Trials", "p × trials", "Sample"]
+    assert expected == ["Signal", "Rank IC", "z", "p", "p × trials", "Trials", "Sample"]
     assert _headings(_page(study, "/?show=cs&show=testing")) == expected
     assert _headings(_page(study, "/?show=cs,testing,bogus")) == expected
+
+
+def test_data_group_includes_creation_date(study):
+    page = _page(study, "/?show=data")
+
+    assert "Created" in _headings(page)
+    assert "Created" not in _headings(_page(study, "/?show=cs"))
+    assert 'value="record"' not in page
 
 
 def test_an_empty_show_hides_every_group_but_the_trial(study):
@@ -691,6 +771,7 @@ def test_hiding_the_multiple_testing_columns_says_so_beside_the_intervals(study)
     hidden = _page(study, "/?show=cs,ts")
 
     assert "multiple-testing columns are hidden" in hidden
+    assert "multiple-testing columns are hidden" in _page(study, "/?show=cosine")
     assert "multiple-testing columns are hidden" not in _page(study)
     assert "multiple-testing columns are hidden" not in _page(study, "/?show=data")
 

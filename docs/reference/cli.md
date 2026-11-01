@@ -17,12 +17,12 @@ alphatonic list DIRECTORY [--horizon N] [--sort COLUMN] [--ascending | --descend
 | `--ascending`, `--descending` | Override the sort direction. Default direction depends on the column; see below. Missing values come last. |
 | `--limit N` | Maximum rows to print; default 20. |
 
-`created_at`, `assets`, `cs_ic`, `cs_z`, `ts_ic`, `ts_cosine`, `ts_timing` and `trials` sort
-descending by default. Other sortable columns use ascending order. `parameters` cannot be used as a
+`created_at`, `assets`, `cs_ic`, `cs_z`, `ts_ic`, `ts_t`, `ts_cosine`, `ts_cosine_t`, `ts_timing` and
+`trials` sort descending by default. Other sortable columns use ascending order. `parameters` cannot be used as a
 sort column. With no `--sort`, trials appear newest first.
 
 The output includes signal, sample, cross-sectional IC and z-statistic, adjusted p-value,
-time-series IC and family trial count. Unavailable values appear as a dash. Records that cannot be
+time-series IC and t-statistic, and family trial count. Unavailable values appear as a dash. Records that cannot be
 read are reported after the table.
 
 ## Serve a study
@@ -42,6 +42,6 @@ Serving requires the `report` extra. Open `http://127.0.0.1:8000` with the defau
 to trial tearsheets and records, and reloads saved records on each request. A tearsheet that the
 study did not store is drawn from the trial's tables when you open it. `/study.json` provides
 the [JSON board](results.md#json-documents). On the page, the `show` query parameter chooses the
-column groups (`cs`, `testing`, `ts`, `data`, `record`), for example `/?show=ts`. Press Ctrl+C in the terminal to stop the server.
+column groups (`cs`, `testing`, `ts`, `cosine`, `data`), for example `/?show=ts`. Press Ctrl+C in the terminal to stop the server.
 
 For a complete workflow, see [keep every trial in a study](../how-to/run-a-study.md).

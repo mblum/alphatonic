@@ -78,7 +78,7 @@
         </tr>
         <tr>
           {% for column in columns %}
-          <th scope="col" class="{{ 'number' if column.numeric else '' }}"
+          <th scope="col" class="{{ 'number' if column.numeric else '' }}"{% if column.name %} title="{{ column.name }}"{% endif %}
               aria-sort="{{ ('descending' if data.descending else 'ascending') if column.key == data.sort else 'none' }}">
             <a href="{{ link(sort=column.key, order=column.order) }}">{{ column.heading }}{% if column.key == data.sort %} {{ '▼' if data.descending else '▲' }}{% endif %}</a>
             {%- if column.key in extents %}
@@ -115,10 +115,12 @@
               <span class="dot{{ '' if plot.low is not none else ' open' }}" style="left: {{ plot.at }}%"></span></span>
             {%- else %}<span class="forest empty" aria-hidden="true"></span>{% endif -%}
           </div></td>
+          {% elif key in ('ts_t', 'ts_cosine_t') %}<td class="number subtle">{{ number(trial[key], 2) }}</td>
+          {% elif key in ('ts_p', 'ts_cosine_p') %}<td class="number subtle">{{ p_value(trial[key]) }}</td>
+          {% elif key in ('adjusted_p', 'ts_adjusted_p', 'ts_cosine_adjusted_p') %}<td class="number">{% if trial[key] is not none and trial[key] <= significant %}<strong>{{ p_value(trial[key]) }}</strong>{% else %}{{ p_value(trial[key]) }}{% endif %}</td>
           {% elif key.startswith('ts_') %}<td class="number">{{ number(trial[key], 4) }}</td>
           {% elif key == 'cs_z' %}<td class="number subtle">{{ number(trial.cs_z, 2) }}</td>
           {% elif key == 'cs_p' %}<td class="number subtle">{{ p_value(trial.cs_p) }}</td>
-          {% elif key == 'adjusted_p' %}<td class="number">{% if trial.adjusted_p is not none and trial.adjusted_p <= significant %}<strong>{{ p_value(trial.adjusted_p) }}</strong>{% else %}{{ p_value(trial.adjusted_p) }}{% endif %}</td>
           {% elif key == 'trials' %}<td class="number">{{ trial.trials }}</td>
           {% elif key == 'sample' %}<td>{% if trial.sample == 'holdout' %}<span class="badge {{ 'bad' if trial.holdout_uses > 1 else 'warn' }}" title="The family {{ trial.family }} has {{ trial.holdout_uses }} holdout evaluation{{ '' if trial.holdout_uses == 1 else 's' }}">holdout{% if trial.holdout_uses > 1 %} · {{ trial.holdout_uses }} looks{% endif %}</span>{% else %}in sample{% endif %}</td>
           {% elif key == 'start' %}<td class="subtle">{{ when(trial.start, '%Y-%m-%d') }} – {{ when(trial.end, '%Y-%m-%d') }}</td>

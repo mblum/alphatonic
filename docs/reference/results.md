@@ -83,6 +83,7 @@ vol-scaled return when `target="vol_scaled"`. The buckets are retrospective.
 | `ci95_lower`, `ci95_upper` | Percentile interval from the circular block bootstrap. |
 | `bootstrap_valid`, `bootstrap_status`, `bootstrap_block_bars` | Draws used, outcome, block length. |
 | `signal_autocorr_lag1` | Correlation of the asset's score with its previous bar's, by the row's method (uncentred for `cosine`). |
+| `hac_dof`, `hac_se`, `hac_t`, `hac_p_value` | Test that `ic` is zero (for `cosine`, that the mean of score × target is zero): the degrees of freedom of the equal-weighted cosine standard error, that standard error under the null, `ic / hac_se`, and the two-sided p-value from Student's t with `hac_dof` degrees of freedom. `NaN` where `ic` is, and when the bars are fewer than `2 × horizon` (`hac_dof` is then 0). |
 
 ### `summary` (time series)
 
@@ -96,6 +97,7 @@ One row per horizon and method, weighting eligible assets equally:
 | `mean_pair_coverage` | Over all assets. |
 | `universe_valid_months`, `universe_skipped_months`, `universe_monthly_mean_ic`, `universe_monthly_std_ic`, `universe_monthly_ic_ir`, `universe_monthly_ir_status` | Average the eligible assets' IC within each month first, then summarise across months. The asset set can change between months. |
 | `ci95_lower`, `ci95_upper`, `bootstrap_*` | Interval for the mean asset IC, using one block resampling shared by all assets, and its status: `disabled`, `too_few_blocks`, `no_eligible_assets`, `insufficient_draws` or `valid`. |
+| `hac_dof`, `hac_se`, `hac_t`, `hac_p_value` | The same test as in `assets`, for `mean`. The assets' contributions are added bar by bar, so assets that move together are not counted as independent. `NaN` without eligible assets. |
 
 ### `quantiles` (time series)
 
@@ -114,7 +116,8 @@ with analysis `cs` or `ts`, horizon in bars, and method `spearman`, `pearson` or
 `cosine`. For example `cs.h5.spearman.mean` is the mean cross-sectional rank IC at five bars, and
 `ts.h5.spearman.mean` is the mean eligible asset time-series rank IC. They describe different
 samples. The statistics are the columns of the two `summary` tables, so
-`cs.h5.spearman.hac_p_value`, `ts.h5.pearson.n_assets` and `ts.h5.cosine.mean_static` exist.
+`cs.h5.spearman.hac_p_value`, `ts.h5.pearson.n_assets`, `ts.h5.cosine.mean_static` and
+`ts.h5.cosine.hac_p_value` exist.
 String-valued columns (such as `bootstrap_status`) are omitted. Both analyses contribute their
 available statistics.
 
@@ -169,7 +172,8 @@ assets, horizons and rolling windows: 30 assets, three horizons and 1,500 daily 
 
 Each trial carries the record's `id`, `created_at`, `signal`, `family`, `summary`, `parameters`,
 `note`, `sample`, `start`, `end`, `horizons`, `delay` and `bar_seconds`; the board's `assets` (a
-count), `cs_ic`, `cs_z`, `cs_p`, `adjusted_p`, `ts_ic`, `ts_cosine`, `ts_timing`, `trials` and
+count), `cs_ic`, `cs_z`, `cs_p`, `adjusted_p`, `ts_ic`, `ts_t`, `ts_p`, `ts_adjusted_p`,
+`ts_cosine`, `ts_cosine_t`, `ts_cosine_p`, `ts_cosine_adjusted_p`, `ts_timing`, `trials` and
 `holdout_uses` at the document's horizon; the 95% interval of `cs_ic` as `cs_ci_lower` and
 `cs_ci_upper` (the Newey–West normal-approximation interval of the evaluation, null where it has no
 inference at that horizon); the 95% block-bootstrap intervals of the mean over assets of `ts_ic` as
@@ -182,7 +186,7 @@ neither a stored tearsheet nor tables to draw one from.
 
 | Path | Contents |
 | --- | --- |
-| `evaluation.json` | `format_version` (4, which gzips the tables; formats 1 to 3, which wrote plain CSV files, remain readable; format 1 is read with `return` targets, which it predates), `alphatonic_version`, the configuration, the window (`start`, `end`) and `bar_seconds` (null for irregular grids). |
+| `evaluation.json` | `format_version` (5, which adds the `hac_*` columns to the time-series `assets` and `summary` tables; formats 1 to 4 remain readable, without those columns: format 4 gzips the tables, formats 1 to 3 wrote plain CSV files, and format 1 is read with `return` targets, which it predates), `alphatonic_version`, the configuration, the window (`start`, `end`) and `bar_seconds` (null for irregular grids). |
 | `ic_by_timestamp.csv.gz`, `ic_summary.csv.gz`, `cs_quantiles.csv.gz` | `periods`, `summary`, `quantiles`. |
 | `persistence_periods.csv.gz`, `persistence_quantiles.csv.gz`, `persistence_assets.csv.gz`, `persistence_summary.csv.gz` | Signal persistence tables, written for new evaluations. |
 | `ic_monthly.csv.gz` | The mean and count of `spearman` and `pearson` IC per horizon and UTC month. |
@@ -221,9 +225,11 @@ without `family` is counted under its `signal`.
 `Study.board(horizon)` has one row per trial, indexed by `id`: `created_at`, `signal`, `family`,
 `parameters`, `sample`, `start`, `end`, `assets` (a count), `bar`, `horizon`, then `cs_ic`, `cs_z`
 and `cs_p` (mean cross-sectional Spearman IC, its Newey–West z-statistic and p-value), `adjusted_p`
-(`cs_p` times `trials`, at most 1), `ts_ic`, `ts_cosine` and `ts_timing` (mean time-series Spearman
-IC, cosine, and the cosine's timing part), `trials` and `holdout_uses` (per family), `note`, and one
-column per context key.
+(`cs_p` times `trials`, at most 1), `ts_ic`, `ts_t`, `ts_p` and `ts_adjusted_p` (mean time-series
+Spearman IC, its t-statistic, its p-value, and that p-value times `trials`, at most 1), `ts_cosine`,
+`ts_cosine_t`, `ts_cosine_p` and `ts_cosine_adjusted_p` (the same for the cosine), `ts_timing` (the
+cosine's timing part), `trials` and `holdout_uses` (per family), `note`, and one column per context
+key.
 
 ## Signal persistence
 
@@ -249,6 +255,6 @@ comparison is unavailable; consult status before treating counts as transitions.
 decimals and no metric is annualised.
 
 `metrics()` includes finite means and counts as
-`persistence.<scope>.lag<lag>[.q<quantile>].<metric>.<mean|n_valid|n_total>`. Formats 3 and 4 save
-four persistence tables (`persistence_*.csv.gz` in format 4); formats 1 and 2 remain readable
+`persistence.<scope>.lag<lag>[.q<quantile>].<metric>.<mean|n_valid|n_total>`. Formats 3 to 5 save
+four persistence tables (`persistence_*.csv.gz` from format 4); formats 1 and 2 remain readable
 without them. The report renders stored tables without recomputing diagnostics.
