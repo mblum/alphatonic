@@ -2,7 +2,7 @@
 
 Blocks of one page run in order in a shared namespace, inside a temporary directory, so later
 blocks can use earlier results and files written by the examples do not litter the checkout.
-A block preceded by an `<!-- notest -->` line is skipped.
+Every block runs: an example that cannot run does not belong in the documentation.
 
 It also checks the docstrings in `src/`, which mkdocstrings renders as the API reference.
 """
@@ -43,7 +43,7 @@ def link_targets(text: str) -> list[str]:
 
 
 def blocks(path: Path):
-    """Yield `(line number, code)` for each runnable Python block of a Markdown file."""
+    """Yield `(line number, code)` for each Python block of a Markdown file."""
     lines = path.read_text(encoding="utf-8").splitlines()
     i = 0
     while i < len(lines):
@@ -52,7 +52,6 @@ def blocks(path: Path):
             i += 1
             continue
         indent = len(opening.group(1))
-        previous = next((line.strip() for line in reversed(lines[:i]) if line.strip()), "")
         start = i + 1
         i += 1
         body = []
@@ -60,8 +59,7 @@ def blocks(path: Path):
             body.append(lines[i][indent:])
             i += 1
         i += 1
-        if previous != "<!-- notest -->":
-            yield start + 1, "\n".join(body)
+        yield start + 1, "\n".join(body)
 
 
 def pages_with_examples():
