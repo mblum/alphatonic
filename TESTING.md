@@ -539,6 +539,9 @@ boundaries to inject failures or control nondeterminism: a write/replace operati
 progress callback or expensive render during a routing-only test. Patch where a name is looked
 up and restore it automatically; see [pytest's monkeypatch guidance](https://docs.pytest.org/en/stable/how-to/monkeypatch.html).
 Do not mock the statistic, serializer or renderer whose correctness the test claims to establish.
+The documentation tests only claim that the examples run, so they cap the bootstrap at 100 draws
+(`FAST_BOOTSTRAP` in `tests/integration/test_documentation.py`); the statistical tests establish
+that the intervals are right.
 
 Prohibit external network access during test execution; allow loopback only for explicit server
 tests. Use ephemeral ports, bounded request/subprocess timeouts and readiness signals instead
