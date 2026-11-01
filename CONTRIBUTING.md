@@ -80,10 +80,11 @@ The charts are drawn by [Observable Plot](https://observablehq.com/plot/) and [d
 vendored in `report/static/` with their licences, and by `report/static/alphatonic.js`.
 `report/figures.py` and `report/ts_figures.py` compute everything a chart shows and write it as a
 specification, which is plain data of one of five kinds (`lines`, `rolling`, `heatmap`, `bars`,
-`intervals`); the script only draws. [TESTING.md] describes how the specifications and
-the drawn pages are tested. After you change the script, also look at it yourself: open a tearsheet
-in light and dark mode, hover each kind of chart, open the closed panels and the second tab, narrow
-the window, and print once with a dark system: paper is meant to come out light.
+`intervals`); the script only draws. [TESTING.md] describes how the specifications are
+tested; the drawing itself is not tested in a browser. After you change the script, look at it
+yourself: open a tearsheet in light and dark mode, hover each kind of chart, open the closed
+panels and the second tab, narrow the window, and print once with a dark system: paper is meant
+to come out light.
 
 `report/static/pico.classless.min.css` is Pico 2.1.1 from the npm package `@picocss/pico`, with its
 licence beside it as `pico.LICENSE.md`. `plot.umd.min.js` is Observable Plot 0.6.17 and `d3.min.js`

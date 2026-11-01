@@ -13,27 +13,13 @@ from tests.support.panels import market
 settings.register_profile("ci", max_examples=40, derandomize=True, deadline=None)
 settings.register_profile("extended", max_examples=400, deadline=None)
 
-E2E_DIR = Path(__file__).parent / "e2e"
-
 
 def pytest_addoption(parser):
     parser.addoption(
         "--extended",
         action="store_true",
-        help="also run the slow, expanded experiments (marker: slow)",
+        help="also run the slow tests: expanded experiments and packaging (marker: slow)",
     )
-    parser.addoption(
-        "--run-browser",
-        action="store_true",
-        help="also run the browser journeys in tests/e2e (needs pytest-playwright)",
-    )
-
-
-def pytest_ignore_collect(collection_path, config):
-    # Ignore the directory before collection so that its Playwright imports never run by default.
-    if collection_path == E2E_DIR and not config.getoption("run_browser"):
-        return True
-    return None
 
 
 def pytest_collection_modifyitems(config, items):

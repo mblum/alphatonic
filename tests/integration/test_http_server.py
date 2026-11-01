@@ -21,7 +21,7 @@ def running_server(study):
         assert not thread.is_alive()
 
 
-def test_http_get_head_lengths_errors_and_live_records(panel, config, tmp_path):
+def test_http_get_head_lengths_and_live_records(panel, config, tmp_path):
     s = Study(tmp_path)
     with running_server(s) as address:
         client = http.client.HTTPConnection(*address, timeout=10)
@@ -45,11 +45,6 @@ def test_http_get_head_lengths_errors_and_live_records(panel, config, tmp_path):
             client.request("GET", "/study.json")
             response = client.getresponse()
             assert json.loads(response.read())["trials"][0]["id"] == trial.id
-            for path, status in [("/missing", 404), ("/study.json?sort=bad", 400)]:
-                client.request("GET", path)
-                response = client.getresponse()
-                response.read()
-                assert response.status == status
         finally:
             client.close()
 

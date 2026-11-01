@@ -25,12 +25,12 @@ uv run --group docs zensical build --strict    # build the docs site as CI does
 uv build && uvx twine check dist/*             # package and check the distributions
 ```
 
-The commands that run the tests, measure coverage and check the oldest and newest supported
-dependencies are in "Local test execution" in [TESTING.md](TESTING.md).
+The commands that run the tests and check the oldest and newest supported dependencies are in
+"Local test execution" in [TESTING.md](TESTING.md).
 
-Before you call a change done, run the tests and checks that TESTING.md requires for a pull
-request, `ruff check .`, `ruff format --check .` and `pyright`. Also build the docs when you
-touch `docs/` or a public docstring. CI (`.github/workflows/ci.yml`) runs these.
+Before you call a change done, run `uv run pytest`, `ruff check .`, `ruff format --check .` and
+`pyright`. Also build the docs when you touch `docs/` or a public docstring. CI
+(`.github/workflows/ci.yml`) runs these.
 
 ## Layout
 

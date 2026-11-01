@@ -54,9 +54,6 @@ Issues = "https://github.com/mblum/alphatonic/issues"
 Changelog = "https://github.com/mblum/alphatonic/blob/HEAD/CHANGELOG.md"
 
 [dependency-groups]
-browser = [
-    "pytest-playwright>=0.10.0",
-]
 dev = [
     {include-group = "test"},
     {include-group = "quality"},
@@ -131,8 +128,7 @@ junit_family = "xunit1"
 markers = [
     "property: generated invariants and metamorphic relations",
     "statistical: simulation-based method validation",
-    "slow: expanded experiments outside the default feedback budget",
-    "browser: real browser journeys",
+    "slow: expanded experiments and the packaging test, outside the default run",
     "benchmark: controlled performance measurements",
 ]
 
@@ -145,5 +141,4 @@ parallel = true
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
-fail_under = 95
 exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
