@@ -643,8 +643,10 @@ Choose and lock versions compatible with the relevant Python environments. The r
 `property`, `statistical`, `slow`, `browser` and `benchmark`; browser tests and all benchmarks carry these markers. Only expanded inference experiments should carry `slow`, so the compact calibration
 panel remains in the default run. Load Hypothesis profiles `ci` (bounded, deterministic) and
 `extended` (larger, exploratory) in `conftest.py`.
-Keep browser-only imports and fixtures under `tests/e2e/`; the non-browser commands exclude that
-directory before collection, because a marker alone does not prevent optional imports.
+Keep browser-only imports and fixtures under `tests/e2e/`. Plain `pytest` never collects that
+directory, because a marker alone does not prevent optional imports. `tests/conftest.py` also
+deselects `slow` tests unless `--extended` is given, so the default run is the essential quick
+suite. Browser journeys need `--run-browser`; expanded experiments need `--extended`.
 
 The pytest configuration is:
 
@@ -675,8 +677,9 @@ uv sync --locked --no-default-groups --group test --group quality
 uv run --no-sync python -m pip download --dest .test-wheelhouse \
   hatchling numpy pandas pydantic jinja2
 
-# Default deterministic suite, including compact calibration; no browser required.
-uv run --no-sync pytest tests --ignore=tests/e2e -m "not slow" --hypothesis-profile=ci
+# Essential quick suite (the default): deterministic, includes compact calibration, no browser
+# and no `slow` experiments.
+uv run --no-sync pytest
 
 # A numerical module, one named behaviour, or the joining contracts.
 uv run --no-sync pytest tests/unit/test_returns.py -q
@@ -685,10 +688,10 @@ uv run --no-sync pytest tests/component/test_time_series.py tests/integration/te
 
 # Public research requirements and generated invariants.
 uv run --no-sync pytest tests/acceptance
-uv run --no-sync pytest tests --ignore=tests/e2e -m property --hypothesis-profile=ci
+uv run --no-sync pytest -m property --hypothesis-profile=ci
 
 # Parallel feedback once independence has been established; inspect slowest cases.
-uv run --no-sync pytest tests --ignore=tests/e2e -m "not slow" -n auto --durations=20
+uv run --no-sync pytest -n auto --durations=20
 
 # Static analysis.
 uv run --no-sync ruff check src/alphatonic tests
@@ -704,20 +707,19 @@ and recorded library versions. Do not treat a successful rerun as a repair.
 
 ```sh
 # Run serially for this basic coverage command. Configure subprocess collection separately.
-uv run --no-sync coverage run --branch --source=alphatonic -m pytest \
-  tests --ignore=tests/e2e -m "not slow"
+uv run --no-sync coverage run --branch --source=alphatonic -m pytest
 uv run --no-sync coverage combine
 uv run --no-sync coverage report --show-missing --fail-under=95
 uv run --no-sync coverage html
 
 # Full calibration and larger property searches; use the predeclared simulation sizes.
-uv run --no-sync pytest tests/statistical --timeout=600 --durations=20
-uv run --no-sync pytest tests --ignore=tests/e2e -m property --hypothesis-profile=extended
+uv run --no-sync pytest tests/statistical --extended --timeout=600 --durations=20
+uv run --no-sync pytest -m property --hypothesis-profile=extended
 
 # Install browser tooling and binaries, then run offline and served journeys.
 uv sync --locked --no-default-groups --group test --group browser --group quality
 uv run --no-sync playwright install chromium
-uv run --no-sync pytest tests/e2e -m browser --browser chromium
+uv run --no-sync pytest --run-browser tests/e2e -m browser --browser chromium
 
 # Documentation and distribution checks.
 uv sync --locked --no-default-groups --group test --group quality --group docs
@@ -747,12 +749,12 @@ uv run --isolated --no-project --python 3.11 --with-editable . \
   --with pytest --with hypothesis --with pytest-timeout \
   --with coverage --with scipy --with 'numpy==1.26.0' \
   --with 'pandas==2.2.2' --with 'pydantic==2.6.0' --with 'jinja2==3.1.0' \
-  python -m pytest tests --ignore=tests/e2e -m "not slow" --hypothesis-profile=ci
+  python -m pytest --hypothesis-profile=ci
 
 # Newest compatible runtime dependencies; repeat for Python 3.11, 3.12, 3.13 and 3.14.
 uv run --isolated --no-project --python 3.14 --with-editable . \
   --with pytest --with hypothesis --with pytest-timeout --with scipy \
-  python -m pytest tests --ignore=tests/e2e -m "not slow" --hypothesis-profile=ci
+  python -m pytest --hypothesis-profile=ci
 ```
 
 Record resolved versions with failures. Add explicit pandas 2/3 constraints to separate matrix

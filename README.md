@@ -52,7 +52,7 @@ changed in each release.
 
 ```sh
 uv sync --all-extras --locked
-uv run pytest tests --ignore=tests/e2e -m "not slow"
+uv run pytest
 uv run ruff check . && uv run ruff format --check .
 uv run pyright
 ```
