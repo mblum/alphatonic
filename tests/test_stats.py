@@ -10,13 +10,18 @@ import statsmodels.api as sm
 import reference
 from alphatonic import summarize_ic
 from alphatonic.stats import (
+    BLOCK_ROWS,
     ResampledCorrelations,
     average_ranks,
     bucket_means,
     correlations,
     cosine_parts,
+    ewc_dof,
+    ewc_long_run_variance,
     quantile_rows,
     row_correlations,
+    standardized_products,
+    t_p_value,
 )
 
 
@@ -268,3 +273,56 @@ def test_cosine_splits_exactly_into_timing_and_static_parts():
         assert static[i] == pytest.approx(a.mean() * b.mean() / rms)
         assert cosine[i] - static[i] == pytest.approx(timing)
     assert np.isnan(cosine_parts(np.zeros((5, 1)), np.ones((5, 1)))[1][0])
+
+
+@pytest.mark.parametrize("method", ["spearman", "pearson", "cosine"])
+def test_standardized_products_average_to_the_correlation(method):
+    rng = np.random.default_rng(4)
+    x = np.round(rng.normal(size=(80, 5)), 1)  # ties
+    y = rng.normal(size=(80, 5)) + 0.3 * x
+    x[rng.random(x.shape) < 0.1] = np.nan
+    y[rng.random(y.shape) < 0.1] = np.inf
+    valid = np.isfinite(x) & np.isfinite(y)
+
+    products, counts = standardized_products(x, y, method)
+
+    np.testing.assert_array_equal(counts, valid.sum(axis=0))
+    assert (products[~valid] == 0).all()
+    np.testing.assert_allclose(products.sum(axis=0) / counts, correlations(x, y, method))
+
+
+def test_ewc_degrees_of_freedom_follow_the_rule_and_the_horizon():
+    # 1000 ** (2 / 3) is just below 100 in floating point, yet 0.4 * 100 is exactly 40.
+    assert ewc_dof(1000, 1) == 40
+    assert ewc_dof(1000, 20) == 25  # at most 1000 // (2 * 20)
+    assert (ewc_dof(250, 1), ewc_dof(250, 20)) == (15, 6)
+    assert ewc_dof(3, 1) == 0 and ewc_dof(0, 1) == 0
+
+
+def test_ewc_long_run_variance_averages_squared_cosine_projections():
+    rng = np.random.default_rng(3)
+    n, dof = 301, 12
+    values = rng.normal(size=(n, 2 * BLOCK_ROWS + 5))  # more than one block of columns
+    angles = np.pi * np.outer(np.arange(1, dof + 1), np.arange(n) + 0.5) / n
+    expected = ((np.sqrt(2 / n) * np.cos(angles) @ values) ** 2).mean(axis=0)
+
+    np.testing.assert_allclose(ewc_long_run_variance(values, dof), expected, rtol=1e-10)
+    # The cosines are orthogonal to a constant, so a level adds nothing.
+    np.testing.assert_allclose(ewc_long_run_variance(values + 5, dof), expected, rtol=1e-8)
+
+
+@pytest.mark.parametrize("dof", [1, 2, 3, 7, 25, 120, 2000])
+def test_t_p_values_match_scipy(dof):
+    t = np.array([0.0, 0.3, -1.0, 1.96, 2.5, 4.0, 9.0, 40.0])
+    expected = 2 * scipy.stats.t.sf(np.abs(t), dof)
+    np.testing.assert_allclose(t_p_value(t, dof), expected, rtol=1e-9)
+
+
+def test_t_p_values_keep_their_accuracy_near_zero_and_one():
+    t = np.array([1e-12, 1e-3, 1.0, 50.0, 1e8])
+    # One and two degrees of freedom have closed forms, written here without cancellation.
+    np.testing.assert_allclose(t_p_value(t, 1), 2 / np.pi * np.arctan(1 / t), rtol=1e-13)
+    root = np.sqrt(t**2 + 2)
+    np.testing.assert_allclose(t_p_value(t, 2), 2 / ((root + t) * root), rtol=1e-13)
+    assert t_p_value(np.array([np.inf, -np.inf, 0.0]), 5).tolist() == [0.0, 0.0, 1.0]
+    assert np.isnan(t_p_value(np.array([np.nan]), 5)[0])

@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ signal }} · {{ title }}{% endblock %}
 {% block html_attributes %} data-page="drawing"{% endblock %}
+{% block nav_label %}Study{% endblock %}
+{% block brand %}<a href="../">alphatonic</a>{% endblock %}
 {% block body %}
 <header>
-  <p class="eyebrow">alphatonic · study</p>
   <h1>{{ signal }}</h1>
 </header>
 <main>

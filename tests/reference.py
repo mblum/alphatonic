@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import scipy.stats
 
 from alphatonic.config import METHODS, TS_METHODS, EvaluationConfig
 from alphatonic.stats import ZERO_TOLERANCE, correlations, summarize_ic
@@ -246,6 +247,7 @@ def time_series(
         intervals, aggregate = bootstrap_intervals(
             x.loc[mature], y.loc[mature], assets, config, horizon
         )
+        tests, aggregate_tests = hac_tests(x.loc[mature], y.loc[mature], assets, horizon)
         for row in assets.to_dict("records"):
             method, asset = row["method"], row["asset"]
             group = monthly.loc[(monthly.asset == asset) & (monthly.method == method)]
@@ -266,6 +268,7 @@ def time_series(
             row["signal_autocorr_lag1"] = correlations(
                 sx.to_numpy()[:, None], sx.shift(1).to_numpy()[:, None], method
             )[0]
+            row.update(tests[method, asset])
             assets_all.append(row)
         for method in TS_METHODS:
             group = assets.loc[assets.method == method]
@@ -288,6 +291,7 @@ def time_series(
                     "mean_pair_coverage": float(group.pair_coverage.mean()),
                     **{f"universe_{k}": v for k, v in month_stats.items()},
                     **aggregate[method],
+                    **aggregate_tests[method],
                 }
             )
         for asset in assets.loc[(assets.method == "spearman") & assets.ic.notna(), "asset"]:
@@ -372,4 +376,52 @@ def bootstrap_intervals(x, y, assets, config, horizon):
         result["bootstrap_status"] = "valid" if len(sample) >= minimum else "insufficient_draws"
         if len(sample) >= minimum:
             result["ci95_lower"], result["ci95_upper"] = np.quantile(sample, [0.025, 0.975])
+    return asset_results, aggregate_results
+
+
+def hac_tests(x, y, assets, horizon, dof=None):
+    """The t-tests one asset at a time, with explicit cosine sums and scipy's t distribution."""
+    n = len(x)
+    if dof is None:
+        dof = 0
+        while (dof + 1) ** 3 <= 0.064 * n * n + 1e-9:  # floor(0.4 * n ** (2/3))
+            dof += 1
+        dof = min(dof, n // (2 * horizon))
+    cosines = [
+        np.sqrt(2 / n) * np.cos(np.pi * j * (np.arange(n) + 0.5) / n) for j in range(1, dof + 1)
+    ]
+
+    def test(estimate, contributions):
+        result = {"hac_dof": dof, "hac_se": np.nan, "hac_t": np.nan, "hac_p_value": np.nan}
+        if dof and np.isfinite(estimate):
+            se = np.sqrt(n * np.mean([(cosine @ contributions) ** 2 for cosine in cosines]))
+            if se > 1e-12:
+                t = estimate / se
+                result.update(hac_se=se, hac_t=t, hac_p_value=2 * scipy.stats.t.sf(abs(t), dof))
+        return result
+
+    asset_results, aggregate_results = {}, {}
+    for method in TS_METHODS:
+        table = assets.loc[assets.method == method].set_index("asset")
+        eligible = {}
+        for asset in x.columns:
+            ic = table.loc[asset, "ic"]
+            valid = np.isfinite(x[asset]) & np.isfinite(y[asset])
+            sx, sy = x.loc[valid, asset], y.loc[valid, asset]
+            if method == "spearman":
+                sx, sy = sx.rank(), sy.rank()
+            if method == "cosine":
+                u, v = sx / np.sqrt((sx * sx).mean()), sy / np.sqrt((sy * sy).mean())
+            else:
+                u, v = (sx - sx.mean()) / sx.std(ddof=0), (sy - sy.mean()) / sy.std(ddof=0)
+            contributions = (u * v / valid.sum()).reindex(x.index, fill_value=0.0).to_numpy()
+            if np.isfinite(ic):
+                eligible[asset] = (ic, contributions)
+            asset_results[method, asset] = test(ic, contributions)
+        if eligible:
+            estimate = np.mean([ic for ic, _ in eligible.values()])
+            contributions = np.mean([series for _, series in eligible.values()], axis=0)
+        else:
+            estimate, contributions = np.nan, np.zeros(n)
+        aggregate_results[method] = test(estimate, contributions)
     return asset_results, aggregate_results

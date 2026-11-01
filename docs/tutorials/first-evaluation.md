@@ -95,7 +95,7 @@ return over time?
 ts = result.time_series
 print(
     ts.summary.query("method == 'spearman'")[
-        ["horizon", "n_assets", "mean", "ci95_lower", "ci95_upper"]
+        ["horizon", "n_assets", "mean", "ci95_lower", "ci95_upper", "hac_p_value"]
     ]
 )
 print(
@@ -106,7 +106,9 @@ print(
 ```
 
 Each asset gets its own full-period IC and a block-bootstrap interval. The universe summary averages
-the assets with equal weight.
+the assets with equal weight. `hac_p_value` tests whether the mean IC is zero, with a standard error
+that allows for overlapping labels and for assets that move together; see
+[methodology](../explanation/methodology.md#time-series-tests).
 
 The default settings need 100 pairs per window. A month of daily bars has too few, so this example
 has no monthly or 30-day rolling IC. The full-period results can still be valid. The guide to

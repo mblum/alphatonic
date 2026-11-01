@@ -2,8 +2,19 @@
 {% macro region(content, label, kind='table-scroll') -%}
 <div class="{{ kind }}" role="region" aria-label="{{ label }}" tabindex="0">{{ content | safe }}</div>
 {%- endmacro %}
-{% macro method(anchor, label='Methods') -%}
-<a class="method-link" href="#{{ anchor }}">{{ label }}</a>
+{% set docs = 'https://mblum.github.io/alphatonic/' %}
+{% set method_pages = {
+  'method-design': 'explanation/methodology/#forward-return-labels',
+  'method-summary': 'reference/results/#metrics',
+  'method-correlation': 'explanation/methodology/#cross-sectional-evaluation',
+  'method-inference': 'explanation/methodology/#summary-statistics-and-inference',
+  'method-quantiles': 'explanation/methodology/#quantile-response',
+  'method-cosine': 'explanation/methodology/#time-series-evaluation',
+  'method-coverage': 'how-to/read-a-tearsheet/#3-check-coverage-before-comparing-results',
+  'method-persistence': 'explanation/methodology/#signal-persistence',
+} %}
+{% macro method(anchor, label='Documentation') -%}
+{%- if anchor in method_pages %}<a class="method-link" href="{{ docs }}{{ method_pages[anchor] }}">{{ label }}</a>{% endif -%}
 {%- endmacro %}
 {% macro cell(item) -%}
 <span class="value{% if item.emphasis %} emphasis{% endif %}">{{ item.value }}</span>
@@ -31,20 +42,20 @@
 
 {% block title %}{{ title }}{% if subtitle %} · {{ subtitle }}{% endif %}{% endblock %}
 {% block head %}<script>{{ libraries | safe }}</script>{% endblock %}
-{% block body %}
-<a class="skip-link" href="#main-content">Skip to the report</a>
-<nav class="site-nav" aria-label="Report sections">
-  <ul><li class="brand">alphatonic</li></ul>
+{% block skip_link %}<a class="skip-link" href="#main-content">Skip to the report</a>{% endblock %}
+{% block nav_label %}Report sections{% endblock %}
+{% block brand %}<a id="brand">alphatonic</a>{% endblock %}
+{% block nav %}
   <ul>
     <li><a href="#top" data-section="study-design">Study design</a></li>
     <li><a href="#at-a-glance">At a glance</a></li>
     <li><a href="#cross-section">Cross-section</a></li>
     <li><a href="#time-series">Time series</a></li>
     <li><a href="#signal-persistence">Persistence</a></li>
-    <li><a href="#methods">Methods</a></li>
     <li><a href="?download" role="button" class="outline secondary" id="download" hidden>Download</a></li>
   </ul>
-</nav>
+{% endblock %}
+{% block body %}
 <header id="top">
   {% if eyebrow %}<p class="eyebrow">{{ eyebrow }}</p>{% endif %}
   <h1>{{ title }}</h1>
@@ -110,11 +121,10 @@
     <div class="group-heading"><h3>Diagnostics</h3></div>
     {% if cs_available %}
     {% call disclosure('cs-monthly', 'Monthly mean IC') %}
-      {{ method('method-stability') }}
       {{ region(cs_figures.monthly, 'Cross-sectional monthly mean IC', 'chart') }}
     {% endcall %}
     {% call disclosure('cs-history', 'IC over time') %}
-      <p class="muted">Rolling window: {{ options.rolling_window }} · Minimum observations: {{ options.min_periods }} · {{ method('method-stability') }}</p>
+      <p class="muted">Rolling window: {{ options.rolling_window }} · Minimum observations: {{ options.min_periods }}</p>
       {{ region(cs_figures.timeseries, 'Cross-sectional IC time series', 'chart') }}
     {% endcall %}
     {% endif %}
@@ -163,12 +173,11 @@
           {{ region(horizon.table, 'Asset Spearman IC estimates · ' ~ horizon.label) }}
         {% endcall %}
         {% call disclosure('timing-h' ~ horizon.horizon ~ '-monthly', 'Monthly IC and eligible assets') %}
-          {{ method('method-stability') }}
-          {{ region(horizon.figures.monthly, 'Asset monthly Spearman IC · ' ~ horizon.label, 'chart') }}
+              {{ region(horizon.figures.monthly, 'Asset monthly Spearman IC · ' ~ horizon.label, 'chart') }}
           {{ region(horizon.figures.breadth, 'Monthly eligible assets · ' ~ horizon.label, 'chart') }}
         {% endcall %}
         {% call disclosure('timing-h' ~ horizon.horizon ~ '-rolling', 'Rolling IC') %}
-          <p class="muted">Window: {{ ts_options.rolling_window }} · Step: {{ ts_options.rolling_step }} · {{ method('method-stability') }}</p>
+          <p class="muted">Window: {{ ts_options.rolling_window }} · Step: {{ ts_options.rolling_step }}</p>
           {% if horizon.rolling_assets %}
           <div class="toolbar">
             <label>Asset
@@ -237,129 +246,16 @@
     {% endfor %}
     {% else %}<p class="unavailable">This saved evaluation has no signal persistence tables.</p>{% endif %}
   </section>
-
-  <section id="methods" aria-labelledby="methods-title" class="methods">
-    <h2 id="methods-title">Methods and interpretation</h2>
-    <article>
-      <section id="method-summary" aria-labelledby="summary-method-title">
-        <h3 id="summary-method-title">Summary metrics</h3>
-        <p>Every configured forecast horizon is reported separately; none is chosen by its performance. Mean Spearman IC measures predictive ordering;
-          its 95% confidence interval describes estimation uncertainty. Cross-sectional estimates weight usable timestamps equally;
-          time-series estimates weight eligible assets equally. The tables use stored estimates and intervals without rerunning inference.</p>
-        <p>Intervals do not adjust for the number of signals tried. A study's list of trials reports p-values next to that count.</p>
-        <p>The cross-sectional ratio of mean to standard deviation is computed over timestamp ICs and is not annualised.
-          The time-series median and middle half (25th to 75th percentile) describe dispersion between assets, not uncertainty.</p>
-        <p>The quantile spread subtracts the mean return of Q1 from that of Q{{ config.quantiles }}, matching the endpoints of the quantile-return chart.
-          Each quantile mean weights its occupied timestamps (cross-sectional) or eligible assets (time-series) equally.
-          The two endpoints can have different contributing samples. A missing extreme quantile makes the spread unavailable.
-          Raw returns are in basis points; volatility-scaled values are in units of horizon volatility (σ).
-          Spreads are descriptive differences in forward returns, without annualisation, trading costs or a confidence interval. They are not realised portfolio returns.</p>
-        <p>Mean pair coverage measures data availability using each analysis's own return target. Usable timestamps and eligible assets
-          give the Spearman sample next to its total candidate count. High coverage alone does not establish predictive power.</p>
-        {{ method('at-a-glance', 'At a glance ↑') }} · {{ method('method-inference', 'Statistical inference') }}
-      </section>
-      <section id="method-design" aria-labelledby="design-method-title">
-        <h3 id="design-method-title">Evaluation design</h3>
-        <p>Scores are compared with subsequent returns. Higher scores are expected to predict higher returns.
-          Cross-sectional analysis compares assets at each timestamp; time-series analysis compares observations within each asset.</p>
-        <p>A bar is one row of the price data. The execution delay precedes the forecast horizon, which specifies the number of bars in the return.
-          The evaluation window uses UTC timestamps and an exclusive end. Volatility-scaled returns express the move relative to estimated asset volatility.</p>
-        {{ method('top', 'Study design ↑') }}
-      </section>
-      <section id="method-correlation" aria-labelledby="correlation-method-title">
-        <h3 id="correlation-method-title">Information coefficient</h3>
-        <dl>
-          <dt>Spearman IC</dt><dd>Rank correlation between scores and subsequent returns, from −1 to +1. Positive values indicate that higher scores tended to precede higher returns;
-            zero indicates no rank association, and negative values indicate reversed ordering. IC is neither a percentage return nor a trading win rate.</dd>
-          <dt>Pearson IC</dt><dd>Linear correlation between score magnitudes and returns. Outliers and nonlinear relationships can make it differ from Spearman IC.</dd>
-          <dt>Mean IC</dt><dd>Cross-sectional estimates weight usable timestamps equally. Time-series estimates first calculate IC within each eligible asset, then weight those assets equally.</dd>
-          <dt>Positive timestamps or assets</dt><dd>The fraction of usable timestamps (cross-sectional) or eligible assets (time-series) with positive IC. This describes the prevalence of positive association, not the fraction of profitable trades.</dd>
-        </dl>
-        {{ method('cross-section', 'Cross-sectional results ↑') }} · {{ method('time-series', 'Time-series results ↑') }}
-      </section>
-      <section id="method-inference" aria-labelledby="inference-method-title">
-        <h3 id="inference-method-title">Statistical inference</h3>
-        <p>The 95% confidence interval describes uncertainty in the estimate. An interval spanning zero leaves the direction uncertain;
-          narrower intervals indicate greater precision. Tables list each interval as its stored lower and upper bounds, including asymmetric intervals.
-          An unavailable interval appears as “Unavailable”, and its inference status says why.</p>
-        <p>Cross-sectional intervals use Newey–West estimates to account for dependence, including overlapping returns.
-          Time-series intervals use block bootstrap samples, preserving runs of paired observations and sampling assets together.
-          The summary interval describes uncertainty in the mean, not dispersion between assets. Asset-level plots show point estimates and their individual intervals.</p>
-        <p>These intervals do not account for selecting a signal after trying many candidates.</p>
-      </section>
-      <section id="method-quantiles" aria-labelledby="quantile-method-title">
-        <h3 id="quantile-method-title">Quantile estimation</h3>
-        <p>Scores are assigned to {{ config.quantiles }} quantiles, ordered from lowest to highest. An increasing mean-return profile supports the intended ordering.
-          Ties stay together; empty quantiles stay empty. Cross-sectional quantiles are formed separately at each timestamp, then timestamps receive equal weight within each occupied quantile.</p>
-        <p>Time-series quantiles are formed within each eligible asset's full sample, then assets receive equal weight within each occupied quantile.
-          These retrospective groups are not thresholds that could have been traded. Return targets exclude trading costs.</p>
-      </section>
-      <section id="method-stability" aria-labelledby="stability-method-title">
-        <h3 id="stability-method-title">Temporal stability</h3>
-        <p>Cross-sectional monthly cells average timestamp-level ICs within each UTC month. Hover for usable sample counts.
-          The rolling mean spans {{ options.rolling_window }} and requires {{ options.min_periods }} usable observations. Missing observations remain gaps, including in the rolling mean.</p>
-        {% if ts_evaluated %}
-        <p>Time-series monthly IC is recomputed within each complete UTC month. Both the score and return endpoint must lie inside the month.
-          The eligible asset count may change each month. This differs from averaging timestamp-level cross-sectional ICs.</p>
-        <p>Rolling time-series IC is recomputed over trailing {{ ts_options.rolling_window }} windows, displayed every {{ ts_options.rolling_step }}.
-          Only complete windows are used; returns must end before the displayed endpoint. Choose an asset in the menu above the chart. Empty cells are unavailable.</p>
-        {% endif %}
-      </section>
-      {% if ts_evaluated %}
-      <section id="method-cosine" aria-labelledby="cosine-method-title">
-        <h3 id="cosine-method-title">Cosine similarity</h3>
-        <p>If a score represents a position, cosine similarity measures its uncentred alignment with returns.
-          The timing component reflects changes in the position; the static component reflects the average position.
-          A large static component can explain alignment without successful timing.</p>
-        <p>Cosine retains the average score and return instead of subtracting them. It measures a different association from rank correlation.
-          These are alignment values, not portfolio returns. A constant nonzero position can have a valid cosine.
-          Long fraction is the share of usable observations with a positive position.</p>
-        {{ method('ts-metrics', 'Time-series metrics ↑') }}
-      </section>
-      {% endif %}
-      <section id="method-coverage" aria-labelledby="coverage-method-title">
-        <h3 id="coverage-method-title">Sample coverage and eligibility</h3>
-        <p>Cross-sectional pair coverage is usable score/return pairs divided by assets with a price, averaged equally across timestamps.
-          At least {{ config.min_assets }} valid pairs and nonconstant scores and targets are required for a valid timestamp.</p>
-        <p>Coverage charts distinguish available assets (with prices), scored assets (with signals), and paired assets (with usable scores and returns).
-          Each timestamp contributes one sample status per horizon.</p>
-        {% if ts_evaluated %}
-        <p>Time-series pair coverage divides each asset's usable pairs by its expected observations, then averages across all assets, including ineligible ones.
-          It uses the actual time-series target, including volatility warmup losses for scaled returns.</p>
-        <p>Time-series eligibility requires at least {{ ts_options.min_pairs }} usable pairs, {{ '%.0f' | format(ts_options.min_coverage * 100) }}% coverage,
-          and a sample spanning {{ ts_options.min_horizons }} return horizons. Monthly and rolling samples must meet these rules within their own windows.</p>
-        <p>Coverage and exclusion tables use the Spearman sample. Other methods can have different eligibility, recorded in their asset tables.</p>
-        {% endif %}
-        <p>Sample requirements do not establish predictive power. Sample status explains missing correlations; inference status explains missing intervals.
-          A dash denotes an unavailable statistic, never zero. Final bars may lose return labels when their horizons reach the evaluation boundary.</p>
-        {{ method('cs-coverage', 'Cross-sectional coverage ↑') }}
-      </section>
-      <section id="method-persistence" aria-labelledby="persistence-method-title">
-        <h3 id="persistence-method-title">Signal persistence</h3>
-        <p>Diagnostics use scores and prices available at each endpoint, independently of forward-return horizons. Lag is measured in price-grid bars;
-          a multi-bar lag compares endpoints and does not sum intervening changes.</p>
-        <p>Rank persistence is the cross-sectional rank correlation of scores with their values one lag earlier, from −1 to 1, weighting valid timestamps equally.
-          Bucket entry fraction is the share of a bucket's current members absent from it one lag earlier; ties stay together.
-          Universe counts reflect availability of both a score and a price, not confirmed listings or delistings.</p>
-        <p>Normalised change divides each asset's total absolute score changes by its total mean endpoint magnitudes on the same valid pairs,
-          then weights eligible assets equally. A constant nonzero signal has zero change; an all-zero signal has undefined normalised change.
-          Sign changes exclude transitions into or out of zero, which are counted separately.</p>
-        <p>Missing values remain unavailable; a gap never shortens a lag. No confidence intervals are claimed.</p>
-        {{ method('signal-persistence', 'Signal persistence ↑') }}
-      </section>
-    </article>
-  </section>
 </main>
-<footer>
-  <p>These results measure predictive association. Return labels exclude fees, slippage, financing and market impact.</p>
-  <p>Generated {{ generated_at }} · {% for package, version in versions.items() %}{{ package }} {{ version }}{% if not loop.last %} / {% endif %}{% endfor %} · styled with Pico CSS (MIT), charts drawn with Observable Plot and d3 (ISC)</p>
-  {% for line in footer %}<p>{{ line }}</p>{% endfor %}
-</footer>
+
 <script type="application/json" id="chart-data">{{ charts | tojson }}</script>
 <script>{{ chart_script | safe }}</script>
 <script>
   // Only a page served by `alphatonic serve` can be saved this way; a saved copy is the file itself.
-  if (location.protocol.startsWith('http')) document.getElementById('download').hidden = false;
+  if (location.protocol.startsWith('http')) {
+    document.getElementById('download').hidden = false;
+    document.getElementById('brand').href = '../';  // served by a study: back to its list of trials
+  }
   const disclosures = [...document.querySelectorAll('details')];
   const panels = [...document.querySelectorAll('[role=tabpanel]')];
   function selectTab(tab, focus) {
@@ -432,4 +328,10 @@
     printState = undefined;
   });
 </script>
+{% endblock %}
+
+{% block footer_content %}
+  <p>These results measure predictive association. Return labels exclude fees, slippage, financing and market impact.</p>
+  <p>Generated {{ generated_at }} · {% for package, version in versions.items() %}{{ package }} {{ version }}{% if not loop.last %} / {% endif %}{% endfor %} · styled with Pico CSS (MIT), charts drawn with Observable Plot and d3 (ISC)</p>
+  {% for line in footer %}<p>{{ line }}</p>{% endfor %}
 {% endblock %}

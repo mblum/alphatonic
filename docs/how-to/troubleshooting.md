@@ -66,6 +66,8 @@ the start.
 - **Bootstrap intervals** report `bootstrap_status`: `disabled` (`bootstrap_samples=0`),
   `too_few_blocks` (less than five blocks of history; shorten `block_bars` or lengthen the
   sample), `no_eligible_assets`, `insufficient_draws`, or `valid`.
+- **Time-series t-tests** (`hac_t`, `hac_p_value`) are missing where the IC is, and when the
+  sample has fewer than two horizons of bars; `hac_dof` is then 0.
 - In `result.metrics()` missing statistics are omitted; in CSVs they are blank. They are never
   zeros.
 

@@ -6,6 +6,69 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The study board identifies business-day bars from saved trial timestamps when the weekday grid is complete.
+
+- The Data column group on the study board includes the trial creation date, and the
+  multiple-testing columns and control appear last.
+
+- Report pages link to the project on GitHub, its documentation and its licence in the footer.
+
+- The list of trials that `alphatonic serve` shows is easier to read at a glance. Four tiles lead
+  it: the lowest `p × trials`, the highest rank IC with its `p × trials`, the family with the most
+  trials, and the looks at the holdout. Each row draws the cross-sectional rank IC as a dot with its
+  95% interval on one axis shared by every row. Sorted by a statistic, the rows are numbered from
+  its best value, and equal values share a rank.
+- `Study.to_dict()` and `/study.json` give each trial the 95% interval of its cross-sectional rank
+  IC as `cs_ci_lower` and `cs_ci_upper`, null where the trial has no inference at the horizon.
+
+- The list of trials draws the time-series rank IC and the time-series cosine IC as a dot with its
+  95% bootstrap interval, each on an axis of its own, as it does for the cross-sectional rank IC.
+  The time-series columns are no longer set in a lighter colour.
+- Checkboxes above the list of trials show or hide the column groups, and the `show` query parameter
+  does the same in a link (`/?show=ts`, `/?show=cs,testing`). The sorted column stays visible, and
+  hiding the multiple-testing columns is noted on the page.
+- `Study.to_dict()` and `/study.json` give each trial the 95% bootstrap intervals of its
+  time-series rank IC and cosine IC as `ts_ci_lower`, `ts_ci_upper`, `ts_cosine_ci_lower` and
+  `ts_cosine_ci_upper`, null where the bootstrap was off.
+
+- The time-series rank, linear and cosine ICs have a t-statistic and a p-value, for each asset and
+  for the mean over assets: the time-series `assets` and `summary` tables gain `hac_t` and
+  `hac_p_value`, with the standard error `hac_se` and its degrees of freedom `hac_dof`. The standard
+  error allows for overlapping labels, persistent scores and assets that move together, and the
+  tests run when the bootstrap is off. For the cosine, the test asks whether the score, held as a
+  position, earns anything. The methodology page explains the test and the simulations that check
+  it.
+- The list of trials shows a t-statistic and a p-value beside the time-series rank IC and beside the
+  cosine IC. `Study.board()`, `Study.to_dict()` and `/study.json` carry them as `ts_t`, `ts_p`,
+  `ts_cosine_t` and `ts_cosine_p`, and `alphatonic list` prints `ts_t`. A column headed by a single
+  letter names its statistic in full in a tooltip, and in the line that explains a ranking by it.
+- The list of trials shows `p × trials` beside the p-values of the time-series rank IC and the
+  cosine IC, as it does for the cross-sectional rank IC. `Study.board()`, `Study.to_dict()` and
+  `/study.json` carry them as `ts_adjusted_p` and `ts_cosine_adjusted_p`: `ts_p` and `ts_cosine_p`
+  times the family's trial count, at most 1.
+
+### Changed
+
+- The selected section in the tearsheet header now matches the height and rounded corners of the download button.
+- The tearsheet no longer ends with a "Methods and interpretation" section, and the list of trials
+  no longer has an "About these columns" panel. Their links now lead to the matching pages of the
+  documentation.
+- On the list of trials the horizon is chosen with buttons instead of a menu, and the time-series
+  and data columns are set in a lighter colour so that the rank IC and `p × trials` stand out.
+- The name in the header bar is larger and leads back to the list of trials on the pages that
+  `alphatonic serve` shows.
+- The header bar, the page header, the main part and the footer of the tearsheet and the list of
+  trials now share one width, one side margin and one set of vertical spacings, so their edges
+  line up at every window width and the bar keeps the same height on every page.
+- On the list of trials the cosine IC, its tests and its timing part have a column group of their
+  own, chosen with `show=cosine`, and the cross-sectional `p × trials` sits in the cross-sectional
+  group beside its p-value. The multiple-testing group keeps the trial count and the sample.
+- `Evaluation.save` writes format 5 of the saved evaluation, which holds the time-series t-tests.
+  Directories of formats 1 to 4 still load, without those columns, but an older alphatonic cannot
+  load a format 5 directory.
+
 ## [0.2.0] - 2026-10-31
 
 ### Added

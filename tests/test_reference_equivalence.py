@@ -138,6 +138,33 @@ def test_bootstrap_matches_resampling_the_rows(case):
                     assert value[name] == expected
 
 
+@pytest.mark.parametrize("case", TS_CASES, ids=lambda c: f"seed{c['seed']}")
+def test_t_tests_match_the_loop_when_the_horizon_caps_the_cosine_terms(case):
+    from alphatonic.returns import label_endpoints
+    from alphatonic.stats import ewc_dof
+    from alphatonic.time_series import hac_tests, window_table
+
+    panel, config, labels = run(case, n_bars=24 * 20)
+    grid, horizon = panel.factor.index, 12
+    y = labels[horizon].reindex(grid)
+    ends = label_endpoints(grid, horizon + config.delay)
+    assets = window_table(panel.factor, y, config, horizon, panel.start, panel.end, ends)
+    mature = np.asarray(ends < panel.end)
+    x_m, y_m = panel.factor.loc[mature], y.loc[mature]
+    assert ewc_dof(len(x_m), horizon) < ewc_dof(len(x_m), 1)
+
+    fast = hac_tests(x_m, y_m, assets, horizon)
+    slow = reference.hac_tests(x_m, y_m, assets, horizon)
+
+    for actual, expected in zip(fast, slow, strict=True):
+        assert actual.keys() == expected.keys()
+        for key, value in actual.items():
+            assert value["hac_dof"] == expected[key]["hac_dof"]
+            for name in ("hac_se", "hac_t", "hac_p_value"):
+                np.testing.assert_allclose(value[name], expected[key][name], rtol=1e-9)
+    assert np.isfinite(fast[1]["spearman"]["hac_p_value"])
+
+
 @pytest.mark.parametrize("unit", ["s", "ms", "us"])
 def test_cross_section_does_not_depend_on_the_index_resolution(unit):
     panel, config, labels = run(CASES[2], n_bars=24 * 6)

@@ -71,7 +71,13 @@ BOARD_COLUMNS: Final = (
     "cs_p",
     "adjusted_p",
     "ts_ic",
+    "ts_t",
+    "ts_p",
+    "ts_adjusted_p",
     "ts_cosine",
+    "ts_cosine_t",
+    "ts_cosine_p",
+    "ts_cosine_adjusted_p",
     "ts_timing",
     "trials",
     "holdout_uses",
@@ -80,7 +86,18 @@ BOARD_COLUMNS: Final = (
 """Columns of [`Study.board`][alphatonic.Study.board], before those of the caller's context."""
 
 DESCENDING: Final = frozenset(
-    {"created_at", "assets", "cs_ic", "cs_z", "ts_ic", "ts_cosine", "ts_timing", "trials"}
+    {
+        "created_at",
+        "assets",
+        "cs_ic",
+        "cs_z",
+        "ts_ic",
+        "ts_t",
+        "ts_cosine",
+        "ts_cosine_t",
+        "ts_timing",
+        "trials",
+    }
 )
 """Board columns that sort largest first unless asked otherwise; all others sort smallest first."""
 
@@ -89,10 +106,29 @@ _STATISTICS: Final = {
     "cs_z": "cs.h{horizon}.spearman.hac_z",
     "cs_p": "cs.h{horizon}.spearman.hac_p_value",
     "ts_ic": "ts.h{horizon}.spearman.mean",
+    "ts_t": "ts.h{horizon}.spearman.hac_t",
+    "ts_p": "ts.h{horizon}.spearman.hac_p_value",
     "ts_cosine": "ts.h{horizon}.cosine.mean",
+    "ts_cosine_t": "ts.h{horizon}.cosine.hac_t",
+    "ts_cosine_p": "ts.h{horizon}.cosine.hac_p_value",
     "ts_timing": "ts.h{horizon}.cosine.mean_timing",
 }
 """Board columns read from the metrics, by the metric name at a horizon."""
+
+_ADJUSTED: Final = {
+    "adjusted_p": "cs_p",
+    "ts_adjusted_p": "ts_p",
+    "ts_cosine_adjusted_p": "ts_cosine_p",
+}
+"""Board columns that scale a p-value by the trials of its family, by the column of the p-value."""
+
+_INTERVALS: Final = {
+    "cs_ci": "cs.h{horizon}.spearman.ci95",
+    "ts_ci": "ts.h{horizon}.spearman.ci95",
+    "ts_cosine_ci": "ts.h{horizon}.cosine.ci95",
+}
+"""Interval columns of [`Study.to_dict`][alphatonic.Study.to_dict], each with the prefix of the
+metrics that hold its `_lower` and `_upper` ends."""
 
 Sample = Literal["in_sample", "holdout"]
 """Which side of the holdout boundary a trial evaluated."""
@@ -436,18 +472,19 @@ class Study:
     ) -> pd.DataFrame:
         """Return one row per trial with its headline statistics at one horizon, newest first.
 
-        Trials are counted per family, across all parameters and both samples, and `adjusted_p`
-        is the cross-sectional p-value times that count, at most 1: Bonferroni's correction over
-        the family. The count is a lower bound on the alternatives tried, because variants run
-        outside the study, or abandoned before evaluation, are not in it.
+        Trials are counted per family, across all parameters and both samples. `adjusted_p`,
+        `ts_adjusted_p` and `ts_cosine_adjusted_p` are the p-values `cs_p`, `ts_p` and
+        `ts_cosine_p` times that count, at most 1: Bonferroni's correction over the family, for
+        each p-value on its own. The count is a lower bound on the alternatives tried, because
+        variants run outside the study, or abandoned before evaluation, are not in it.
 
         Args:
             horizon: Horizon of the statistics, in bars; default: the smallest horizon of any
                 trial.
             sort: A column to sort by instead, such as `adjusted_p`: any column but
                 `parameters`, including the context keys. Rows without a value come last.
-            descending: Largest first; default: largest first for the ICs, z-statistics, counts
-                and `created_at`, smallest first for everything else.
+            descending: Largest first; default: largest first for the ICs, z- and t-statistics,
+                counts and `created_at`, smallest first for everything else.
 
         Returns:
             A table indexed by trial identifier with the columns in `BOARD_COLUMNS`, then one
@@ -469,8 +506,13 @@ class Study:
 
         The trials come in the order of [`board`][alphatonic.Study.board] with the same
         arguments, newest first by default, and carry the board's columns, so a page that lists
-        them needs nothing else. Missing statistics are `None`, timestamps are ISO 8601 strings
-        in UTC, and `json.dumps(..., allow_nan=False)` succeeds. The results reference describes
+        them needs nothing else. Each trial also carries the 95% interval of its cross-sectional
+        rank IC as `cs_ci_lower` and `cs_ci_upper`, and the 95% bootstrap intervals of its
+        time-series rank IC as `ts_ci_lower` and `ts_ci_upper` and of its time-series cosine IC as
+        `ts_cosine_ci_lower` and `ts_cosine_ci_upper`. Each is `None` when the trial has no
+        inference at the horizon, and the time-series ones when the bootstrap was off. Missing
+        statistics are `None`, timestamps are ISO 8601 strings in UTC, and
+        `json.dumps(..., allow_nan=False)` succeeds. The results reference describes
         the layout.
 
         Args:
@@ -506,6 +548,11 @@ class Study:
             # A tearsheet that was not stored is drawn from the tables when the server is asked.
             stored = (self.directory / trial.id / TEARSHEET).is_file()
             tearsheet = stored or self._has_tables(trial.id)
+            interval = {
+                f"{column}_{side}": trial.metrics.get(f"{name.format(horizon=horizon)}_{side}")
+                for column, name in _INTERVALS.items()
+                for side in ("lower", "upper")
+            }
             rows.append(
                 {
                     "id": trial.id,
@@ -522,7 +569,8 @@ class Study:
                     "delay": trial.delay,
                     "assets": len(trial.assets) or None,
                     "bar_seconds": trial.bar_seconds,
-                    **{column: row[column] for column in (*_STATISTICS, "adjusted_p")},
+                    **{column: row[column] for column in (*_STATISTICS, *_ADJUSTED)},
+                    **interval,
                     "trials": row["trials"],
                     "holdout_uses": row["holdout_uses"],
                     "context": trial.context,
@@ -580,7 +628,10 @@ class Study:
                     "bar": bar,
                     "horizon": horizon,
                     **statistics,
-                    "adjusted_p": float(np.minimum(1.0, statistics["cs_p"] * counts[trial.family])),
+                    **{
+                        column: float(np.minimum(1.0, statistics[p] * counts[trial.family]))
+                        for column, p in _ADJUSTED.items()
+                    },
                     "trials": counts[trial.family],
                     "holdout_uses": holdout[trial.family],
                     "note": trial.note,
@@ -589,7 +640,7 @@ class Study:
             )
         keys = list(dict.fromkeys(key for trial in trials for key in trial.context))
         board = pd.DataFrame(rows, columns=["id", *BOARD_COLUMNS, *keys]).set_index("id")
-        numbers = [*_STATISTICS, "adjusted_p"]
+        numbers = [*_STATISTICS, *_ADJUSTED]
         board[numbers] = board[numbers].astype(float)
         board["assets"] = board["assets"].astype("Int64")
         if sort is None:

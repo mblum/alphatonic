@@ -15,9 +15,11 @@ from alphatonic.signal_persistence import TABLES as PERSISTENCE_TABLES
 from alphatonic.signal_persistence import PersistenceEvaluation
 from alphatonic.time_series import TABLES, TimeSeriesEvaluation
 
-FORMAT_VERSION = 4
-"""Format 4 gzips the tables; formats 1 to 3, which wrote plain CSV, remain readable."""
-READABLE_FORMATS = (1, 2, 3, 4)
+FORMAT_VERSION = 5
+"""Format 5 adds the t-tests to the time-series `assets` and `summary` tables, and format 4
+gzips the tables. Formats 1 to 4 remain readable: their time-series tables load without the
+t-test columns, and formats 1 to 3 wrote plain CSV."""
+READABLE_FORMATS = (1, 2, 3, 4, 5)
 METADATA = "evaluation.json"
 PERIODS = "ic_by_timestamp.csv"
 SUMMARY = "ic_summary.csv"

@@ -33,6 +33,14 @@
   --at-down: #a2501c;
   --at-warn-background: #fff4e8;
   --at-cell: .45rem .75rem;
+  /* Page frame. The bar, the header, the main part and the footer share one width, one gutter and
+     one place for the vertical rhythm, so that their edges line up at any window width. */
+  --at-page-width: 1280px;
+  --at-gutter: 1.5rem;
+  --at-edge: max(var(--at-gutter), calc((100% - var(--at-page-width)) / 2 + var(--at-gutter)));
+  --at-nav-height: 3.5rem;
+  --at-block-gap: 1rem;
+  --at-section-gap: 3rem;
   /* Chart palette. Series take --at-c1 to --at-c8 in order and are never cycled; the first three
      are royal blue (the accent), orange and aqua. The set passes the lightness, chroma,
      colour-vision-deficiency and contrast checks against the card colour of each theme; yellow and
@@ -53,7 +61,9 @@
     --at-low: #d4694a; --at-mid: #2f343f;
   }
 }
-html { background-color: var(--at-wash); scroll-behavior: smooth; scroll-padding-top: 4.5rem; }
+/* Reserve the scrollbar's width, so a page too short to scroll (the drawing page) centres its column
+   exactly where a long one does. */
+html { scrollbar-gutter: stable; background-color: var(--at-wash); scroll-behavior: smooth; scroll-padding-top: calc(var(--at-nav-height) + 1rem); }
 h1 { --pico-font-size: 2rem; }
 h2 { --pico-font-size: 1.45rem; }
 h3 { --pico-font-size: 1.1rem; }
@@ -64,17 +74,25 @@ small, .muted { color: var(--pico-muted-color); }
 .skip-link { position: absolute; left: 1rem; top: -100px; z-index: 10; padding: .5rem 1rem; background: var(--pico-background-color); }
 .skip-link:focus { top: .5rem; }
 
-/* Page frame: a sticky bar of section links over a wide column. */
-body > header, body > main, body > footer { max-width: 1280px; padding-inline: 1.5rem; }
-[data-page=board] body > header, [data-page=board] body > main { max-width: none; padding-inline: 2rem; }
+/* Page frame: a sticky bar over a header, a main part and a footer, all children of the body.
+   Pico gives these a width of its own at each breakpoint; one rule replaces that. Each child spans
+   the window, and its horizontal padding (--at-edge) centres the content in a column of
+   --at-page-width. Only the vertical padding differs: the header opens the page, the footer ends it. */
+body > nav, body > header, body > main, body > footer { width: 100%; max-width: none; margin: 0; padding-inline: var(--at-edge); }
+body > header, body > main, body > footer { padding-block: var(--at-block-gap); }
 body > header { padding-top: 2rem; }
 body > footer { color: var(--pico-muted-color); font-size: .8rem; overflow-wrap: anywhere; }
 body > footer p { margin-bottom: .25rem; color: inherit; }
-.site-nav { position: sticky; top: 0; z-index: 5; background: var(--pico-background-color); border-bottom: 1px solid var(--pico-muted-border-color); padding-inline: max(1.5rem, calc((100% - 1280px) / 2 + 1.5rem)); }
+
+/* The bar is at least --at-nav-height tall, whatever it holds, and centres its rows vertically.
+   Its lists take no vertical padding of their own; a bar that wraps grows by the bar's padding. */
+.site-nav { position: sticky; top: 0; z-index: 5; align-items: center; gap: .5rem 1.5rem; min-height: var(--at-nav-height); padding-block: .5rem; background: var(--pico-background-color); border-bottom: 1px solid var(--pico-muted-border-color); }
 .site-nav ul { overflow-x: auto; scrollbar-width: none; }
-.site-nav li { padding-block: calc(.65rem + 8px); white-space: nowrap; }
-.site-nav .brand { font-weight: 700; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
+.site-nav li { padding-block: 0; white-space: nowrap; }
+.site-nav .brand { font-size: 1.2rem; font-weight: 700; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
 .site-nav a { font-size: .9rem; }
+.site-nav .brand a, .site-nav .brand a:hover { font-size: inherit; color: var(--pico-h1-color); text-decoration: none; }
+.site-nav a[data-section], .site-nav a[href^="#"] { display: inline-block; margin: 0; padding: .2rem .4rem; border: var(--pico-border-width) solid transparent; border-radius: var(--pico-border-radius); font-size: .85rem; }
 .site-nav a[aria-current] { color: var(--pico-color); background: var(--at-wash); }
 .eyebrow { margin: 0 0 .25rem; color: var(--pico-primary-hover); font-size: .75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .lead { max-width: 80ch; color: var(--pico-muted-color); }
@@ -85,7 +103,7 @@ body > footer p { margin-bottom: .25rem; color: inherit; }
 .facts .wide { grid-column: 1 / -1; }
 
 /* Sections and cards. */
-main > section { margin-bottom: 3rem; }
+main > section { margin-bottom: var(--at-section-gap); }
 main > section > h2 { margin-bottom: .35rem; }
 article { box-shadow: none; border: 1px solid var(--pico-muted-border-color); padding: 1.25rem; }
 article > header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem 1rem; margin: -1.25rem -1.25rem 1rem; padding: .75rem 1.25rem; }
@@ -152,6 +170,10 @@ tbody tr:hover > * { background-color: var(--at-wash); }
 .toolbar label { display: flex; align-items: center; gap: .5rem; margin: 0; font-size: .85rem; color: var(--pico-muted-color); }
 .toolbar select { width: auto; margin: 0; padding: .3rem 2.25rem .3rem .65rem; font-size: .85rem; }
 details .toolbar { margin-bottom: .75rem; }
+main > .toolbar { margin: 0 0 .75rem; }
+.toolbar fieldset.groups { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; margin: 0; padding: 0; border: 0; }
+.toolbar fieldset.groups legend { float: left; margin: 0 .5rem 0 0; padding: 0; font-size: .85rem; color: var(--pico-muted-color); }
+.toolbar fieldset.groups input[type=checkbox] { margin: 0; }
 .loading { margin: 1rem 0; padding: .5rem 1rem; border-left: 3px solid var(--pico-primary); background: var(--pico-card-background-color); }
 .loading[aria-busy] { white-space: normal; }
 .loading.failed { border-left-color: var(--at-down); background: var(--at-warn-background); }
@@ -168,16 +190,45 @@ details .toolbar { margin-bottom: .75rem; }
 .badge { display: inline-block; padding: 0 .4rem; border-radius: 999px; font-size: .75rem; font-weight: 600; background: var(--at-warn-background); color: var(--at-down); }
 .badge.bad { background: var(--at-down); color: var(--pico-background-color); }
 
+/* Summary tiles over the list: a label, one figure and the trial or family behind it. The figure is
+   in proportional digits, because it stands alone; the table below aligns its own. */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .75rem; margin: 1.25rem 0 1rem; }
+.tile { min-width: 0; padding: .8rem 1rem; border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); background: var(--pico-card-background-color); }
+.tile dt { color: var(--pico-muted-color); font-size: .75rem; font-weight: 600; }
+.tile dd { margin: 0; }
+.tile .figure { margin: .1rem 0 .2rem; font-size: 1.85rem; font-weight: 650; line-height: 1.2; }
+.tile .context { color: var(--pico-muted-color); font-size: .8rem; overflow-wrap: anywhere; }
+
+/* Horizon as a segmented control: one click, and the current choice is always in view. */
+.control { display: flex; align-items: center; gap: .5rem; color: var(--pico-muted-color); font-size: .85rem; }
+.segmented { display: inline-flex; width: auto; margin: 0;flex-wrap: wrap; padding: 2px; border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); background: var(--at-wash); }
+.segmented a { padding: .2rem .7rem; border-radius: calc(var(--pico-border-radius) - 2px); color: var(--pico-muted-color); font-size: .85rem; text-decoration: none; }
+.segmented a:hover { color: var(--pico-color); }
+.segmented a[aria-current=true] { background: var(--pico-card-background-color); box-shadow: 0 0 0 1px var(--pico-muted-border-color); color: var(--pico-color); font-weight: 600; }
+
+/* The rank IC of a trial on a shared axis: a dot for the mean and a bar for its 95% interval, as in
+   the tearsheet's interval chart. Python places every mark in percent, so no script is needed. */
+main > .key { margin: .25rem 0 .5rem; }
+.swatch.zero { --swatch: var(--at-zero); width: 1px; height: .9rem; }
+.row-head { display: flex; align-items: baseline; gap: .6rem; }
+.row-head > div { min-width: 0; }
+.rank { flex: none; min-width: 2rem; color: var(--pico-muted-color); font-size: .8rem; font-weight: 400; text-align: right; }
+.ic-cell { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; }
+.ic { min-width: 3.5rem; font-weight: 600; }
+.forest { position: relative; flex: none; width: 9rem; height: 1.25rem; }
+.forest::before { content: ""; position: absolute; left: 50%; top: .1rem; bottom: .1rem; width: 1px; background: var(--at-zero); }
+.forest.empty::before { display: none; }
+.forest .whisker { position: absolute; top: 50%; height: 3px; min-width: 3px; margin-top: -1.5px; border-radius: 2px; background: var(--at-context); }
+.forest .dot { position: absolute; top: 50%; width: .6rem; height: .6rem; margin: -.3rem 0 0 -.3rem; border-radius: 50%; background: var(--at-c1); box-shadow: 0 0 0 2px var(--pico-card-background-color); }
+.forest .dot.open { background: var(--pico-card-background-color); box-shadow: inset 0 0 0 2px var(--at-c1); }
+.axis { display: grid; grid-template-columns: 1fr auto 1fr; width: 9rem; margin-left: auto; font-size: .7rem; font-weight: 400; }
+.axis > :first-child { text-align: left; }
+.axis > :last-child { text-align: right; }
+
 /* Methods: reference text at a reading width. */
-.methods section { max-width: 80ch; padding-block: 1rem; border-bottom: 1px solid var(--pico-muted-border-color); }
-.methods section:last-child { border: 0; }
-.methods h3 { margin-bottom: .5rem; }
-.methods dt { font-weight: 600; }
-.methods dd { margin: 0 0 .75rem; }
 
 @media (max-width: 640px) {
-  body > header, body > main, body > footer { padding-inline: 1rem; }
-  .site-nav { padding-inline: 1rem; }
+  :root { --at-gutter: 1rem; }
   .site-nav .brand { display: none; }
   article { padding: 1rem; }
   article > header { margin: -1rem -1rem 1rem; padding: .75rem 1rem; }
@@ -186,7 +237,7 @@ details .toolbar { margin-bottom: .75rem; }
 @media print {
   html { background: white; }
   body { font-size: 11px; }
-  body > header, body > main, body > footer { max-width: none; padding: 0; }
+  body > header, body > main, body > footer { padding: 0; }
   .site-nav, .skip-link, .method-link, [role=tablist], .toolbar { display: none !important; }
   [role=tabpanel][hidden] { display: block !important; }
   main > section { margin-bottom: 1.5rem; }

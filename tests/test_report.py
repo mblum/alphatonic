@@ -7,7 +7,7 @@ import pytest
 
 from alphatonic import Study, evaluate
 from alphatonic.config import ReportOptions
-from alphatonic.report.board import render_board
+from alphatonic.report.board import _business_day, render_board, render_drawing
 from alphatonic.report.figures import (
     STATUSES,
     coverage_figures,
@@ -22,6 +22,17 @@ from alphatonic.report.ts_figures import confidence_plot, horizon_figures
 from conftest import regular_panel
 
 FAST = {"min_pairs": 20, "min_horizons": 2, "bootstrap_samples": 0, "rolling_window": "5D"}
+
+
+def test_business_day_from_saved_timestamps(tmp_path):
+    path = tmp_path / "ic_by_timestamp.csv.gz"
+    dates = pd.date_range("2024-01-01", periods=12, freq="B")
+    pd.DataFrame({"timestamp": dates.repeat(2)}).to_csv(path, index=False)
+    assert _business_day(tmp_path)
+    pd.DataFrame({"timestamp": dates.delete(4)}).to_csv(path, index=False)
+    assert not _business_day(tmp_path)
+    pd.DataFrame({"timestamp": pd.date_range("2024-01-01", periods=12)}).to_csv(path, index=False)
+    assert not _business_day(tmp_path)
 
 
 @pytest.fixture(scope="module")
@@ -54,6 +65,14 @@ def test_every_link_inside_the_page_has_a_target(page):
     assert targets and targets <= identifiers, targets - identifiers
 
 
+def test_definitions_are_linked_to_the_documentation_not_repeated(page):
+    assert "Methods and interpretation" not in page and 'id="methods"' not in page
+    assert (
+        'href="https://mblum.github.io/alphatonic/explanation/methodology/#quantile-response"'
+        in page
+    )
+
+
 def test_caller_text_is_shown_literally(page):
     assert "&lt;b&gt;Momentum&lt;/b&gt;" in page and "<b>Momentum</b>" not in page
     assert "&lt;i&gt;eight&lt;/i&gt; assets" in page
@@ -70,8 +89,29 @@ def test_the_glance_shows_each_horizons_estimates_with_their_intervals(page):
 
 
 def test_the_bar_names_the_tool_and_no_label_sits_above_the_title(page):
-    assert '<li class="brand">alphatonic</li>' in page
+    assert '<li class="brand"><a id="brand">alphatonic</a></li>' in page
     assert 'class="eyebrow"' not in page
+
+
+def test_footer_links_on_report_pages(page, tmp_path):
+    board = render_board(Study(tmp_path / "study", name="demo"))
+    drawing = render_drawing("momentum", "demo")
+    for html in (page, board, drawing):
+        footer = html.split("<footer>")[-1].split("</footer>")[0]
+        assert 'href="https://github.com/mblum/alphatonic"' in footer
+        assert 'href="https://mblum.github.io/alphatonic/"' in footer
+        assert 'href="https://github.com/mblum/alphatonic/blob/HEAD/LICENSE"' in footer
+
+
+def test_the_brand_leads_back_to_the_list_of_trials(page, tmp_path):
+    board = render_board(Study(tmp_path / "study", name="demo"))
+
+    assert '<li class="brand"><a href="./">alphatonic</a></li>' in board
+    assert '<li class="brand"><a href="../">alphatonic</a></li>' in render_drawing(
+        "momentum", "demo"
+    )
+    # A tearsheet is also a file on its own: it links back only when a server shows it.
+    assert "getElementById('brand').href = '../'" in page
 
 
 def test_each_horizon_has_a_tab_and_only_the_first_is_shown(page):

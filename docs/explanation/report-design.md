@@ -7,8 +7,23 @@ The overview uses rank IC and the difference between the highest and lowest scor
 panels show Pearson, cosine, variation across assets and changes over time. A missing statistic
 stays missing; sample and inference statuses explain why.
 
-The report omits p-values. A study board puts cross-sectional p-values beside the recorded trial
-count and its adjustment. The underlying result tables retain the inference statistics.
+The report omits p-values. A study board shows them: the cross-sectional, time-series and cosine
+groups each give a p-value beside its adjustment for the recorded trial count. The underlying
+result tables retain the inference statistics.
+
+The list of trials is read like a leaderboard and borrows from public ones, such as
+[Arena's agent leaderboard](https://arena.ai/leaderboard/agent/code) and
+[BenchLM](https://benchlm.ai): a row of summary tiles above the table, a rank in the first column,
+the horizon as a segmented control, and one graphic in each row that carries the headline number.
+Here the graphic is the rank IC with its 95% interval on a single axis, the same for every row. A
+large but imprecise estimate then looks different from a small, precise one, and an interval that
+crosses zero is seen before any number is read.
+
+Two choices go against what a leaderboard usually does. The tile for the highest rank IC always
+shows its adjusted p-value, because the best of many trials is picked by being the best. And rows
+are ranked only when the list is sorted by a statistic, so the newest-first order is never mistaken
+for merit. The interval is the trial's own and is not adjusted for the trials of its family; `p ×
+trials` is.
 
 Essential results stay visible. Optional diagnostics use one level of expandable panels, and horizon
 tabs keep long time-series sections manageable. Both pages, the tearsheet and the list of trials,

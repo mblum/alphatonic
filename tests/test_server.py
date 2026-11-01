@@ -82,6 +82,209 @@ def test_the_list_counts_trials_and_scales_p_values(study):
     assert ">0.030<" in page
 
 
+def _rows(page):
+    """The HTML of each trial's row, by identifier."""
+    rows = {}
+    for chunk in page.split("<tr>")[1:]:
+        found = re.search(r'href="([^/"?]+)/record.json"', chunk)
+        if found:
+            rows[found.group(1)] = chunk
+    return rows
+
+
+def _ranks(page):
+    return {
+        identifier: re.search(r'class="rank"[^>]*>([^<]*)<', row).group(1)
+        for identifier, row in _rows(page).items()
+        if 'class="rank"' in row
+    }
+
+
+def _tiles(page):
+    """The label of each summary tile with its figure and its text, without markup."""
+    found = re.findall(
+        r'<dt>([^<]+)</dt>\s*<dd class="figure">([^<]+)</dd>\s*<dd class="context">(.*?)</dd>',
+        page,
+        re.S,
+    )
+    return {
+        label: (figure, " ".join(re.sub(r"<[^>]+>", "", text).split()))
+        for label, figure, text in found
+    }
+
+
+def _interval(identifier, ic, lower, upper, **fields):
+    """A trial with a rank IC and its 95% interval at horizon 1."""
+    metrics = {
+        "cs.h1.spearman.mean": ic,
+        "cs.h1.spearman.hac_p_value": 0.2,
+        "cs.h1.spearman.ci95_lower": lower,
+        "cs.h1.spearman.ci95_upper": upper,
+    }
+    return record(identifier, metrics=metrics, **fields)
+
+
+def test_the_tiles_name_the_best_evidence_and_the_best_rank_ic_with_its_cost(study):
+    tiles = _tiles(_page(study))
+
+    # old-momentum: p 0.01 across the three trials of its family.
+    assert tiles["Lowest p × trials"] == ("0.030", "momentum · p 0.010 · 3 trials in its family")
+    # The highest rank IC comes with the adjusted p-value that it has to be read against.
+    assert tiles["Highest rank IC"] == ("0.0500", "bollinger · p × trials 0.300")
+    assert tiles["Largest family"] == ("3 trials", "family momentum")
+    assert tiles["Holdout looks"] == ("1", "no holdout set")
+
+
+def test_the_tiles_link_a_trial_with_a_tearsheet_and_flag_a_reused_holdout(study):
+    saved(study, record("second-look", hours=5, sample="holdout"))
+    (study.directory / "second-look" / TEARSHEET).write_text("<html></html>", encoding="utf-8")
+
+    page = _page(study)
+
+    tiles = _tiles(page)
+    assert tiles["Holdout looks"][0] == "2"
+    assert "1 family looked more than once" in tiles["Holdout looks"][1]
+    assert "re-used" in tiles["Holdout looks"][1]
+    assert re.search(r'<dd class="context">\s*<a href="old-momentum/tearsheet.html">', page)
+
+
+def test_a_tile_without_a_value_is_a_dash_that_says_why(tmp_path):
+    study = Study(tmp_path / "study")
+    saved(study, record("a", cs_ic=None, p=None))
+
+    tiles = _tiles(_page(study))
+
+    assert tiles["Lowest p × trials"] == ("–", "no p-value at this horizon")
+    assert tiles["Highest rank IC"] == ("–", "no rank IC at this horizon")
+
+
+def test_the_tiles_follow_the_signal_filter(study):
+    tiles = _tiles(_page(study, "/?signal=bollinger"))
+
+    assert tiles["Lowest p × trials"][1].startswith("bollinger · p 0.300")
+    assert tiles["Largest family"] == ("1 trial", "family bollinger")
+
+
+def test_rows_are_ranked_from_the_best_value_of_the_column_they_are_sorted_by(study):
+    descending = _ranks(_page(study, "/?sort=cs_ic&order=desc"))
+    ascending = _page(study, "/?sort=cs_ic&order=asc")
+
+    assert descending == {
+        "bollinger-run": "#1",
+        "old-momentum": "#2",
+        "holdout-run": "#3",
+        "new-momentum": "–",  # Undefined: no rank, and never the last place.
+    }
+    assert _ranks(ascending) == descending  # The other order reverses the rows, not the ranks.
+    assert _ids(ascending) == ["holdout-run", "old-momentum", "bollinger-run", "new-momentum"]
+
+
+def test_a_p_value_is_ranked_from_its_smallest_value(study):
+    assert _ranks(_page(study, "/?sort=cs_p&order=asc")) == {
+        "old-momentum": "#1",
+        "bollinger-run": "#2",
+        "holdout-run": "#3",
+        "new-momentum": "–",
+    }
+
+
+def test_equal_values_share_a_rank_and_the_next_one_skips(tmp_path):
+    study = Study(tmp_path / "study")
+    saved(
+        study,
+        record("a", hours=1, cs_ic=0.03),
+        record("b", hours=2, cs_ic=0.02),
+        record("c", hours=3, cs_ic=0.02),
+        record("d", hours=4, cs_ic=0.01),
+    )
+
+    assert _ranks(_page(study, "/?sort=cs_ic")) == {"a": "#1", "b": "#2", "c": "#2", "d": "#4"}
+
+
+@pytest.mark.parametrize("target", ["/", "/?sort=trials", "/?sort=signal", "/?sort=assets"])
+def test_a_column_that_is_not_better_or_worse_gives_no_ranks(study, target):
+    page = _page(study, target)
+
+    assert 'class="rank"' not in page and "# ranks by" not in page
+
+
+def test_the_key_says_which_column_the_ranks_follow(study):
+    assert "# ranks by Rank IC (cross-sectional): 1 is the largest" in _page(study, "/?sort=cs_ic")
+    assert "# ranks by p × trials (cross-sectional): 1 is the smallest" in _page(
+        study, "/?sort=adjusted_p"
+    )
+    assert "# ranks by p × trials (cosine): 1 is the smallest" in _page(
+        study, "/?sort=ts_cosine_adjusted_p"
+    )
+    # A label that names the group already is not followed by it again.
+    assert "# ranks by Cosine: 1 is the largest" in _page(study, "/?sort=ts_cosine")
+
+
+def test_the_rank_ic_is_drawn_with_its_interval_on_an_axis_shared_by_every_row(tmp_path):
+    study = Study(tmp_path / "study")
+    saved(
+        study,
+        _interval("up", 0.03, 0.01, 0.05, hours=1),
+        _interval("down", -0.02, -0.04, 0.0, hours=2),
+    )
+
+    page = _page(study)
+    rows = _rows(page)
+
+    # The widest interval reaches 0.05, so the axis runs from -0.05 to 0.05 and zero is at 50%.
+    assert "<span>−0.05</span><span>0</span><span>0.05</span>" in page
+    assert 'class="whisker" style="left: 60.0%; width: 40.0%"' in rows["up"]
+    assert 'class="dot" style="left: 80.0%"' in rows["up"]
+    assert 'class="whisker" style="left: 10.0%; width: 40.0%"' in rows["down"]
+    assert 'class="dot" style="left: 30.0%"' in rows["down"]
+    assert "Rank IC 0.0300, 95% interval 0.0100 to 0.0500" in rows["up"]
+
+
+def test_choosing_a_signal_moves_no_mark(tmp_path):
+    study = Study(tmp_path / "study")
+    saved(
+        study,
+        _interval("wide", 0.03, -0.03, 0.09, hours=1, signal="noisy"),
+        _interval("narrow", 0.03, 0.02, 0.04, hours=2, signal="precise"),
+    )
+
+    both = _rows(_page(study))["narrow"]
+    only = _rows(_page(study, "/?signal=precise"))["narrow"]
+
+    assert "<span>−0.1</span><span>0</span><span>0.1</span>" in _page(study, "/?signal=precise")
+    assert re.findall(r'style="([^"]*)"', only) == re.findall(r'style="([^"]*)"', both)
+
+
+def test_an_estimate_without_an_interval_is_drawn_hollow_and_alone(study):
+    # The fixture's records have a rank IC but no interval; one has no rank IC at all.
+    page = _page(study)
+    rows = _rows(page)
+
+    assert 'class="whisker"' not in page
+    assert 'class="dot open"' in rows["old-momentum"]
+    assert "Rank IC 0.0200; the 95% interval is undefined" in rows["old-momentum"]
+    # new-momentum has no rank IC: its cell is empty, and only the time-series marks are drawn.
+    assert 'aria-label="Rank IC' not in rows["new-momentum"]
+    assert rows["new-momentum"].count('class="forest empty"') == 1
+
+
+def test_a_study_without_a_rank_ic_has_no_axis(tmp_path):
+    study = Study(tmp_path / "study")
+    saved(study, record("a", metrics={}))
+
+    page = _page(study)
+
+    assert 'class="axis"' not in page and 'class="swatch dot"' not in page
+
+
+def test_the_horizon_is_chosen_from_links_that_keep_the_rest_of_the_view(study):
+    page = _page(study, "/?sort=cs_ic&order=asc&signal=momentum")
+
+    assert 'href="?sort=cs_ic&amp;order=asc&amp;horizon=4&amp;signal=momentum"' in page
+    assert re.search(r'<a href="[^"]*horizon=1[^"]*" aria-current="true">1 bar</a>', page)
+    assert 'name="horizon" value="4"' in _page(study, "/?horizon=4")
+
+
 def test_context_keys_are_columns(study):
     page = _page(study)
 
@@ -389,3 +592,195 @@ def test_the_server_keeps_only_the_last_few_drawn_tearsheets(evaluated, monkeypa
 
 def test_the_list_does_not_announce_a_tearsheet_being_drawn(study):
     assert "Drawing the tearsheet" not in _page(study)
+
+
+def _time_series(identifier, ic, lower, upper, **fields):
+    """A trial with a time-series rank IC and its bootstrap interval at horizon 1."""
+    metrics = {
+        "ts.h1.spearman.mean": ic,
+        "ts.h1.spearman.ci95_lower": lower,
+        "ts.h1.spearman.ci95_upper": upper,
+        "ts.h1.cosine.mean": 0.5 * ic,
+    }
+    return record(identifier, cs_ic=None, p=None, metrics=metrics, **fields)
+
+
+def test_the_time_series_rank_ic_is_drawn_with_its_bootstrap_interval_on_its_own_axis(tmp_path):
+    study = Study(tmp_path / "study")
+    saved(
+        study,
+        _time_series("up", 0.04, 0.02, 0.08, hours=1),
+        _time_series("down", -0.02, -0.04, 0.0, hours=2),
+    )
+
+    page = _page(study)
+    rows = _rows(page)
+
+    assert "<span>−0.1</span><span>0</span><span>0.1</span>" in page
+    assert 'class="whisker" style="left: 60.0%; width: 30.0%"' in rows["up"]
+    assert 'class="dot" style="left: 70.0%"' in rows["up"]
+    assert "Time-series rank IC 0.0400, 95% bootstrap interval 0.0200 to 0.0800" in rows["up"]
+    # The cosine IC has no interval here: it is drawn hollow, on an axis of its own.
+    assert "Time-series cosine IC 0.0200; the 95% bootstrap interval is undefined" in rows["up"]
+    assert "<span>−0.02</span><span>0</span><span>0.02</span>" in page
+
+
+def test_the_time_series_t_tests_follow_their_ics(tmp_path):
+    study = Study(tmp_path / "study")
+    metrics = {
+        "ts.h1.spearman.mean": 0.04,
+        "ts.h1.spearman.hac_t": 3.456,
+        "ts.h1.spearman.hac_p_value": 0.0004,
+        "ts.h1.cosine.mean": 0.02,
+        "ts.h1.cosine.hac_t": -1.5,
+        "ts.h1.cosine.hac_p_value": 0.14,
+    }
+    saved(study, record("a", hours=1, cs_ic=None, p=None, metrics=metrics), record("b", hours=2))
+
+    page = _page(study, "/?show=ts,cosine")
+    cells = re.findall(r'<td class="number subtle">([^<]*)</td>', _rows(page)["a"])
+
+    assert cells == ["3.46", "&lt; 0.001", "-1.50", "0.140"]
+    assert re.findall(r'<td class="number subtle">([^<]*)</td>', _rows(page)["b"]) == ["–"] * 4
+    assert 'title="t-statistic of the cosine IC"' in page
+    assert "# ranks by t-statistic of the cosine IC: 1 is the largest" in _page(
+        study, "/?sort=ts_cosine_t"
+    )
+    assert "# ranks by p-value of the rank IC (time-series): 1 is the smallest" in _page(
+        study, "/?sort=ts_p"
+    )
+
+
+def test_to_dict_carries_the_time_series_intervals_at_the_horizon(study):
+    metrics = {
+        "ts.h1.spearman.mean": 0.03,
+        "ts.h1.spearman.ci95_lower": 0.01,
+        "ts.h1.spearman.ci95_upper": 0.05,
+        "ts.h1.cosine.ci95_lower": -0.01,
+        "ts.h1.cosine.ci95_upper": 0.02,
+    }
+    saved(study, record("with", hours=1, metrics=metrics), record("without", hours=2))
+
+    one = {trial["id"]: trial for trial in study.to_dict()["trials"]}
+
+    assert (one["with"]["ts_ci_lower"], one["with"]["ts_ci_upper"]) == (0.01, 0.05)
+    assert (one["with"]["ts_cosine_ci_lower"], one["with"]["ts_cosine_ci_upper"]) == (-0.01, 0.02)
+    assert one["without"]["ts_ci_lower"] is None and one["without"]["ts_cosine_ci_upper"] is None
+    json.dumps(study.to_dict(), allow_nan=False)
+
+
+def _headings(page):
+    return re.findall(r'<th scope="col"[^>]*>\s*<a href="[^"]*">([^<]*?)(?: [▲▼])?</a>', page)
+
+
+def test_every_group_of_columns_is_shown_by_default(study):
+    page = _page(study)
+
+    assert _headings(page) == [
+        "Signal", "Rank IC", "z", "p", "p × trials", "Rank IC", "t", "p", "p × trials",
+        "Cosine", "t", "p", "p × trials", "Timing", "Window", "Bars", "Assets", "Returns",
+        "Created", "Trials", "Sample",
+    ]  # fmt: skip
+    assert re.findall(r'name="show" value="([^" ]+)"', page) == [
+        "cs",
+        "ts",
+        "cosine",
+        "data",
+        "testing",
+    ]
+    assert page.count('type="checkbox"') == 5 and "checked" in page
+
+
+def test_show_keeps_the_chosen_groups_and_the_signal(study):
+    page = _page(study, "/?show=ts")
+
+    assert _headings(page) == ["Signal", "Rank IC", "t", "p", "p × trials"]
+    assert re.findall(r'<th scope="colgroup"[^>]*>([^<]*)<', page) == ["Trial", "Time-series"]
+    assert _ids(page) == _ids(_page(study))
+
+
+def test_the_cosine_has_a_group_of_its_own(study):
+    page = _page(study, "/?show=cosine")
+
+    assert _headings(page) == ["Signal", "Cosine", "t", "p", "p × trials", "Timing"]
+    assert re.findall(r'<th scope="colgroup"[^>]*>([^<]*)<', page) == ["Trial", "Cosine"]
+    assert re.search(r'value="cosine" checked[^>]*>Cosine</label>', page)
+
+
+def test_each_measure_shows_its_p_value_times_the_trials_beside_it(tmp_path):
+    study = Study(tmp_path / "study")
+    metrics = {
+        "cs.h1.spearman.mean": 0.03,
+        "cs.h1.spearman.hac_p_value": 0.01,
+        "ts.h1.spearman.mean": 0.04,
+        "ts.h1.spearman.hac_p_value": 0.02,
+        "ts.h1.cosine.mean": 0.02,
+        "ts.h1.cosine.hac_p_value": 0.4,
+    }
+    saved(study, record("a", hours=1, metrics=metrics), record("b", hours=2))
+
+    page = _page(study, "/?show=cs,ts,cosine")
+    row = _rows(page)["a"]
+
+    assert _headings(page) == [
+        "Signal", "Rank IC", "z", "p", "p × trials", "Rank IC", "t", "p", "p × trials",
+        "Cosine", "t", "p", "p × trials", "Timing",
+    ]  # fmt: skip
+    # Two trials in the family: each p-value doubles, and the ones at 5% or less are bold.
+    cells = re.findall(r'<td class="number">(?:<strong>)?([^<]*)(?:</strong>)?</td>', row)
+    assert cells == ["0.020", "0.040", "0.800", "–"]  # The last is the timing, not a p-value.
+    assert re.findall(r"<strong>([^<]*)</strong>", row) == ["0.020", "0.040"]
+
+
+def test_show_accepts_repeated_and_comma_separated_names_and_ignores_others(study):
+    expected = _headings(_page(study, "/?show=cs,testing"))
+
+    assert expected == ["Signal", "Rank IC", "z", "p", "p × trials", "Trials", "Sample"]
+    assert _headings(_page(study, "/?show=cs&show=testing")) == expected
+    assert _headings(_page(study, "/?show=cs,testing,bogus")) == expected
+
+
+def test_data_group_includes_creation_date(study):
+    page = _page(study, "/?show=data")
+
+    assert "Created" in _headings(page)
+    assert "Created" not in _headings(_page(study, "/?show=cs"))
+    assert 'value="record"' not in page
+
+
+def test_an_empty_show_hides_every_group_but_the_trial(study):
+    assert _headings(_page(study, "/?show=")) == ["Signal"]
+
+
+def test_a_column_that_the_list_is_sorted_by_is_shown_whatever_the_groups(study):
+    page = _page(study, "/?show=data&sort=cs_ic")
+
+    assert _headings(page)[:2] == ["Signal", "Rank IC"]
+    assert 'aria-sort="descending"' in page
+
+
+def test_links_keep_the_chosen_groups_but_not_the_default(study):
+    chosen = _page(study, "/?show=cs,ts")
+    default = _page(study)
+
+    assert "show=cs%2Cts" in chosen.split("<tbody>")[0]
+    assert "show=" not in default.split("<tbody>")[0].replace('name="show"', "")
+
+
+def test_hiding_the_multiple_testing_columns_says_so_beside_the_intervals(study):
+    hidden = _page(study, "/?show=cs,ts")
+
+    assert "multiple-testing columns are hidden" in hidden
+    assert "multiple-testing columns are hidden" in _page(study, "/?show=cosine")
+    assert "multiple-testing columns are hidden" not in _page(study)
+    assert "multiple-testing columns are hidden" not in _page(study, "/?show=data")
+
+
+def test_the_filters_sit_directly_above_the_table_and_not_in_the_header_bar(study):
+    page = _page(study)
+    bar = page.split("<nav")[1].split("</nav>")[0]
+    before_table = page.split("<table")[0]
+
+    assert "<form" not in bar
+    assert before_table.rindex('<form class="toolbar"') > before_table.index("<main>")
+    assert 'name="show"' in before_table and 'aria-labelledby="horizon-label"' in before_table

@@ -20,8 +20,9 @@ data than skipping or filling gaps would, and it guarantees that "the 24-bar ret
 bars.
 
 **Honest uncertainty over convenient uncertainty.** Cross-sectional IC uses a HAC standard
-error, and time-series IC a block bootstrap, because both outputs depend on time ordering. These
-intervals can be wider than a naive t-test when observations are positively dependent.
+error, and time-series IC a block bootstrap and a t-test with an equal-weighted cosine standard
+error, because both outputs depend on time ordering. These intervals can be wider, and these
+p-values larger, than a naive t-test gives when observations are positively dependent.
 
 **Separate timing from average exposure.** Cross-sectional correlations centre each timestamp,
 so adding the same return to every asset does not change them. Time-series positions carry net

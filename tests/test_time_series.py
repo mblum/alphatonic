@@ -4,6 +4,7 @@ import pytest
 
 from alphatonic import EvaluationConfig, evaluate
 from alphatonic.returns import label_endpoints
+from alphatonic.stats import ewc_dof
 from alphatonic.time_series import (
     bootstrap_intervals,
     evaluate_time_series,
@@ -274,3 +275,46 @@ def test_tables_are_exposed_by_name():
     result = ts(x, {1: y}, config)
     assert set(result.tables()) == {"assets", "monthly", "rolling", "summary", "quantiles"}
     assert result.tables()["assets"] is result.assets
+
+
+def test_the_t_statistic_is_the_ic_over_its_standard_error():
+    config = make_config(end="2026-01-21T00:00:00Z")
+    x, y = panel(config, 3)
+    result = ts(x, {1: y}, config)
+
+    for table, estimate in ((result.assets, "ic"), (result.summary, "mean")):
+        np.testing.assert_allclose(table.hac_t, table[estimate] / table.hac_se, rtol=1e-12)
+        assert table.hac_p_value.between(0, 1).all()
+    # The bars whose one-bar label ends inside the window: all but the last.
+    assert set(result.assets.hac_dof) == set(result.summary.hac_dof) == {ewc_dof(len(x) - 1, 1)}
+    # Targets are 0.2 times the scores plus noise, so every method finds the association.
+    assert (result.summary.hac_p_value < 0.001).all()
+
+
+def test_a_duplicated_asset_does_not_make_the_mean_ic_more_precise():
+    config = make_config(end="2026-01-21T00:00:00Z")
+    x, y = panel(config, 1)
+    single = ts(x, {1: y}, config).summary.set_index("method")
+    # The copy adds its contributions to the same bars, so the standard error stays the same.
+    x["A1"], y["A1"] = x.A0, y.A0
+    double = ts(x, {1: y}, config).summary.set_index("method")
+
+    for column in ("mean", "hac_se", "hac_t", "hac_p_value"):
+        np.testing.assert_allclose(double[column], single[column], rtol=1e-12)
+
+
+def test_there_is_no_t_test_without_an_ic_or_without_a_cosine_term():
+    config = make_config(end="2026-01-21T00:00:00Z")
+    x, y = panel(config, 2)
+    x["A0"] = 1.0
+    assets = ts(x, {1: y}, config).assets.set_index(["asset", "method"])
+    # A constant score has no rank or linear IC to test, but is a position for the cosine.
+    assert assets.loc[("A0", "spearman"), ["hac_se", "hac_t", "hac_p_value"]].isna().all()
+    assert assets.loc[("A0", "cosine"), ["hac_se", "hac_t", "hac_p_value"]].notna().all()
+
+    short = make_config(end="2026-01-01T12:00:00Z", horizons=[6])
+    x, y = panel(short, 2)
+    result = ts(x, {6: y}, short)
+    # Six bars have a label inside the window: too few for a cosine spanning four horizons.
+    assert result.assets.ic.notna().all() and set(result.assets.hac_dof) == {0}
+    assert result.assets.hac_p_value.isna().all() and result.summary.hac_p_value.isna().all()

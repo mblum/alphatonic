@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from math import erfc, sqrt
+from math import erfc, lgamma, sqrt
 
 import numpy as np
 import pandas as pd
 
 BLOCK_ROWS = 256
-"""Rows processed at once by the matrix routines, which bounds their temporary arrays."""
+"""Rows (or columns) processed at once by the matrix routines, which bounds their temporary
+arrays."""
 
 _Z95 = 1.959963984540054
 
@@ -298,6 +299,152 @@ def summarize_ic(series: pd.Series, lags: int) -> dict[str, float | int]:
             ci95_upper=mean + _Z95 * se,
         )
     return result
+
+
+def standardized_products(
+    x: np.ndarray, y: np.ndarray, method: str
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return what each row contributes to the correlation of each column pair, and the counts.
+
+    The finite pairs of a column are standardised as `method` correlates them, with population
+    moments: `pearson` and `spearman` (on the average ranks of the pairs) subtract the mean and
+    divide by the standard deviation, and `cosine` divides by the root mean square. The
+    correlation is then the mean of the products `u * v` over the pairs. A row without a pair
+    contributes zero, and so does every row of a column that is constant (for `cosine`, zero) on
+    either side.
+
+    Args:
+        x: Scores with shape `(n, k)`.
+        y: Targets with the same shape.
+        method: `spearman`, `pearson` or `cosine`.
+
+    Returns:
+        `(products, counts)`: the products, with shape `(n, k)`, and the number of pairs in each
+        column.
+    """
+    valid = np.isfinite(x) & np.isfinite(y)
+    count = valid.sum(axis=0)
+    x, y = np.where(valid, x, np.nan), np.where(valid, y, np.nan)
+    if method == "spearman":
+        x, y = average_ranks(x), average_ranks(y)
+    standardized = []
+    for array in (x, y):
+        # Scaling avoids overflow in the squares; the standardised values do not depend on it.
+        scale = np.max(np.where(valid, np.abs(array), 0), axis=0, initial=0)
+        array = np.where(valid, array / np.where(scale > 0, scale, 1), 0.0)
+        if method != "cosine":
+            mean = np.divide(array.sum(axis=0), count, out=np.zeros(len(count)), where=count > 0)
+            array = np.where(valid, array - mean, 0.0)
+        square = np.divide(
+            (array * array).sum(axis=0), count, out=np.zeros(len(count)), where=count > 0
+        )
+        rms = np.sqrt(square)
+        standardized.append(np.divide(array, rms, out=np.zeros(array.shape), where=rms > 0))
+    u, v = standardized
+    return u * v, count
+
+
+def ewc_dof(bars: int, horizon: int) -> int:
+    """Return the number of cosine terms of the EWC long-run variance, its degrees of freedom.
+
+    Lazarus, Lewis, Stock and Watson (2018) recommend `floor(0.4 * bars ** (2 / 3))` terms. The
+    count is also capped at `bars // (2 * horizon)`, so that the shortest cosine spans at least
+    four horizons: overlapping labels make the series dependent over about one horizon, and the
+    estimator must average over slower movements than that. Zero if the series is too short for
+    one term.
+    """
+    terms = int(0.4 * bars ** (2 / 3))
+    # Decide the floor exactly: terms <= 0.4 * bars ** (2 / 3) if and only if
+    # 125 * terms**3 <= 8 * bars**2, which integers compute without rounding.
+    while 125 * (terms + 1) ** 3 <= 8 * bars**2:
+        terms += 1
+    while terms > 0 and 125 * terms**3 > 8 * bars**2:
+        terms -= 1
+    return max(0, min(terms, bars // (2 * horizon)))
+
+
+def ewc_long_run_variance(values: np.ndarray, dof: int) -> np.ndarray:
+    """Estimate the long-run variance of each column with `dof` equal-weighted cosines.
+
+    The estimate is the mean of `L_j ** 2` over `j = 1, ..., dof`, where
+    `L_j = sqrt(2 / n) * sum_t cos(pi * j * (t + 1/2) / n) * values[t]` projects the `n` rows on
+    the `j`-th cosine (Lazarus et al. 2018). A mean divided by `sqrt(estimate / n)` then has
+    Student's t distribution with `dof` degrees of freedom, as long as the long-run variance is
+    about flat over the frequencies of the cosines. Missing rows should be zero, so that every row
+    keeps its place in time.
+
+    Args:
+        values: Series with shape `(n, k)`.
+        dof: Number of cosine terms, from 1 to `n - 1`.
+
+    Returns:
+        The `k` estimates.
+    """
+    n, k = values.shape
+    result = np.empty(k)
+    # The projections are a type-II discrete cosine transform: a real FFT of the series followed
+    # by its mirror image, turned by half a step.
+    turn = np.exp(-0.5j * np.pi * np.arange(1, dof + 1) / n)[:, None]
+    for start in range(0, k, BLOCK_ROWS):
+        block = values[:, start : start + BLOCK_ROWS]
+        spectrum = np.fft.rfft(np.concatenate([block, block[::-1]]), axis=0)[1 : dof + 1]
+        projections = sqrt(2 / n) * (turn * spectrum).real / 2
+        result[start : start + BLOCK_ROWS] = (projections * projections).mean(axis=0)
+    return result
+
+
+def t_p_value(t: np.ndarray, dof: int) -> np.ndarray:
+    """Return the two-sided p-value `P(|T| >= |t|)` of Student's t with `dof` degrees of freedom.
+
+    It is the regularised incomplete beta function `I_x(dof / 2, 1 / 2)` at
+    `x = dof / (dof + t ** 2)`. An infinite `t` has p-value 0, and `NaN` stays `NaN`.
+    """
+    square = np.asarray(t, dtype=float) ** 2
+    # 1 - x is computed on its own, so that p-values near 1 keep their accuracy.
+    complement = np.divide(square, dof + square, out=np.ones(square.shape), where=square < np.inf)
+    return _regularized_beta(dof / 2, 0.5, dof / (dof + square), complement)
+
+
+def _regularized_beta(a: float, b: float, x: np.ndarray, complement: np.ndarray) -> np.ndarray:
+    """The regularised incomplete beta function `I_x(a, b)`, elementwise for `0 <= x <= 1`.
+
+    `complement` is `1 - x`, computed by the caller without cancellation. Each value comes from
+    the continued fraction that converges quickly for it, of `I_x(a, b)` or of
+    `1 - I_(1 - x)(b, a)` (Numerical Recipes, 3rd edition, section 6.4), so small values keep
+    their relative accuracy. `NaN` stays `NaN`.
+    """
+    flat, rest = np.reshape(x, -1), np.reshape(complement, -1)
+    result = np.where(flat <= 0, 0.0, np.where(rest <= 0, 1.0, np.nan))
+    inside = (flat > 0) & (rest > 0)
+    if inside.any():
+        z, zc = flat[inside], rest[inside]
+        direct = z < (a + 1) / (a + b + 2)
+        p, q, w = np.where(direct, a, b), np.where(direct, b, a), np.where(direct, z, zc)
+        front = np.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * np.log(z) + b * np.log(zc))
+        part = front * _beta_fraction(p, q, w) / p
+        result[inside] = np.where(direct, part, 1 - part)
+    return result.reshape(np.shape(x))
+
+
+def _beta_fraction(a: np.ndarray, b: np.ndarray, x: np.ndarray) -> np.ndarray:
+    """Evaluate the continued fraction of the incomplete beta function by Lentz's method."""
+
+    def away_from_zero(values: np.ndarray) -> np.ndarray:
+        return np.where(np.abs(values) < 1e-300, 1e-300, values)
+
+    c = np.ones_like(x)
+    d = 1 / away_from_zero(1 - (a + b) * x / (a + 1))
+    h = d
+    for m in range(1, 10_000):
+        even = m * (b - m) * x / ((a + 2 * m - 1) * (a + 2 * m))
+        odd = -(a + m) * (a + b + m) * x / ((a + 2 * m) * (a + 2 * m + 1))
+        for numerator in (even, odd):
+            d = 1 / away_from_zero(1 + numerator * d)
+            c = away_from_zero(1 + numerator / c)
+            h = h * c * d
+        if np.all(np.abs(c * d - 1) < 1e-15):
+            break
+    return h
 
 
 def row_correlations(scores: np.ndarray, returns: np.ndarray, method: str) -> np.ndarray:

@@ -53,7 +53,7 @@ def test_files_and_metadata(result, tmp_path):
         "persistence_summary.csv.gz",
     }
     metadata = json.loads((tmp_path / "evaluation.json").read_text())
-    assert metadata["format_version"] == 4
+    assert metadata["format_version"] == 5
     assert metadata["bar_seconds"] == 3600.0
     assert metadata["config"]["horizons"] == [1, 3]
     assert "mode" not in metadata["config"]
@@ -121,7 +121,7 @@ def test_a_given_configuration_overrides_the_stored_one(result, tmp_path):
 def test_unknown_format_versions_are_rejected(result, tmp_path):
     result.save(tmp_path)
     path = tmp_path / "evaluation.json"
-    path.write_text(path.read_text().replace('"format_version": 4', '"format_version": 99'))
+    path.write_text(path.read_text().replace('"format_version": 5', '"format_version": 99'))
     with pytest.raises(ValueError, match="format 99"):
         Evaluation.load(tmp_path)
 
@@ -221,5 +221,35 @@ def test_saving_over_a_format_3_directory_replaces_its_plain_files(result, tmp_p
     result.save(tmp_path)
 
     assert not list(tmp_path.glob("*.csv"))
-    assert json.loads((tmp_path / "evaluation.json").read_text())["format_version"] == 4
+    assert json.loads((tmp_path / "evaluation.json").read_text())["format_version"] == 5
     assert Evaluation.load(tmp_path).metrics() == pytest.approx(result.metrics())
+
+
+def _as_format_4(directory):
+    """Rewrite a saved evaluation as format 4 wrote it: time-series tables without t-tests."""
+    for name in ("ts_assets.csv.gz", "ts_summary.csv.gz"):
+        table = pd.read_csv(directory / name)
+        tests = [column for column in table if column.startswith("hac_")]
+        table.drop(columns=tests).to_csv(directory / name, index=False, compression="gzip")
+    metadata = json.loads((directory / "evaluation.json").read_text())
+    metadata["format_version"] = 4
+    (directory / "evaluation.json").write_text(json.dumps(metadata))
+
+
+def test_a_format_4_directory_loads_without_the_time_series_t_tests(result, tmp_path):
+    result.save(tmp_path)
+    _as_format_4(tmp_path)
+
+    loaded = Evaluation.load(tmp_path)
+
+    for name in ("assets", "summary"):
+        table = getattr(result.time_series, name)
+        expected = table.drop(columns=[column for column in table if column.startswith("hac_")])
+        pd.testing.assert_frame_equal(
+            getattr(loaded.time_series, name), expected, check_dtype=False, rtol=1e-12
+        )
+    metrics = {
+        k: v for k, v in result.metrics().items() if not k.startswith("ts.") or ".hac_" not in k
+    }
+    assert loaded.metrics() == pytest.approx(metrics)
+    assert "cs.h1.spearman.hac_p_value" in loaded.metrics()

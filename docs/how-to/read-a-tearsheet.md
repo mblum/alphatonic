@@ -91,6 +91,8 @@ horizontally on small screens. The page follows your system's light or dark sett
 (Chrome 111, Firefox 113 or Safari 16.2), which the heatmap colours rely on. Printing includes all tabs and diagnostics, in light colours. Share the HTML file
 itself; its chart code and styles are included.
 
-The **Methods and interpretation** section defines the report's metrics. For fields absent from the
-report, including HAC lag counts and p-values, use the [result tables](../reference/results.md). The
+The tearsheet does not repeat the definitions of its metrics. Its section headings link to the
+matching part of this documentation, and the [methodology](../explanation/methodology.md) explains
+how each is computed. For fields absent from the report, including HAC lag counts and p-values, use
+the [result tables](../reference/results.md). The
 [report design](../explanation/report-design.md) explains the choice of panels.

@@ -1,6 +1,7 @@
 import json
 import re
 from datetime import UTC, datetime, timedelta
+from statistics import NormalDist
 
 import numpy as np
 import pandas as pd
@@ -319,6 +320,46 @@ def test_a_statistic_missing_at_the_horizon_is_nan(study):
     assert np.isnan(study.board().loc["b", "adjusted_p"])
 
 
+def test_the_board_reads_the_time_series_t_tests_at_the_horizon(study):
+    metrics = {
+        "ts.h1.spearman.mean": 0.04,
+        "ts.h1.spearman.hac_t": 2.5,
+        "ts.h1.spearman.hac_p_value": 0.02,
+        "ts.h1.cosine.mean": 0.01,
+        "ts.h1.cosine.hac_t": -1.0,
+        "ts.h1.cosine.hac_p_value": 0.4,
+    }
+    saved(study, record("a", hours=1, metrics=metrics), record("b", hours=2))
+
+    board = study.board()
+
+    columns = ["ts_t", "ts_p", "ts_cosine_t", "ts_cosine_p"]
+    assert board.loc["a", columns].tolist() == [2.5, 0.02, -1.0, 0.4]
+    assert board.loc["b", columns].isna().all()
+    assert study.board(sort="ts_t").index.tolist() == ["a", "b"]
+    assert study.to_dict()["trials"][1]["ts_cosine_p"] == 0.4
+
+
+def test_the_board_scales_the_time_series_p_values_by_the_trials_of_the_family(study):
+    metrics = {"ts.h1.spearman.hac_p_value": 0.02, "ts.h1.cosine.hac_p_value": 0.6}
+    saved(
+        study,
+        record("a", hours=1, metrics=metrics),
+        record("b", hours=2),
+        record("c", hours=3, signal="bollinger", metrics=metrics),
+    )
+
+    board = study.board()
+
+    columns = ["ts_adjusted_p", "ts_cosine_adjusted_p"]
+    # Two momentum trials: 0.02 × 2, and 0.6 × 2 capped at 1.
+    assert board.loc["a", columns].tolist() == pytest.approx([0.04, 1.0])
+    assert board.loc["c", columns].tolist() == pytest.approx([0.02, 0.6])
+    assert board.loc["b", columns].isna().all()
+    assert study.board(sort="ts_cosine_adjusted_p").index.tolist() == ["c", "a", "b"]
+    assert study.to_dict()["trials"][0]["ts_adjusted_p"] == pytest.approx(0.02)
+
+
 def test_context_keys_become_board_columns(study):
     saved(
         study,
@@ -418,6 +459,34 @@ def test_to_dict_lists_the_trials_in_board_order_as_plain_json(study, boundary):
     assert none["cs_ic"] is None and none["adjusted_p"] is None
     assert none["files"]["tearsheet"] is None  # No stored page and no tables to draw one from.
     assert (none["note"], none["parameters"], none["context"]) == ("smoothed", {"window": 5}, {})
+
+
+def test_to_dict_carries_the_interval_of_the_rank_ic_at_the_horizon(study):
+    metrics = {
+        "cs.h1.spearman.mean": 0.03,
+        "cs.h1.spearman.ci95_lower": 0.01,
+        "cs.h1.spearman.ci95_upper": 0.05,
+    }
+    saved(study, record("with", hours=1, metrics=metrics), record("without", hours=2))
+
+    one = {trial["id"]: trial for trial in study.to_dict()["trials"]}
+    four = {trial["id"]: trial for trial in study.to_dict(4)["trials"]}
+
+    assert (one["with"]["cs_ci_lower"], one["with"]["cs_ci_upper"]) == (0.01, 0.05)
+    assert (one["without"]["cs_ci_lower"], one["without"]["cs_ci_upper"]) == (None, None)
+    assert (four["with"]["cs_ci_lower"], four["with"]["cs_ci_upper"]) == (None, None)
+    json.dumps(study.to_dict(), allow_nan=False)
+
+
+def test_the_interval_of_an_evaluated_trial_is_the_one_its_z_statistic_implies(study, market):
+    factor, prices = market
+    study.evaluate(factor, prices, signal="momentum", **QUICK)
+
+    (row,) = study.to_dict()["trials"]
+
+    reach = NormalDist().inv_cdf(0.975) * row["cs_ic"] / row["cs_z"]
+    assert row["cs_ci_lower"] == pytest.approx(row["cs_ic"] - reach)
+    assert row["cs_ci_upper"] == pytest.approx(row["cs_ic"] + reach)
 
 
 def test_to_dict_takes_the_boards_horizon_and_order(study):

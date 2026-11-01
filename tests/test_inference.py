@@ -5,6 +5,9 @@ import pandas as pd
 import pytest
 
 from alphatonic import evaluate
+from alphatonic.config import TS_METHODS
+from alphatonic.returns import scale_by_volatility
+from alphatonic.time_series import hac_tests
 
 BARS, ASSETS = 300, 20
 INDEX = pd.date_range("2020-01-01", periods=BARS, freq="D", tz="UTC")
@@ -22,37 +25,114 @@ def persistent_scores(rng, persistence):
 
 
 def rejection_rates(horizon, persistence, repetitions=200, seed=123):
-    """Share of null evaluations (scores independent of returns) that reject at the 5% level."""
+    """Shares of null evaluations (scores independent of returns) that reject at the 5% level.
+
+    `cs_hac` and `cs_naive` test the mean cross-sectional rank IC with the Newey-West and with the
+    plain standard error. `ts_mean` and `ts_assets` hold, per method, the time-series t-tests of
+    the mean IC over assets and of each asset's IC; `ts_naive` tests each asset's rank IC as if
+    its bars were independent.
+    """
     rng = np.random.default_rng(seed)
-    hac = naive = 0
+    cs_hac = cs_naive = ts_naive = 0.0
+    ts_mean, ts_assets = dict.fromkeys(TS_METHODS, 0.0), dict.fromkeys(TS_METHODS, 0.0)
     for _ in range(repetitions):
         prices = pd.DataFrame(
             100 * np.cumprod(1 + rng.normal(0, 0.01, size=(BARS, ASSETS)), axis=0), index=INDEX
         )
         scores = persistent_scores(rng, persistence)
-        row = (
-            evaluate(scores, prices, horizons=[horizon], time_series=TS)
-            .summary.query("method == 'spearman'")
-            .iloc[0]
-        )
-        hac += row.hac_p_value < 0.05
-        naive += abs(row["mean"] / (row["std"] / np.sqrt(row.n_periods))) > 1.96
-    return hac / repetitions, naive / repetitions
+        result = evaluate(scores, prices, horizons=[horizon], time_series=TS)
+        row = result.summary.query("method == 'spearman'").iloc[0]
+        cs_hac += row.hac_p_value < 0.05
+        cs_naive += abs(row["mean"] / (row["std"] / np.sqrt(row.n_periods))) > 1.96
+        summary, assets = result.time_series.summary.set_index("method"), result.time_series.assets
+        for method in TS_METHODS:
+            ts_mean[method] += summary.loc[method, "hac_p_value"] < 0.05
+            ts_assets[method] += (assets.loc[assets.method == method, "hac_p_value"] < 0.05).mean()
+        rank = assets.loc[assets.method == "spearman"]
+        t = rank.ic * np.sqrt((rank.n_pairs - 2) / (1 - rank.ic**2))
+        ts_naive += (t.abs() > 1.96).mean()
+    return {
+        "cs_hac": cs_hac / repetitions,
+        "cs_naive": cs_naive / repetitions,
+        "ts_naive": ts_naive / repetitions,
+        "ts_mean": {method: count / repetitions for method, count in ts_mean.items()},
+        "ts_assets": {method: count / repetitions for method, count in ts_assets.items()},
+    }
 
 
 def test_one_bar_horizon_is_calibrated():
-    hac, naive = rejection_rates(horizon=1, persistence=0.9)
-    assert 0.02 <= hac <= 0.12
-    assert 0.02 <= naive <= 0.12
+    rates = rejection_rates(horizon=1, persistence=0.9)
+    assert 0.02 <= rates["cs_hac"] <= 0.12
+    assert 0.02 <= rates["cs_naive"] <= 0.12
+    for method in TS_METHODS:
+        assert 0.02 <= rates["ts_mean"][method] <= 0.1
+        assert 0.03 <= rates["ts_assets"][method] <= 0.08
 
 
 def test_hac_corrects_the_overconfidence_of_overlapping_labels_with_persistent_scores():
-    hac, naive = rejection_rates(horizon=5, persistence=0.9)
+    rates = rejection_rates(horizon=5, persistence=0.9)
     # Persistent scores and overlapping returns make adjacent ICs dependent, so ignoring the
     # dependence rejects a true null far too often; the Newey-West p-value stays near 5%.
-    assert naive > 0.25
-    assert hac < 0.14
-    assert hac < naive / 2
+    assert rates["cs_naive"] > 0.25
+    assert rates["cs_hac"] < 0.14
+    assert rates["cs_hac"] < rates["cs_naive"] / 2
+    # Over time it is the same: an asset's IC tested as if its bars were independent rejects far
+    # too often, and the time-series t-tests stay near 5%.
+    assert rates["ts_naive"] > 0.25
+    for method in TS_METHODS:
+        assert 0.02 <= rates["ts_mean"][method] <= 0.1
+        assert 0.03 <= rates["ts_assets"][method] <= 0.08
+
+
+def shared_market(rng, n_bars, persistence, share=0.5):
+    """Scores independent of returns, each with a part common to all assets.
+
+    `share` of the variance of the scores, which are AR(1) with `persistence`, and of the
+    returns comes from one series that every asset has: a market-wide signal and a market factor.
+    """
+    index = pd.date_range("2020-01-01", periods=n_bars, freq="D", tz="UTC")
+    scores = np.sqrt(share) * persistent_scores_like(rng, n_bars, 1, persistence)
+    scores = scores + np.sqrt(1 - share) * persistent_scores_like(rng, n_bars, ASSETS, persistence)
+    shocks = np.sqrt(share) * rng.normal(size=(n_bars, 1))
+    shocks = shocks + np.sqrt(1 - share) * rng.normal(size=(n_bars, ASSETS))
+    prices = 100 * np.cumprod(1 + 0.01 * shocks, axis=0)
+    return pd.DataFrame(scores, index=index), pd.DataFrame(prices, index=index)
+
+
+def test_assets_that_share_a_signal_and_a_market_are_tested_together():
+    # A market-wide part in both scores and returns makes the assets' ICs move together, so a
+    # t-test across assets takes one common draw for twenty. Adding the assets' contributions bar
+    # by bar keeps the test of the mean IC near 5%. And 400 bars hold few independent 20-bar
+    # labels: with Lazarus et al.'s 0.4 * n ** (2/3) cosine terms each asset's test rejects too
+    # often, and capping the terms so that each spans four horizons brings it back near 5%.
+    rng = np.random.default_rng(31)
+    repetitions, horizon = 200, 20
+    across = 0.0
+    pooled = dict.fromkeys(TS_METHODS, 0.0)
+    capped, uncapped = dict.fromkeys(TS_METHODS, 0.0), dict.fromkeys(TS_METHODS, 0.0)
+    for _ in range(repetitions):
+        scores, prices = shared_market(rng, 400, persistence=0.98)
+        result = evaluate(scores, prices, horizons=[horizon], time_series=TS)
+        mean = result.time_series.summary.set_index("method").hac_p_value
+        assets = result.time_series.assets
+        rank = assets.loc[assets.method == "spearman", "ic"]
+        across += abs(rank.mean() / (rank.std() / np.sqrt(len(rank)))) > 2.093  # t, 19 dof, 5%
+        target = scale_by_volatility(result.forward_returns[horizon], result.volatility, horizon)
+        # The bars whose label ends inside the window.
+        x, y = scores.iloc[:-horizon], target.iloc[:-horizon]
+        tests, _ = hac_tests(x, y, assets, horizon, dof=int(0.4 * len(x) ** (2 / 3)))
+        for method in TS_METHODS:
+            pooled[method] += mean[method] < 0.05
+            rows = assets.loc[assets.method == method].set_index("asset")
+            capped[method] += (rows.hac_p_value < 0.05).mean()
+            uncapped[method] += np.mean(
+                [tests[method, a]["hac_p_value"] < 0.05 for a in rows.index]
+            )
+    assert across / repetitions > 0.3
+    for method in TS_METHODS:
+        assert pooled[method] / repetitions <= 0.1
+        assert capped[method] / repetitions <= 0.08
+        assert uncapped[method] / repetitions > capped[method] / repetitions + 0.015
 
 
 def test_an_informative_factor_is_detected():
@@ -114,6 +194,10 @@ def test_a_long_bias_without_timing_skill_is_static_cosine_not_ic():
     assert cosine["mean"] > 0.02
     assert abs(cosine.mean_timing) < 0.015
     assert cosine.mean_static == pytest.approx(cosine["mean"], abs=0.015)
+    # The cosine's test asks whether the position earns anything, and it earns the drift; the
+    # rank and linear ICs' tests ask about timing, and find none.
+    assert cosine.hac_p_value < 0.001
+    assert (summary.loc[["spearman", "pearson"], "hac_p_value"] > 0.05).all()
 
 
 def test_with_vol_scaled_targets_the_cosine_is_close_to_the_per_bar_sharpe_ratio():
