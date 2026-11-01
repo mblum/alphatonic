@@ -2,8 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [master, "release-*"]  # a release is tagged on its branch, so test the branch itself
+    branches: [master, "release-*"]
   pull_request:
+  schedule:
+    - cron: "17 4 * * 1"
 
 permissions:
   contents: read
@@ -13,51 +15,145 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv sync --all-extras --locked
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run pyright
+      - run: uv sync --locked --no-default-groups --group test --group quality
+      - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync ruff format --check .
+      - run: uv run --no-sync pyright
 
   test:
-    name: test (py${{ matrix.python }}, ${{ matrix.resolution }})
+    name: Python ${{ matrix.python }}, ${{ matrix.pandas }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python: ["3.11", "3.12", "3.13", "3.14"]
-        resolution: [highest]
-        include:
-          # The oldest supported versions of the direct dependencies (see pyproject.toml).
-          - python: "3.11"
-            resolution: lowest-direct
+        pandas: ["pandas>=3", "pandas>=2.2.2,<3"]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv sync --all-extras --python ${{ matrix.python }} --resolution ${{ matrix.resolution }}
-      - run: uv run --no-sync pytest --cov --cov-report=term-missing
-
-  docs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - run: uv sync --group docs --locked
-      - run: uv run --group docs zensical build --strict
-
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - run: uv build
-      - run: uvx twine check dist/*
-      - name: The wheel installs and imports without the dev tools
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Resolve runtime and test dependencies independently of the dev lock
+        run: >-
+          uv run --isolated --no-project --python ${{ matrix.python }}
+          --with-editable . --with '${{ matrix.pandas }}'
+          --with pytest --with hypothesis --with pytest-timeout --with coverage
+          --with scipy --with build --with hatchling --with pip
+          python -m pip download --dest .test-wheelhouse hatchling numpy pandas pydantic jinja2
+      - name: Deterministic correctness, installed distribution and subprocess coverage
         run: |
-          python -m venv /tmp/clean
-          /tmp/clean/bin/pip install "$(ls dist/*.whl)"
-          /tmp/clean/bin/python -c "import alphatonic, alphatonic.report; print(alphatonic.__version__)"
+          uv run --isolated --no-project --python ${{ matrix.python }} \
+            --with-editable . --with '${{ matrix.pandas }}' \
+            --with pytest --with hypothesis --with pytest-timeout --with coverage \
+            --with scipy --with build --with hatchling --with pip \
+            python -m coverage run -m pytest tests --ignore=tests/e2e -m 'not slow' --hypothesis-profile=ci
+          uv run --isolated --no-project --with coverage coverage combine
+          uv run --isolated --no-project --with coverage coverage report --show-missing --fail-under=95
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: failure-${{ matrix.python }}-${{ strategy.job-index }}
+          path: |
+            .coverage*
+            .hypothesis/
+            test-results/
+
+  minimum:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Provision exact runtime floors on Python 3.11
+        run: >-
+          uv run --isolated --no-project --python 3.11 --with-editable .
+          --with pytest --with hypothesis --with pytest-timeout --with coverage --with scipy
+          --with build --with hatchling --with pip
+          --with 'numpy==1.26.0' --with 'pandas==2.2.2' --with 'pydantic==2.6.0' --with 'jinja2==3.1.0'
+          python -m pip download --dest .test-wheelhouse hatchling numpy pandas pydantic jinja2
+      - name: Run at declared floors
+        run: >-
+          uv run --isolated --no-project --python 3.11 --with-editable .
+          --with pytest --with hypothesis --with pytest-timeout --with coverage --with scipy
+          --with build --with hatchling --with pip
+          --with 'numpy==1.26.0' --with 'pandas==2.2.2' --with 'pydantic==2.6.0' --with 'jinja2==3.1.0'
+          python -m pytest tests --ignore=tests/e2e -m 'not slow' --hypothesis-profile=ci
+
+  platform:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --no-default-groups --group test
+      - run: >-
+          uv run --no-sync pytest tests/integration/test_imports.py
+          tests/component/test_persistence.py tests/integration/test_cli.py
+          tests/integration/test_http_server.py
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --no-default-groups --group test --group browser
+      - run: uv run --no-sync playwright install --with-deps chromium
+      - run: uv run --no-sync pytest tests/e2e -m browser --browser chromium --tracing retain-on-failure
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-traces
+          path: test-results/
+
+  docs-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --no-default-groups --group test --group docs --group quality
+      - run: uv run --no-sync zensical build --clean --strict
+      - run: uv build --no-sources
+      - run: uv run --no-sync twine check dist/*
+
+  expanded:
+    if: github.event_name == 'schedule' || startsWith(github.ref, 'refs/heads/release-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --no-default-groups --group test
+      - run: uv run --no-sync pytest tests/statistical --timeout=600 --durations=20 --junitxml=test-results/calibration.xml
+      - run: uv run --no-sync pytest tests --ignore=tests/e2e -m property --hypothesis-profile=extended
+      - run: uv run --no-sync pytest benchmarks -m benchmark --timeout=600 --junitxml=test-results/benchmarks.xml
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: calibration-and-performance
+          path: test-results/
+
+  browser-extended:
+    if: github.event_name == 'schedule' || startsWith(github.ref, 'refs/heads/release-')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --no-default-groups --group test --group browser
+      - run: uv run --no-sync playwright install --with-deps ${{ matrix.browser }}
+      - run: uv run --no-sync pytest tests/e2e -m browser --browser ${{ matrix.browser }} --tracing retain-on-failure
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-traces-${{ matrix.browser }}
+          path: test-results/

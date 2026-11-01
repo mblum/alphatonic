@@ -398,6 +398,9 @@ class Study:
             metrics=result.metrics(),
         )
         directory = self.directory / trial.id
+        # Reserve the identifier before writing any tables. Even a forced UUID collision
+        # must never replace a completed trial (or an abandoned attempt).
+        directory.mkdir(parents=True, exist_ok=False)
         result.save(directory / TABLES)
         if report:
             count = 1 + sum(item.family == trial.family for item in self.trials())

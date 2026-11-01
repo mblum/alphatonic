@@ -1,9 +1,9 @@
 # Testing alphatonic
 
-This is a proposed testing strategy built from the production code and published testing
-guidance, reviewed on 1 November 2026. It does not assess or adopt the existing test suite or
-CI configuration. The directories, dependency groups, test cases and gates below describe what
-to build; this document does not implement them or claim that they already pass.
+This testing strategy was built from the production code and published testing guidance,
+reviewed on 1 November 2026. The replacement suite follows the levels and layout below. The
+inventory describes the evidence to maintain and extend; coverage alone does not establish
+that every adversarial case or statistical regime has been validated.
 
 The production path is `evaluate()` → input alignment → return labels and optional volatility
 scaling → cross-sectional IC, time-series IC and signal persistence. Results also pass through
@@ -544,7 +544,8 @@ Prohibit external network access during test execution; allow loopback only for 
 tests. Use ephemeral ports, bounded request/subprocess timeouts and readiness signals instead
 of sleeps. Fresh interpreters isolate import state; fresh browser contexts isolate UI state.
 Restore module caches, environment variables and working directories, and verify input frames
-are unchanged. Tests must pass independently and with reordered/parallel execution.
+are unchanged. Subprocess tests use one BLAS thread to avoid thread-launch overhead for small
+bootstrap matrices, particularly on the oldest supported NumPy. Tests must pass independently and with reordered/parallel execution.
 
 ## 5. External dependencies
 
@@ -597,7 +598,7 @@ server code. Exclude vendored JS/CSS from Python coverage, and assess owned brow
 through explicit scenarios. Include worker/subprocess coverage when claiming those paths are
 covered; a parent process's coverage report alone is insufficient.
 
-Adopt a **95% combined statement-and-branch coverage floor** for the rebuilt suite, with no
+The suite enforces a **95% combined statement-and-branch coverage floor**, with no
 unreviewed reduction. This is a proposed project target, not an industry-mandated percentage.
 Require explicit tests of every numerical exclusion/status reason, time-boundary decision,
 format migration and holdout decision regardless of the total percentage. Aim for full branch
@@ -626,27 +627,26 @@ assertions and statistical precision; splitting workloads is preferable to reduc
 
 ## 7. Local test execution
 
-### Tooling to add when implementing this strategy
+### Tooling and setup
 
-The commands below target the proposed layout and configuration. They become applicable after
-the corresponding tests and dependency groups are created; this documentation change does not
-create them. Use uv to update the lockfile, and keep test tools in dependency groups, as described
+The commands below use the test layout and dependency groups in this repository. Use uv to
+update the lockfile, and keep test tools in dependency groups, as described
 in [uv's dependency guidance](https://docs.astral.sh/uv/concepts/dependencies/).
 
-- `test`: pytest, Hypothesis, coverage.py, pytest-xdist, pytest-timeout and SciPy.
+- `test`: pytest, Hypothesis, coverage.py, pytest-xdist, pytest-timeout, SciPy, build, Hatchling
+  and pip (the last three build and install the distribution offline).
 - `browser`: pytest-playwright, alongside the `test` group.
 - `quality`: Ruff, Pyright and Twine.
 - `docs`: Zensical and the documentation plugins required by the documentation configuration.
 
-Choose and lock versions compatible with the relevant Python environments. Register the markers
-`property`, `statistical`, `slow`, `browser` and `benchmark`; mark browser tests and all benchmarks
-accordingly. Only expanded inference experiments should carry `slow`, so the compact calibration
+Choose and lock versions compatible with the relevant Python environments. The registered markers are
+`property`, `statistical`, `slow`, `browser` and `benchmark`; browser tests and all benchmarks carry these markers. Only expanded inference experiments should carry `slow`, so the compact calibration
 panel remains in the default run. Load Hypothesis profiles `ci` (bounded, deterministic) and
-`extended` (larger, exploratory) in the proposed `conftest.py`.
+`extended` (larger, exploratory) in `conftest.py`.
 Keep browser-only imports and fixtures under `tests/e2e/`; the non-browser commands exclude that
 directory before collection, because a marker alone does not prevent optional imports.
 
-Use this proposed pytest configuration when rebuilding the test setup:
+The pytest configuration is:
 
 ```toml
 [tool.pytest.ini_options]
@@ -665,11 +665,15 @@ markers = [
 
 ### Daily development
 
-Run from the repository root. The first command installs the proposed ordinary test and quality
+Run from the repository root. The first command installs the ordinary test and quality
 tools; browser binaries are a separate setup step.
 
 ```sh
 uv sync --locked --no-default-groups --group test --group quality
+
+# Provision archives before tests prohibit external network access. Repeat per Python/platform.
+uv run --no-sync python -m pip download --dest .test-wheelhouse \
+  hatchling numpy pandas pydantic jinja2
 
 # Default deterministic suite, including compact calibration; no browser required.
 uv run --no-sync pytest tests --ignore=tests/e2e -m "not slow" --hypothesis-profile=ci
@@ -702,6 +706,7 @@ and recorded library versions. Do not treat a successful rerun as a repair.
 # Run serially for this basic coverage command. Configure subprocess collection separately.
 uv run --no-sync coverage run --branch --source=alphatonic -m pytest \
   tests --ignore=tests/e2e -m "not slow"
+uv run --no-sync coverage combine
 uv run --no-sync coverage report --show-missing --fail-under=95
 uv run --no-sync coverage html
 

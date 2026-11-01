@@ -1,68 +1,85 @@
-import numpy as np
-import pandas as pd
+import ipaddress
+import os
+import socket
+from contextlib import contextmanager
+from pathlib import Path
+
 import pytest
+from hypothesis import settings
 
-from alphatonic.config import EvaluationConfig
+from alphatonic import EvaluationConfig, evaluate
+from tests.support.panels import market
+
+settings.register_profile("ci", max_examples=40, derandomize=True, deadline=None)
+settings.register_profile("extended", max_examples=400, deadline=None)
 
 
-def regular_panel(
-    n_assets: int = 6,
-    n_bars: int = 240,
-    *,
-    freq: str = "h",
-    start: str = "2026-01-01",
-    seed: int = 0,
-    missing: float = 0.0,
-    ties: bool = False,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """A random factor/price panel on a regular grid (tz-aware, UTC)."""
-    rng = np.random.default_rng(seed)
-    index = pd.date_range(start, periods=n_bars, freq=freq, tz="UTC")
-    columns = [f"A{i}" for i in range(n_assets)]
-    score = rng.normal(size=(n_bars, n_assets))
-    if ties:
-        score = np.round(score)
-    returns = 0.01 * (
-        0.3 * np.vstack([np.zeros((1, n_assets)), score[:-1]]) + rng.normal(size=score.shape)
-    )
-    prices = 100 * np.cumprod(1 + returns, axis=0)
-    if missing:
-        prices[rng.random(prices.shape) < missing] = np.nan
-        score[rng.random(score.shape) < missing] = np.nan
-    return (
-        pd.DataFrame(score, index=index, columns=columns),
-        pd.DataFrame(prices, index=index, columns=columns),
-    )
+@pytest.fixture(autouse=True)
+def no_external_network(monkeypatch):
+    # Small resampling matrices otherwise pay thread-pool launch costs on old OpenBLAS.
+    # Bound subprocess resources consistently across supported dependency environments.
+    monkeypatch.setenv("OPENBLAS_NUM_THREADS", "1")
+    monkeypatch.setenv("MKL_NUM_THREADS", "1")
+    monkeypatch.setenv("VECLIB_MAXIMUM_THREADS", "1")
+    guard = str(Path(__file__).parent / "support")
+    monkeypatch.setenv("PYTHONPATH", guard + os.pathsep + os.environ.get("PYTHONPATH", ""))
+    original = socket.socket.connect
+
+    def connect(sock, address):
+        if (
+            sock.family in (socket.AF_INET, socket.AF_INET6)
+            and not ipaddress.ip_address(address[0]).is_loopback
+        ):
+            raise AssertionError(f"External network prohibited: {address}")
+        return original(sock, address)
+
+    monkeypatch.setattr(socket.socket, "connect", connect)
 
 
 @pytest.fixture
 def panel():
-    return regular_panel()
+    return market()
 
 
 @pytest.fixture
 def config():
     return EvaluationConfig(
-        horizons=[1, 4],
+        horizons=(1, 3),
         min_assets=3,
+        hac_lags=2,
+        quantiles=3,
+        persistence={"lags": (1, 3, 200)},
         time_series={
-            "min_pairs": 20,
-            "min_horizons": 2,
-            "bootstrap_samples": 100,
-            "rolling_window": "2D",
-            "rolling_step": "1D",
+            "target": "return",
+            "min_pairs": 3,
+            "min_horizons": 1,
+            "min_coverage": 0.5,
+            "rolling_window": "20D",
+            "rolling_step": "10D",
+            "bootstrap_samples": 0,
         },
     )
 
 
-def perfect_market(n_assets: int = 5, n_bars: int = 48, freq: str = "h"):
-    """Assets grow at different constant rates, so their rates are a perfect factor."""
-    index = pd.date_range("2026-01-01", periods=n_bars, freq=freq, tz="UTC")
-    rates = 1 + (np.arange(n_assets) + 1) / 100
-    prices = pd.DataFrame(
-        100 * rates[None, :] ** np.arange(n_bars)[:, None],
-        index=index,
-        columns=[f"A{i}" for i in range(n_assets)],
-    )
-    factor = pd.DataFrame(np.tile(rates, (n_bars, 1)), index=index, columns=prices.columns)
-    return factor, prices
+@pytest.fixture
+def result(panel, config):
+    return evaluate(*panel, config)
+
+
+@pytest.fixture
+def progress_log():
+    events = []
+
+    @contextmanager
+    def progress(description, total=None):
+        events.append(("open", description, total))
+
+        def advance(steps=1, **kwargs):
+            events.append(("advance", steps, kwargs))
+
+        try:
+            yield advance
+        finally:
+            events.append(("close", description))
+
+    return progress, events

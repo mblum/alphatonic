@@ -1,0 +1,12 @@
+{
+  "format_version": 5,
+  "config": {
+    "horizons": [
+      1
+    ],
+    "min_assets": 3
+  },
+  "start": "2024-01-01T00:00:00+00:00",
+  "end": "2024-01-03T00:00:00+00:00",
+  "bar_seconds": 86400
+}
