@@ -74,7 +74,7 @@ def test_window_status_precedence(
 
 def test_bootstrap_shared_circular_draws_match_explicit_resampling(panel, config):
     x, y = (t.iloc[:30, :2] for t in panel)
-    assets = window_table(x, y, config, 1, x.index[0], x.index[-1] + pd.Timedelta("1D"), x.index)
+    assets = window_table(x, y, config, 1, x.index[0], x.index[-1] + pd.Timedelta(1, "D"), x.index)
     options = config.time_series.model_copy(
         update={"bootstrap_samples": 100, "block_bars": 3, "seed": 18}
     )
@@ -109,7 +109,7 @@ def test_hac_aggregate_keeps_cross_asset_covariance(panel, config):
     x, y = panel
     x = x.iloc[:40, :2]
     y = y.iloc[:40, :2]
-    assets = window_table(x, y, config, 1, x.index[0], x.index[-1] + pd.Timedelta("1D"), x.index)
+    assets = window_table(x, y, config, 1, x.index[0], x.index[-1] + pd.Timedelta(1, "D"), x.index)
     per_asset, aggregate = hac_tests(x, y, assets, 1, dof=3)
     a = x.to_numpy()
     b = y.to_numpy()
@@ -141,7 +141,7 @@ def test_monthly_icir_missing_and_constant():
 )
 def test_bootstrap_eligibility_decisions(panel, config, samples, n, block, all_missing, status):
     x, y = (table.iloc[:n] for table in panel)
-    assets = window_table(x, y, config, 1, x.index[0], x.index[-1] + pd.Timedelta("1D"), x.index)
+    assets = window_table(x, y, config, 1, x.index[0], x.index[-1] + pd.Timedelta(1, "D"), x.index)
     if all_missing:
         assets["ic"] = np.nan
     options = config.time_series.model_copy(
@@ -191,7 +191,7 @@ def test_leap_months_rolling_membership_and_equal_asset_summary(config):
     y = pd.DataFrame(rng.normal(size=x.shape), index=index, columns=x.columns)
     y.loc[y.index[::2], "b"] = np.nan
     start = index[0]
-    end = index[-1] + pd.Timedelta("1D")
+    end = index[-1] + pd.Timedelta(1, "D")
     result = evaluate_time_series(x, {1: y}, config, index, start, end)
     for row in result.monthly.itertuples():
         in_window = (index >= row.window_start) & (index < row.window_end)
@@ -204,10 +204,9 @@ def test_leap_months_rolling_membership_and_equal_asset_summary(config):
             assert row.ic == pytest.approx(
                 correlation(x.loc[eligible, row.asset], y.loc[eligible, row.asset], row.method)
             )
+    assert config.time_series.rolling_window == "20D"
     for row in result.rolling.itertuples():
-        assert row.window_start == max(
-            start, row.window_end - pd.Timedelta(config.time_series.rolling_window)
-        )
+        assert row.window_start == max(start, row.window_end - pd.Timedelta(20, "D"))
     for row in result.summary.itertuples():
         values = result.assets.loc[result.assets.method == row.method, "ic"].dropna()
         assert row.mean == pytest.approx(values.mean())

@@ -612,7 +612,7 @@ class Study:
         holdout = Counter(trial.family for trial in trials if trial.sample == "holdout")
         rows = []
         for trial in trials:
-            bar = None if trial.bar_seconds is None else pd.Timedelta(seconds=trial.bar_seconds)
+            bar = None if trial.bar_seconds is None else pd.Timedelta(trial.bar_seconds, "s")
             statistics = {
                 column: trial.metrics.get(name.format(horizon=horizon), np.nan)
                 for column, name in _STATISTICS.items()

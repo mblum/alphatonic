@@ -68,7 +68,7 @@ def test_inputs_types_no_scores_short_no_assets_and_off_grid(panel, config):
     with pytest.raises(ValueError, match="no factor asset"):
         prepare(x.rename(columns=lambda c: c + "x"), p, config)
     stray = x.iloc[:1].copy()
-    stray.index += pd.Timedelta("1h")
+    stray.index += pd.Timedelta(1, "h")
     with pytest.raises(ValueError, match="not in prices"):
         prepare(pd.concat([x, stray]), p, config)
     actual = prepare(pd.concat([x, stray * np.nan]), p, config)
@@ -93,7 +93,7 @@ def test_windows_history_regular_irregular_and_timezone(panel, config):
     x, p = panel
     result = prepare(x, p, config.model_copy(update={"start": x.index[10], "end": x.index[30]}))
     assert len(result.factor) == 20 and len(result.history) == 30
-    assert result.bar == pd.Timedelta("1D")
+    assert result.bar == pd.Timedelta(1, "D")
     result = prepare(x.drop(x.index[20]), p.drop(p.index[20]), config)
     assert result.bar is None
     for kwargs in [
