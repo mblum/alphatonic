@@ -7,7 +7,7 @@ import pytest
 
 from alphatonic import Study, evaluate
 from alphatonic.config import ReportOptions
-from alphatonic.report.board import render_board, render_drawing
+from alphatonic.report.board import _business_day, render_board, render_drawing
 from alphatonic.report.figures import (
     STATUSES,
     coverage_figures,
@@ -22,6 +22,17 @@ from alphatonic.report.ts_figures import confidence_plot, horizon_figures
 from conftest import regular_panel
 
 FAST = {"min_pairs": 20, "min_horizons": 2, "bootstrap_samples": 0, "rolling_window": "5D"}
+
+
+def test_business_day_from_saved_timestamps(tmp_path):
+    path = tmp_path / "ic_by_timestamp.csv.gz"
+    dates = pd.date_range("2024-01-01", periods=12, freq="B")
+    pd.DataFrame({"timestamp": dates.repeat(2)}).to_csv(path, index=False)
+    assert _business_day(tmp_path)
+    pd.DataFrame({"timestamp": dates.delete(4)}).to_csv(path, index=False)
+    assert not _business_day(tmp_path)
+    pd.DataFrame({"timestamp": pd.date_range("2024-01-01", periods=12)}).to_csv(path, index=False)
+    assert not _business_day(tmp_path)
 
 
 @pytest.fixture(scope="module")

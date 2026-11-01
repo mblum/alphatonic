@@ -8,6 +8,8 @@ All notable changes are listed here. The format follows
 
 ### Added
 
+- The study board identifies business-day bars from saved trial timestamps when the weekday grid is complete.
+
 - The Data column group on the study board includes the trial creation date, and the
   multiple-testing columns and control appear last.
 

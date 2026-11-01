@@ -12,8 +12,11 @@ from bisect import bisect_left, bisect_right
 from collections.abc import Sequence
 from datetime import datetime
 from math import floor, log10
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
+
+import pandas as pd
 
 from alphatonic.report.figures import span
 from alphatonic.report.page import environment
@@ -205,6 +208,8 @@ def render_board(
     rows = [
         {
             **trial,
+            "business_day": trial["bar_seconds"] is None
+            and _business_day(study.directory / trial["id"] / "tables"),
             "plots": {key: _plot(trial, key, extents.get(key)) for key in PLOTS},
             "rank": None if ranks is None else ranks[i],
         }
@@ -246,6 +251,23 @@ def render_board(
             when=_when,
         )
     )
+
+
+def _business_day(directory: Path) -> bool:
+    """Identify a complete weekday grid from the saved per-timestamp table."""
+    for name in ("ic_by_timestamp.csv.gz", "ic_by_timestamp.csv"):
+        path = directory / name
+        if path.is_file():
+            try:
+                column = pd.read_csv(path, usecols=["timestamp"])["timestamp"]
+                times = pd.to_datetime(column, utc=True)
+                index = pd.DatetimeIndex(times.unique()).sort_values()
+                if len(index) < 3 or index.to_series().diff().dropna().nunique() < 2:
+                    return False
+                return index.equals(pd.date_range(index[0], index[-1], freq="B"))
+            except (ValueError, OSError, KeyError):
+                return False
+    return False
 
 
 def render_drawing(signal: str, title: str) -> str:

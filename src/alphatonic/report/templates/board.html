@@ -124,7 +124,7 @@
           {% elif key == 'trials' %}<td class="number">{{ trial.trials }}</td>
           {% elif key == 'sample' %}<td>{% if trial.sample == 'holdout' %}<span class="badge {{ 'bad' if trial.holdout_uses > 1 else 'warn' }}" title="The family {{ trial.family }} has {{ trial.holdout_uses }} holdout evaluation{{ '' if trial.holdout_uses == 1 else 's' }}">holdout{% if trial.holdout_uses > 1 %} · {{ trial.holdout_uses }} looks{% endif %}</span>{% else %}in sample{% endif %}</td>
           {% elif key == 'start' %}<td class="subtle">{{ when(trial.start, '%Y-%m-%d') }} – {{ when(trial.end, '%Y-%m-%d') }}</td>
-          {% elif key == 'bar' %}<td class="subtle">{{ bar(trial.bar_seconds) }}</td>
+          {% elif key == 'bar' %}<td class="subtle">{{ 'business day' if trial.business_day else bar(trial.bar_seconds) }}</td>
           {% elif key == 'assets' %}<td class="number subtle">{{ trial.assets if trial.assets else '–' }}</td>
           {% elif key == 'created_at' %}<td class="subtle" title="{{ trial.id }}">{{ when(trial.created_at) }}</td>
           {% else %}<td>{{ trial.context.get(key, '–') }}</td>
