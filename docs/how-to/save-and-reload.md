@@ -47,11 +47,18 @@ in [results and metrics](../reference/results.md).
 If an older directory has no `evaluation.json`, pass the configuration used to compute its tables.
 The files must still use alphatonic’s expected names and columns:
 
-<!-- notest -->
 ```python
+import shutil
+from pathlib import Path
+
 from alphatonic import EvaluationConfig
 
+# Stand in for an older directory: a copy of the saved tables without `evaluation.json`.
+shutil.copytree("runs/momentum-20", "old-run")
+Path("old-run/evaluation.json").unlink()
+
 reloaded = Evaluation.load("old-run", EvaluationConfig(horizons=[1, 5]))
+assert reloaded.summary.equals(later.summary)
 ```
 
 A configuration you pass replaces the stored settings; it does not recompute the tables. Do not use
@@ -63,7 +70,7 @@ retired setting is ignored and tables are preserved without recomputing missing 
 cross-sectional-only directories can therefore have `time_series=None`. Formats 1 and 2 have no
 persistence tables, so they load with `persistence=None`. Formats 1 to 3 wrote plain `.csv` files
 and still load; saving over such a directory replaces them with `.csv.gz` files. Current saves use
-format 4.
+format 5.
 
 ## Keep experiments reproducible
 

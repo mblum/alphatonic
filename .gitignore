@@ -197,3 +197,7 @@ site/
 
 # The README example writes its tearsheet to the working directory
 /tearsheet.html
+
+# Offline distribution-test setup (separate from the documentation cache)
+/.test-wheelhouse*/
+/test-results/

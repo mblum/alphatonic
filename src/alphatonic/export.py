@@ -36,6 +36,9 @@ def jsonable(value: Any) -> Json:
     """
     if value is None or value is pd.NA or value is pd.NaT:
         return None
+    # NumPy timedeltas also satisfy np.integer; interpret their units before integers.
+    if isinstance(value, timedelta | np.timedelta64):
+        return None if pd.isna(value) else pd.Timedelta(value).total_seconds()
     if isinstance(value, bool | np.bool_):
         return bool(value)
     if isinstance(value, int | np.integer):
@@ -49,8 +52,6 @@ def jsonable(value: Any) -> Json:
         return value.isoformat()
     if isinstance(value, np.datetime64):
         return jsonable(pd.Timestamp(value))
-    if isinstance(value, timedelta | np.timedelta64):  # pd.Timedelta is a timedelta.
-        return pd.Timedelta(value).total_seconds()
     if isinstance(value, Mapping):
         return {str(key): jsonable(item) for key, item in value.items()}
     if isinstance(value, list | tuple | np.ndarray):
@@ -74,12 +75,17 @@ def _column(series: pd.Series) -> list[Json]:
     if isinstance(dtype, np.dtype) and dtype.kind in "iub":
         return series.to_numpy().tolist()
     if isinstance(dtype, pd.DatetimeTZDtype):
-        stamps = series.dt.tz_convert("UTC").dt.tz_localize(None).to_numpy("datetime64[us]")
+        stamps = series.dt.tz_convert("UTC").dt.tz_localize(None).to_numpy("datetime64[ns]")
         whole = stamps.astype("datetime64[s]") == stamps
+        microseconds = stamps.astype("datetime64[us]") == stamps
         text = np.where(
             whole,
             np.datetime_as_string(stamps, unit="s"),
-            np.datetime_as_string(stamps, unit="us"),
+            np.where(
+                microseconds,
+                np.datetime_as_string(stamps, unit="us"),
+                np.datetime_as_string(stamps, unit="ns"),
+            ),
         ).astype(object)
         result = text + "+00:00"
         result[np.isnat(stamps)] = None

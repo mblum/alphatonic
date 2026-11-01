@@ -6,6 +6,16 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve nanosecond timestamps in JSON tables so distinct fine-grained bars remain distinct,
+  and export NumPy durations in seconds, including missing durations.
+- Refuse a colliding study trial identifier before writing any files, preserving earlier trials.
+- Remove stale time-series tables when replacing a saved evaluation without that analysis.
+- Stop raising NumPy's "generic unit for NumPy timedelta" `DeprecationWarning` with pandas 2 and
+  NumPy 2.5 when reading durations such as `rolling_window`, `rolling_step` and a saved bar length.
+  Under `-W error` this made option validation and loading a saved evaluation fail.
+
 ### Added
 
 - The study board identifies business-day bars from saved trial timestamps when the weekday grid is complete.

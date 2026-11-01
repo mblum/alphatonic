@@ -37,11 +37,32 @@ _RELAXED_WINDOWS: dict[str, Any] = {
 """Time-series windows for bars too long for the defaults, such as 12-hour or daily bars."""
 
 
+def parse_duration(text: str) -> pd.Timedelta:
+    """Read a duration such as `7D`, `12h` or `1 days 00:00:00`.
+
+    The result is `NaT` for text that spells a missing duration, such as `NaT`.
+
+    pandas 2 builds `pd.Timedelta(text)` from a NumPy timedelta without a unit, which NumPy 2.5
+    deprecates, so every such call warns. Parsing a one-element array accepts the same text and
+    gives the same value without that step.
+
+    Args:
+        text: The duration as text.
+
+    Returns:
+        The duration.
+
+    Raises:
+        ValueError: If `text` is not a duration.
+    """
+    return pd.to_timedelta([text])[0]
+
+
 def _duration(value: Any) -> str:
     """Validate a fixed calendar duration such as `7D` or `12h` and return it as text."""
     text = value if isinstance(value, str) else str(pd.Timedelta(value))
     try:
-        duration = pd.Timedelta(text)
+        duration = parse_duration(text)
     except ValueError as error:
         raise ValueError(f"{text!r} is not a duration such as 7D or 12h") from error
     if pd.isna(duration) or duration <= pd.Timedelta(0):
@@ -133,9 +154,9 @@ class TimeSeriesOptions(BaseModel):
         Raises:
             ValueError: If `bar` is not a positive fixed duration, or an override is invalid.
         """
-        duration = pd.Timedelta(_duration(bar))
+        duration = parse_duration(_duration(bar))
         defaults = cls.model_fields
-        window = pd.Timedelta(defaults["rolling_window"].default)
+        window = parse_duration(defaults["rolling_window"].default)
         needed = defaults["min_pairs"].default / defaults["min_coverage"].default
         preset = {} if window / duration >= needed else _RELAXED_WINDOWS
         return cls(**{**preset, **overrides})

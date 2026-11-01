@@ -55,19 +55,30 @@ Changelog = "https://github.com/mblum/alphatonic/blob/HEAD/CHANGELOG.md"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0",
-    "pytest-cov>=5.0",
-    "ruff>=0.9",
-    "scipy>=1.11",
-    "statsmodels>=0.14",
-    "pyright>=1.1.414",
-    "pandas-stubs>=3.0.5.260914",
-    "pytest-xdist>=3.6",
+    {include-group = "test"},
+    {include-group = "quality"},
 ]
 # Not a default group: `uv run --group docs zensical serve`.
 docs = [
     "mkdocstrings[python]>=1.0.6",
     "zensical>=0.0.63",
+]
+quality = [
+    "pandas-stubs>=3.0.5.260914",
+    "pyright>=1.1.414",
+    "ruff>=0.17.2",
+    "twine>=7.0.0",
+]
+test = [
+    "build>=1.6.1",
+    "coverage>=7.17.0",
+    "hatchling>=1.33.0",
+    "hypothesis>=6.170.14",
+    "pip>=26.2.2",
+    "pytest>=9.1.1",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.8.0",
+    "scipy>=1.17.1",
 ]
 
 [build-system]
@@ -78,7 +89,7 @@ build-backend = "hatchling.build"
 packages = ["src/alphatonic"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src", "tests", "docs", "README.md", "CONTRIBUTING.md", "LICENSE", "CHANGELOG.md", "pyproject.toml"]
+include = ["src", "tests", "docs", "README.md", "CONTRIBUTING.md", "TESTING.md", "benchmarks", "LICENSE", "CHANGELOG.md", "pyproject.toml"]
 
 [tool.ruff]
 target-version = "py311"
@@ -99,6 +110,7 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D"]
+"benchmarks/**" = ["D"]
 
 [tool.pyright]
 include = ["src"]
@@ -109,14 +121,22 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["tests"]
-# In parallel (pytest-xdist); `-n 0` runs in one process, for debugging or `--pdb`.
-addopts = "-ra --strict-markers --strict-config -n auto --dist worksteal"
+addopts = "--import-mode=importlib --strict-markers --strict-config"
 filterwarnings = ["error"]
+timeout = 60
+junit_family = "xunit1"
+markers = [
+    "property: generated invariants and metamorphic relations",
+    "statistical: simulation-based method validation",
+    "slow: expanded experiments and the packaging test, outside the default run",
+    "benchmark: controlled performance measurements",
+]
 
 [tool.coverage.run]
 source = ["alphatonic"]
 branch = true
+patch = ["subprocess"]
+parallel = true
 
 [tool.coverage.report]
 show_missing = true

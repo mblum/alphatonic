@@ -8,7 +8,7 @@ from typing import cast
 import numpy as np
 import pandas as pd
 
-from alphatonic.config import TS_METHODS, EvaluationConfig
+from alphatonic.config import TS_METHODS, EvaluationConfig, parse_duration
 from alphatonic.progress import ProgressFactory, silent, track
 from alphatonic.returns import label_endpoints
 from alphatonic.stats import (
@@ -459,10 +459,10 @@ def evaluate_time_series(
     x = factor.reindex(grid)
     options = config.time_series
     month_starts = pd.date_range(start.normalize().replace(day=1), end, freq="MS", inclusive="left")
-    window = pd.Timedelta(options.rolling_window)
+    window = parse_duration(options.rolling_window)
     # Fixed steps after start, through end. A string freq would be read as a pandas offset alias,
     # which rejects durations such as "1 days" and anchors "1W" to Sundays.
-    step = pd.Timedelta(options.rolling_step)
+    step = parse_duration(options.rolling_step)
     endpoints = pd.date_range(start, end, freq=step, inclusive="right")
     positions = {asset: i for i, asset in enumerate(x.columns)}
     assets_all, monthly_all, rolling_all, summaries, quantiles = [], [], [], [], []

@@ -4,9 +4,13 @@ Bug reports with a minimal, runnable example are welcome. Use
 `alphatonic.demo.synthetic_market` to share an example without market data. For usage questions,
 check the [documentation](https://mblum.github.io/alphatonic/) or open an issue.
 
-Statistical changes need a source or a fixed-seed simulation in `tests/test_inference.py`, plus an
-update to `docs/explanation/methodology.md`. Add a changelog entry for changes users would notice.
-Work on a branch and open a pull request.
+Statistical changes need a source or the calibration evidence described in
+[TESTING.md], plus an update to `docs/explanation/methodology.md`. Add a changelog
+entry for changes users would notice. Work on a branch and open a pull request.
+
+[TESTING.md] is the guide to the test suite: its layout, how expected values are
+derived, statistical validation, the checks a pull request must pass and the commands that run
+them.
 
 By contributing, you agree that your contribution is licensed under the MIT License.
 
@@ -17,7 +21,6 @@ Local development uses Python 3.13 (`.python-version`); the library supports Pyt
 
 ```sh
 uv sync --all-extras --locked      # create .venv with the dev tools
-uv run pytest                      # in parallel, under 40 seconds
 uv run ruff check .
 uv run ruff format --check .
 uv run pyright                     # type-check src/ using Python 3.11 compatibility
@@ -27,38 +30,32 @@ Pyright checks `src/` in standard mode using the settings in `pyproject.toml`. T
 includes pandas type stubs. Select the project's `.venv` interpreter in your editor so Pylance uses
 the same dependencies; it also reads the shared Pyright settings.
 
-The tests use synthetic data and temporary directories only. They run with every warning turned into
-an error (`filterwarnings = ["error"]`), so a deprecation in pandas or NumPy fails the suite
-instead of reaching users.
-
-The suite runs on all cores with [pytest-xdist](https://pytest-xdist.readthedocs.io/) and must
-finish in under 40 seconds. Add `-n 0` to run it in one process, for example with `--pdb`, and
-`--durations=10` to see the slowest tests. Keep new tests fast: use small synthetic panels,
-`time_series={"bootstrap_samples": 0}` when the bootstrap is not under test, and a coarse
-`rolling_step` when the rolling windows are not.
+To run the tests, follow "Local test execution" in [TESTING.md].
 
 ## Where changes belong
 
-| Change | Module | Tests |
-| --- | --- | --- |
-| Options and their validation | `config.py` | `test_config.py` |
-| Input checks, alignment, the evaluation window | `inputs.py` | `test_inputs.py`, `test_calendar.py` |
-| Forward-return labels | `returns.py` | `test_returns.py` |
-| Correlations, HAC, score buckets | `stats.py` | `test_stats.py` |
-| Cross-sectional IC | `cross_section.py` | `test_cross_section.py` |
-| Time-series windows, bootstrap, monthly statistics | `time_series.py` | `test_time_series.py` |
-| Signal persistence | `signal_persistence.py` | `test_signal_persistence.py` |
-| `evaluate`, `Evaluation`, metrics | `evaluation.py` | `test_evaluation.py` |
-| JSON values of results (`to_dict`) | `export.py` | `test_export.py` |
-| Saving and loading | `persistence.py` | `test_persistence.py` |
-| Studies: trials, the holdout, the board | `study.py` | `test_study.py` |
-| The tearsheet | `report/__init__.py`, `report/templates/` | `test_report.py` |
-| The tearsheet's charts | `report/*figures.py`, `report/static/alphatonic.js` | `test_report.py` |
-| Styles shared by both pages | `report/page.py`, `report/static/` | `test_report.py` |
-| The list of trials and its server | `report/board.py`, `server.py` | `test_server.py` |
-| The `alphatonic` command | `cli.py` | `test_cli.py` |
-| Demo data | `demo.py` | `test_demo.py` |
-| Documentation examples | `docs/` | `test_docs.py` |
+| Change | Module |
+| --- | --- |
+| Options and their validation | `config.py` |
+| Input checks, alignment, the evaluation window | `inputs.py` |
+| Forward-return labels | `returns.py` |
+| Correlations, HAC, score buckets | `stats.py` |
+| Cross-sectional IC | `cross_section.py` |
+| Time-series windows, bootstrap, monthly statistics | `time_series.py` |
+| Signal persistence | `signal_persistence.py` |
+| `evaluate`, `Evaluation`, metrics | `evaluation.py` |
+| JSON values of results (`to_dict`) | `export.py` |
+| Saving and loading | `persistence.py` |
+| Studies: trials, the holdout, the board | `study.py` |
+| The tearsheet | `report/__init__.py`, `report/templates/` |
+| The tearsheet's charts | `report/*figures.py`, `report/static/alphatonic.js` |
+| Styles shared by both pages | `report/page.py`, `report/static/` |
+| The list of trials and its server | `report/board.py`, `server.py` |
+| The `alphatonic` command | `cli.py` |
+| Demo data | `demo.py` |
+| Documentation examples | `docs/` |
+
+The tests that belong to each module are assigned in [TESTING.md].
 
 Preserve the explicit handling of gaps, ties, constants and unavailable statistics: a statistic that
 cannot be computed is `NaN` with a status, never zero.
@@ -83,40 +80,26 @@ The charts are drawn by [Observable Plot](https://observablehq.com/plot/) and [d
 vendored in `report/static/` with their licences, and by `report/static/alphatonic.js`.
 `report/figures.py` and `report/ts_figures.py` compute everything a chart shows and write it as a
 specification, which is plain data of one of five kinds (`lines`, `rolling`, `heatmap`, `bars`,
-`intervals`); the script only draws. Test the specification in `tests/test_report.py`. The script has
-no automated test, because CI has no browser, so after you change it open a tearsheet in light and
-dark mode, hover each kind of chart, open the closed panels and the second tab, narrow the window,
-and print once with a dark system: paper is meant to come out light.
+`intervals`); the script only draws. [TESTING.md] describes how the specifications are
+tested; the drawing itself is not tested in a browser. After you change the script, look at it
+yourself: open a tearsheet in light and dark mode, hover each kind of chart, open the closed
+panels and the second tab, narrow the window, and print once with a dark system: paper is meant
+to come out light.
 
 `report/static/pico.classless.min.css` is Pico 2.1.1 from the npm package `@picocss/pico`, with its
 licence beside it as `pico.LICENSE.md`. `plot.umd.min.js` is Observable Plot 0.6.17 and `d3.min.js`
 is d3 7.9.0 (Plot's build needs d3 as the global `d3`), each from the file `dist/` of its npm
 package, with the licence beside it. To update one, download the package tarball from the npm
 registry, check it against the registry's `integrity` hash, copy the same file and the licence,
-change the version in `report/page.py` and `tests/test_report.py`, and look at both pages in a
+change the version in `report/page.py`, and look at both pages in a
 browser, in light and dark mode.
-
-## The reference implementation
-
-`tests/reference.py` holds the original, straightforward formulation of the cross-sectional and
-time-series evaluation: one timestamp or window at a time, with pandas. The optimised code in `src/`
-must produce the same tables, and `tests/test_reference_equivalence.py` asserts it on randomised
-data with gaps, ties, delays, constants and varied bucket counts. When you change statistical
-behaviour on purpose, change the reference in the same commit and say so in the pull request. When
-you optimise, leave the reference alone.
-
-`tests/test_inference.py` runs fixed-seed simulations that pin the calibration of the inference: a
-factor without skill must not be declared significant much more often than 5% of the time.
 
 ## Supported versions
 
-CI runs the suite on Python 3.11 to 3.14, on the newest dependencies, and on the **lowest**
-supported versions (`uv run --resolution lowest-direct`). When you raise a lower bound in
-`pyproject.toml` say why in the pull request. Run the lowest-bound check locally with:
-
-```sh
-uv run --isolated --resolution lowest-direct --python 3.11 pytest
-```
+The library supports Python 3.11 to 3.14 and the lower bounds of the dependencies declared in
+`pyproject.toml`. "Quality gates" and "Minimum and newest dependencies" in
+[TESTING.md] say how both ends are tested. When you raise a lower bound, say why in the
+pull request.
 
 ## Documentation
 
@@ -128,9 +111,8 @@ uv run --group docs zensical serve            # preview
 uv run --group docs zensical build --strict   # what CI runs
 ```
 
-Python code blocks in the root Markdown files and `docs/` are executed by `tests/test_docs.py`, in order, within
-one namespace per page and in a temporary directory. Put `<!-- notest -->` on the line above a block
-that must not run (for example one that needs another library). The structure follows
+Python code blocks in the root Markdown files and `docs/` must actually run; the documentation tests
+in [TESTING.md] execute them. The structure follows
 [Diátaxis](https://diataxis.fr/): tutorials, how-to guides, reference, explanation. Keep reference
 pages factual, and put reasons in the explanation pages. Tutorials should lead a new user through
 one working example. How-to guides should solve a specific task. Use short, direct sentences and
@@ -143,11 +125,9 @@ Edit `README.md` for the GitHub and PyPI introduction and `docs/index.md` for th
 home page. These are independent pages. The changelog (`CHANGELOG.md`) and contributor guidance
 (this file) live only on GitHub and are not part of the site.
 
-Use absolute web URLs in the root Markdown files so their links also work on PyPI and GitHub.
-`tests/test_docs.py` checks that the root files have no repository-relative links, and that their
-links to the site and to files on `master` name an existing page or file. It does not check external
-sites or `#anchors`. After changing links, build the site with `--strict` and check the rendered
-destinations.
+Use absolute web URLs in the root Markdown files so their links also work on PyPI and GitHub, and
+make links to the site and to files on `master` name an existing page or file. After changing
+links, build the site with `--strict` and check the rendered destinations.
 
 ## Releasing
 
@@ -215,3 +195,5 @@ does not exist yet, so add it as a pending publisher at
 <https://pypi.org/manage/account/publishing/>; later, a project owner manages it under the
 project's **Publishing** settings. In GitHub, under **Settings → Environments**, create the
 environment `pypi` and give it the same deployment tag rule, so that only release tags can upload.
+
+[TESTING.md]: https://github.com/mblum/alphatonic/blob/master/TESTING.md

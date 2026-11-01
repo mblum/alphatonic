@@ -2,8 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [master, "release-*"]  # a release is tagged on its branch, so test the branch itself
+    branches: [master, "release-*"]
   pull_request:
+  schedule:
+    - cron: "17 4 * * 1"
 
 permissions:
   contents: read
@@ -13,51 +15,88 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv sync --all-extras --locked
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run pyright
+      - run: uv sync --locked --no-default-groups --group test --group quality
+      - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync ruff format --check .
+      - run: uv run --no-sync pyright
 
   test:
-    name: test (py${{ matrix.python }}, ${{ matrix.resolution }})
+    name: Python ${{ matrix.python }}, ${{ matrix.pandas }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python: ["3.11", "3.12", "3.13", "3.14"]
-        resolution: [highest]
-        include:
-          # The oldest supported versions of the direct dependencies (see pyproject.toml).
-          - python: "3.11"
-            resolution: lowest-direct
+        pandas: ["pandas>=3", "pandas>=2.2.2,<3"]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv sync --all-extras --python ${{ matrix.python }} --resolution ${{ matrix.resolution }}
-      - run: uv run --no-sync pytest --cov --cov-report=term-missing
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run the tests with dependencies resolved independently of the dev lock
+        run: >-
+          uv run --isolated --no-project --python ${{ matrix.python }}
+          --with-editable . --with '${{ matrix.pandas }}'
+          --with pytest --with hypothesis --with pytest-timeout --with scipy
+          python -m pytest --hypothesis-profile=ci
 
-  docs:
+  minimum:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv sync --group docs --locked
-      - run: uv run --group docs zensical build --strict
+      - name: Run at declared floors
+        run: >-
+          uv run --isolated --no-project --python 3.11 --with-editable .
+          --with pytest --with hypothesis --with pytest-timeout --with scipy
+          --with 'numpy==1.26.0' --with 'pandas==2.2.2' --with 'pydantic==2.6.0' --with 'jinja2==3.1.0'
+          python -m pytest --hypothesis-profile=ci
 
-  build:
+  platform:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --no-default-groups --group test
+      - run: >-
+          uv run --no-sync pytest tests/integration/test_imports.py
+          tests/component/test_persistence.py tests/integration/test_cli.py
+          tests/integration/test_http_server.py
+
+  docs-and-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv build
-      - run: uvx twine check dist/*
-      - name: The wheel installs and imports without the dev tools
-        run: |
-          python -m venv /tmp/clean
-          /tmp/clean/bin/pip install "$(ls dist/*.whl)"
-          /tmp/clean/bin/python -c "import alphatonic, alphatonic.report; print(alphatonic.__version__)"
+      - run: uv sync --locked --no-default-groups --group test --group docs --group quality
+      - run: uv run --no-sync zensical build --clean --strict
+      - run: uv build --no-sources
+      - run: uv run --no-sync twine check dist/*
+
+  expanded:
+    if: github.event_name == 'schedule' || startsWith(github.ref, 'refs/heads/release-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --no-default-groups --group test
+      - run: uv run --no-sync python -m pip download --dest .test-wheelhouse hatchling numpy pandas pydantic jinja2
+      - run: uv run --no-sync pytest tests/integration/test_distribution.py --extended
+      - run: uv run --no-sync pytest tests/statistical --extended --timeout=600 --durations=20 --junitxml=test-results/calibration.xml
+      - run: uv run --no-sync pytest -m property --hypothesis-profile=extended
+      - run: uv run --no-sync pytest benchmarks -m benchmark --timeout=600 --junitxml=test-results/benchmarks.xml
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: calibration-and-performance
+          path: test-results/
