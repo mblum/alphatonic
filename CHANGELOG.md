@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-01
+
 ### Fixed
 
 - Preserve nanosecond timestamps in JSON tables so distinct fine-grained bars remain distinct,
