@@ -1,6 +1,8 @@
 # Design decisions
 
-Why alphatonic behaves the way it does and what it deliberately leaves out.
+Alphatonic keeps predictive association, sampling uncertainty and research selection visible as
+separate questions. Its data and storage rules support that separation; they do not remove the
+need for a specified research design.
 
 ## Principles
 
@@ -19,10 +21,13 @@ guide](../how-to/prepare-inputs.md#calendars) shows how to put missing 24/7 bars
 data than skipping or filling gaps would, and it guarantees that "the 24-bar return" always spans 24
 bars.
 
-**Honest uncertainty over convenient uncertainty.** Cross-sectional IC uses a HAC standard
+**Uncertainty that accounts for dependence.** Cross-sectional IC uses a HAC standard
 error, and time-series IC a block bootstrap and a t-test with an equal-weighted cosine standard
 error, because both outputs depend on time ordering. These intervals can be wider, and these
 p-values larger, than a naive t-test gives when observations are positively dependent.
+[Newey and West (1987)][nw] and [Lazarus et al. (2018)][har] provide the variance-estimation
+basis. The [inference explanation](inference.md) distinguishes their results from alphatonic's
+choices about correlations, gaps and horizons.
 
 **Separate timing from average exposure.** Cross-sectional correlations centre each timestamp,
 so adding the same return to every asset does not change them. Time-series positions carry net
@@ -33,9 +38,12 @@ timing and the part earned by the average position, against volatility-scaled ta
 **Tables first.** The result is a handful of tidy DataFrames. The tearsheet is a rendering of them;
 it does not rerun inference. Saved tables can be rendered again with different display options.
 
-**Every trial is kept.** A study never overwrites or deletes a trial, and counts all of them,
-because a p-value is honest only next to the number of tries. Facts it cannot check, such as how a
-signal was computed, are recorded as the caller states them.
+**Every trial is kept.** A study never overwrites or deletes a trial, and counts all of them.
+Selection among many results changes the interpretation of a small p-value, as
+[Harvey, Liu and Zhu (2016)][hlz] explain for factor research. Keeping trials makes the search
+inspectable; counting them alone does not validate an adaptive search. Facts the library cannot
+check, such as how a signal was computed, are recorded as the caller states them. See
+[trials, selection and the holdout](research-validity.md).
 
 **Small dependency footprint.** Alphatonic needs NumPy, pandas and pydantic (for validated, immutable
 configuration), and Jinja2 for the report pages. The list of a study's trials
@@ -67,9 +75,23 @@ score and bucket changes, not traded notional. Cost analysis is not an available
 ## Performance model
 
 Cross-sectional work is vectorised over timestamps in blocks of 256 rows, which bounds temporary
-arrays: thousands of assets over thousands of bars take seconds. Time-series work evaluates each
+arrays. Time-series work evaluates each
 window with array operations over all assets at once. The block bootstrap is the expensive part:
 each draw recomputes every asset's rank correlation, so its cost is draws × assets × bars. It is
 deterministic and single-threaded. A reference implementation of the original,
 timestamp-by-timestamp formulation lives in the test suite and the optimised code is checked against
 it on randomised data, including gaps, ties, delays and constant scores.
+
+## References
+
+- Newey, W. K. and West, K. D. (1987). [A Simple, Positive Semi-Definite, Heteroskedasticity and
+  Autocorrelation Consistent Covariance Matrix][nw]. *Econometrica*, 55(3), 703–708.
+- Lazarus, E., Lewis, D. J., Stock, J. H. and Watson, M. W. (2018).
+  [HAR Inference: Recommendations for Practice][har]. *Journal of Business & Economic Statistics*,
+  36(4), 541–559. Dependence-aware tests and the consequences of smoothing choices.
+- Harvey, C. R., Liu, Y. and Zhu, H. (2016). [… and the Cross-Section of Expected Returns][hlz].
+  *The Review of Financial Studies*, 29(1), 5–68. Multiple testing in factor research.
+
+[nw]: https://doi.org/10.2307/1913610
+[har]: https://www.princeton.edu/~mwatson/papers/LLSW_har_JBES_Final_071418.pdf
+[hlz]: https://people.duke.edu/~charvey/Research/Published_Papers/P118_and_the_cross.PDF

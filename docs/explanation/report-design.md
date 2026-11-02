@@ -31,7 +31,7 @@ follow the system's light or dark setting, and the charts take their colours fro
 stylesheet variables, so they change with the page. On paper they are always light. Styles and chart code are embedded so the
 report works offline.
 
-## Interface design references
+## Interface design
 
 The report follows the [GOV.UK accordion
 guidance](https://design-system.service.gov.uk/components/accordion/) by keeping essential results
@@ -59,3 +59,33 @@ Temporal stability remains a detailed diagnostic; it could join the overview onc
 across assets and time is clearly defined. A Sharpe ratio, CAGR, or drawdown would require a
 specified portfolio and trading simulation, which this predictive-association study does not
 provide.
+
+## Reading uncertainty without changing its meaning
+
+A 95% confidence interval describes the repeated-sampling coverage of a procedure under its
+assumptions. It does not assign a 95% probability to the realised interval, forecast the next
+period's IC or cover every trial simultaneously. The bootstrap interval describes the supplied
+asset set; its endpoints do not represent cross-asset quartiles. The
+[inference page](inference.md) explains how each interval is computed.
+
+The [ASA statement (2016)][asa] recommends interpreting estimates in context and distinguishes
+statistical significance from effect size. Accordingly, the report pairs estimates with uncertainty
+and coverage, rather than labelling a signal as profitable because an interval excludes zero.
+This presentation is a design choice; it does not imply that the ASA endorses this report layout.
+
+Sorting trials by IC does not estimate the uncertainty of the winner's selection. The displayed
+interval remains an individual interval, and the board's trial-count adjustment applies to
+p-values only. [Harvey, Liu and Zhu (2016)][hlz] explain why the search behind a factor matters.
+See [trials, selection and the holdout](research-validity.md) for the adjustment's scope.
+
+## References
+
+- American Statistical Association (2016). [Statement on Statistical Significance and
+  P-Values: six principles][asa]. Effect size, uncertainty, context and reporting.
+- Harvey, C. R., Liu, Y. and Zhu, H. (2016). [… and the Cross-Section of Expected Returns][hlz].
+  *The Review of Financial Studies*, 29(1), 5–68. Multiple testing and selected results.
+- Alphalens Reloaded. [Performance API](https://alphalens.ml4trading.io/api-reference.html).
+  Related IC and quantile-return summaries; alphatonic's exact metric selection is its own.
+
+[asa]: https://www.amstat.org/asa/files/pdfs/p-valuestatement.pdf
+[hlz]: https://people.duke.edu/~charvey/Research/Published_Papers/P118_and_the_cross.PDF

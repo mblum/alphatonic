@@ -13,16 +13,19 @@ missing observations and changing asset sets affect the results.
 An eligible score has a finite score and a price **at its own timestamp**. Each comparison uses
 endpoints exactly `lag` rows apart on the price grid. It never drops missing rows before shifting. A
 lag of 5 compares endpoints five bars apart, even if an interior bar is missing; it neither measures
-the intervening path nor sums five one-bar changes. Both endpoints must be inside the evaluation
-window; no score history before `start` is read. All timestamps through the last bar can contribute,
+the intervening path nor sums five one-bar changes. A score that moves from positive to negative
+and back between the endpoints can have zero endpoint change. Increasing the lag therefore
+changes the comparison, rather than accumulating turnover. Both endpoints must be inside the
+evaluation window; no score history before `start` is read. All timestamps through the last bar can contribute,
 even when they have no future-return label.
 
 ### Cross-sectional rank persistence
 
 Rank all eligible scores independently at each timestamp, using average ranks for ties. Compute
-Pearson correlation of those ranks on the assets common to the two endpoints. This is the Alphalens
-convention; with changing universes it need not equal re-ranking only the common assets. The common
-sample needs `min_assets` and varying ranks at both endpoints. Values range from −1 (reversed
+Pearson correlation of those ranks on the assets common to the two endpoints. This follows [Alphalens
+Reloaded's rank-autocorrelation convention][alphalens]; with changing universes it need not equal
+re-ranking only the common assets. The common sample needs `min_assets` and varying ranks at
+both endpoints. Values range from −1 (reversed
 ordering) to 1 (preserved ordering). High persistence does not establish low dollar turnover:
 weights, leverage and volatility scaling can still change.
 
@@ -30,8 +33,9 @@ weights, leverage and volatility scaling can still change.
 
 Assign scores at each timestamp to `ceil(quantiles * average_rank / n_eligible)`. Ties stay together
 and some buckets can be empty. Each endpoint must have at least `min_assets` and distinct scores.
-For bucket Q, entry fraction is `|Q_now − Q_before| / |Q_now|`. A value of 0.2 means 20% of current
-members were absent from the prior bucket. An empty current bucket is undefined; an empty prior
+Following [Alphalens' membership comparison][alphalens], for bucket Q, entry fraction is
+`|Q_now − Q_before| / |Q_now|`. A value of 0.2 means 20% of current members were absent from the
+prior bucket. An empty current bucket is undefined; an empty prior
 bucket at an otherwise eligible timestamp gives 1 for a nonempty current bucket.
 
 Entry and exit counts are both reported: changes in bucket size can make them different. Counts of
@@ -79,12 +83,27 @@ independently of return horizons.
 
 A score can stay constant while volatility scaling changes the position. Holdings also drift as
 prices move, so the trade needed to reach a target depends on the holdings before the trade. Neither
-effect is measured by score persistence. Costs require position rules, execution timing and an
-asset-specific accounting model; they cannot be subtracted from IC.
+effect is measured by score persistence. [Lim, Zohren and Roberts (2019, §VI)][lim] compute changes
+in volatility-scaled exposure,
+which depend on both the score and the volatility estimate. [Boyd et al. (2017, §§2.2–2.4)][boyd]
+distinguish trades, transaction costs and holding costs in a portfolio accounting model. These
+are quantities that score changes alone cannot supply; costs cannot be subtracted from IC.
 
-## Research basis
+The normalised-change statistic above is alphatonic's descriptive convention. Its symmetric
+endpoint scale and lack of annualisation should be retained when comparing results. The cited
+trading papers motivate examining exposure changes; they do not validate this statistic as a
+cost estimator.
 
-- [Alphalens performance source](https://github.com/stefan-jansen/alphalens-reloaded/blob/main/src/alphalens/performance.py): rank persistence and quantile membership conventions.
-- [Lim, Zohren and Roberts, §VI](https://arxiv.org/html/1904.04912): changes in volatility-scaled exposure and cost sensitivity.
-- [Boyd et al., §§2.2–2.4](https://web.stanford.edu/~boyd/papers/pdf/cvx_portfolio.pdf): traded notional, turnover conventions and separate trading/holding costs.
-- [pysystemtrade turnover source](https://github.com/robcarver17/pysystemtrade/blob/master/syscore/pandas/strategy_functions.py): normalisation of position changes; its business-day annualisation is not used here.
+## References
+
+- Alphalens Reloaded. [Performance source][alphalens], `factor_rank_autocorrelation` and
+  `quantile_turnover`. Software conventions for endpoint ranks and bucket membership.
+- Lim, B., Zohren, S. and Roberts, S. (2019). [Enhancing Time Series Momentum Strategies Using
+  Deep Neural Networks][lim]. arXiv:1904.04912, revision 3 (2020), §VI.
+- Boyd, S., Busseti, E., Diamond, S., Kahn, R. N., Koh, K., Nystrup, P. and Speth, J. (2017).
+  [Multi-Period Trading via Convex Optimization][boyd]. *Foundations and Trends in Optimization*,
+  3(1), 1–76, §§2.2–2.4.
+
+[alphalens]: https://github.com/stefan-jansen/alphalens-reloaded/blob/main/src/alphalens/performance.py
+[lim]: https://arxiv.org/html/1904.04912v3
+[boyd]: https://web.stanford.edu/~boyd/papers/pdf/cvx_portfolio.pdf

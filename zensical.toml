@@ -37,6 +37,8 @@ nav = [
   ] },
   { "Explanation" = [
     { "Evaluation methodology" = "explanation/methodology.md" },
+    { "Dependence and uncertainty" = "explanation/inference.md" },
+    { "Trials, selection and the holdout" = "explanation/research-validity.md" },
     { "Scope and alternatives" = "explanation/scope.md" },
     { "Signal persistence" = "explanation/signal-persistence.md" },
     { "Report design" = "explanation/report-design.md" },

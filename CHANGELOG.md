@@ -6,6 +6,11 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Expand the scientific explanations with linked research, separate guides to dependence-aware
+  inference and research selection, and explicit limits of the current calibration evidence.
+
 ## [0.3.0] - 2026-11-01
 
 ### Fixed
