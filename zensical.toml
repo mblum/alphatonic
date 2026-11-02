@@ -23,7 +23,6 @@ nav = [
   { "How-to guides" = [
     { "Prepare factor and prices" = "how-to/prepare-inputs.md" },
     { "Configure an evaluation" = "how-to/configure-evaluation.md" },
-    { "Measure signal persistence" = "how-to/measure-persistence.md" },
     { "Read a tearsheet" = "how-to/read-a-tearsheet.md" },
     { "Save and reload results" = "how-to/save-and-reload.md" },
     { "Compare factors" = "how-to/compare-factors.md" },

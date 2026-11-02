@@ -8,6 +8,9 @@ All notable changes are listed here. The format follows
 
 ### Changed
 
+- Combine signal persistence guidance with evaluation configuration, reducing the how-to guides
+  from eight to seven while keeping the former persistence URL working.
+
 - Give each explanation page a distinct topic, with an overview and links to the dedicated
   explanations of targets, uncertainty, research validity and software architecture.
 

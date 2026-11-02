@@ -82,7 +82,7 @@ scaling](../explanation/targets-and-scaling.md) for interpretation.
 and sign/zero transitions. Check the contributing counts below each value. The expandable asset,
 timestamp and bucket tables show up to 200 rows each; use the result tables for all rows. These
 measures describe score changes, not trades or costs. See [measure signal
-persistence](measure-persistence.md).
+persistence](configure-evaluation.md#signal-persistence).
 
 ## Navigate and share
 

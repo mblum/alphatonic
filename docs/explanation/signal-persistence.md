@@ -7,7 +7,7 @@ diagnostics do not compute positions, traded notional, costs or P&L.
 ## Available diagnostics
 
 Every new evaluation computes `result.persistence`. For a runnable example and settings, see
-[measure signal persistence](../how-to/measure-persistence.md). The definitions below explain how
+[measure signal persistence](../how-to/configure-evaluation.md#signal-persistence). The definitions below explain how
 missing observations and changing asset sets affect the results.
 
 An eligible score has a finite score and a price **at its own timestamp**. Each comparison uses
