@@ -1,7 +1,7 @@
 [project]
 name = "alphatonic"
 version = "0.3.0"
-description = "Evaluate predictive signals with cross-sectional and time-series information coefficients, dependence-aware uncertainty, and offline tearsheets."
+description = "alphatonic measures how well trading signals predict future returns"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"

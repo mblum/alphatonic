@@ -1,7 +1,7 @@
 # alphatonic docs
 
-alphatonic measures how well trading signals predict future returns, using scores and prices as
-pandas tables. It produces information coefficients, uncertainty estimates and offline HTML reports.
+alphatonic measures how well trading signals predict future returns. Give it signal scores and
+prices in pandas DataFrames to produce information coefficients, uncertainty estimates and offline HTML reports.
 
 ## Getting started
 

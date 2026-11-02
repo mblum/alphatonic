@@ -8,6 +8,8 @@ All notable changes are listed here. The format follows
 
 ### Changed
 
+- Clarify how to provide signal scores and prices on the documentation homepage.
+
 - Combine signal persistence guidance with evaluation configuration, reducing the how-to guides
   from eight to seven while keeping the former persistence URL working.
 

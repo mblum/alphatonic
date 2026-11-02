@@ -2,7 +2,7 @@
 
 [project]
 site_name = "alphatonic"
-site_description = "Test trading signals with information coefficients, uncertainty estimates and offline reports."
+site_description = "alphatonic measures how well trading signals predict future returns"
 repo_url = "https://github.com/mblum/alphatonic"
 repo_name = "mblum/alphatonic"
 edit_uri = "edit/master/docs/"

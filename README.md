@@ -3,8 +3,8 @@
 [![CI](https://github.com/mblum/alphatonic/actions/workflows/ci.yml/badge.svg)](https://github.com/mblum/alphatonic/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mblum/alphatonic/blob/master/LICENSE)
 
-alphatonic is a Python library for testing trading signals. Give alphatonic your scores 
-and prices, and it measures how well the scores predict future returns. 
+alphatonic measures how well trading signals predict future returns. Give it signal scores and
+prices in pandas DataFrames to produce information coefficients, uncertainty estimates and offline HTML reports.
 
 With alphatonic you can:
 
