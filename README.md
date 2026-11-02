@@ -19,9 +19,6 @@ Start with the
 [tutorial](https://mblum.github.io/alphatonic/tutorials/first-evaluation/),
 or browse the [docs](https://mblum.github.io/alphatonic/).
 
-alphatonic evaluates predictive association; it does not build factors or simulate portfolios,
-costs or P&L. See [scope and alternatives](https://mblum.github.io/alphatonic/explanation/scope/).
-
 ## Try it
 
 Python 3.11 or newer. Install from [PyPI](https://pypi.org/project/alphatonic/):

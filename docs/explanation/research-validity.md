@@ -118,7 +118,7 @@ effects unresolved. Neither threshold crossing establishes a profitable strategy
 Read the IC, its interval, sample coverage and temporal diagnostics together. Record the target,
 universe, horizon, selection history and holdout uses alongside them. An association that survives
 those checks still needs portfolio construction and execution assumptions to assess economic
-value; [scope and alternatives](scope.md) explains that boundary.
+value; [the documentation home page](../index.md#what-alphatonic-does) explains that boundary.
 
 ## References
 

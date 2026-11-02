@@ -142,7 +142,7 @@ changes the interpretation of an evaluation, including trial counts and chronolo
 <span id="interpretation-and-limitations"></span>
 [Dependence and uncertainty](inference.md#assumptions-and-failure-modes) covers inferential
 assumptions; [research validity](research-validity.md#missingness-and-the-research-population)
-covers selection through missing data. [Scope and alternatives](scope.md) explains what an IC
+covers selection through missing data. [The documentation home page](../index.md#what-alphatonic-does) explains what an IC
 can establish about an investment strategy.
 
 <span id="signal-persistence"></span>

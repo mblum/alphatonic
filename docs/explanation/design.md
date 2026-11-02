@@ -2,7 +2,7 @@
 
 Alphatonic separates numerical evaluation, saved results and presentation. This page explains
 how its data model and execution choices support reproducible, inspectable results. The
-[scope page](scope.md) defines the product boundary; [evaluation methodology](methodology.md)
+[home page](../index.md#what-alphatonic-does) defines the product boundary; [evaluation methodology](methodology.md)
 defines the statistical samples.
 
 ## Tables as the boundary between computation and presentation

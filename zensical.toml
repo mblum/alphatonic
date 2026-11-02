@@ -35,8 +35,6 @@ nav = [
     { "Results and metrics" = "reference/results.md" },
   ] },
   { "Explanation" = [
-    { "Overview" = "explanation/index.md" },
-    { "Scope and alternatives" = "explanation/scope.md" },
     { "Evaluation methodology" = "explanation/methodology.md" },
     { "Targets and scaling" = "explanation/targets-and-scaling.md" },
     { "Uncertainty" = "explanation/inference.md" },

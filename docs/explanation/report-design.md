@@ -22,7 +22,7 @@ not a universal KPI standard.
 
 Temporal stability remains a detailed diagnostic; it could join the overview once its aggregation
 across assets and time is clearly defined. Portfolio performance measures fall outside the
-[scope of the evaluator](scope.md).
+[scope of the evaluator](../index.md#what-alphatonic-does).
 
 The report omits p-values. A study board shows them: the cross-sectional, time-series and cosine
 groups each give a p-value beside its adjustment for the recorded trial count. The underlying

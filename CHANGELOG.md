@@ -8,13 +8,15 @@ All notable changes are listed here. The format follows
 
 ### Changed
 
+- Explain the scope of signal evaluation and compare alternative libraries on the documentation homepage.
+
 - Clarify how to provide signal scores and prices on the documentation homepage.
 
 - Combine signal persistence guidance with evaluation configuration, reducing the how-to guides
   from eight to seven while keeping the former persistence URL working.
 
-- Give each explanation page a distinct topic, with an overview and links to the dedicated
-  explanations of targets, uncertainty, research validity and software architecture.
+- Give each explanation page a distinct topic, with dedicated explanations of targets,
+  uncertainty, research validity and software architecture.
 
 - Expand the scientific explanations with linked research, separate guides to dependence-aware
   inference and research selection, and explicit limits of the current calibration evidence.

@@ -128,4 +128,4 @@ JavaScript that draws the charts. [Read a tearsheet](../how-to/read-a-tearsheet.
 
 - Use your own data: [prepare factor and prices](../how-to/prepare-inputs.md).
 - Keep the numbers: [save and reload results](../how-to/save-and-reload.md).
-- Understand the evaluation: [explanation overview](../explanation/index.md).
+- Understand the evaluation: [evaluation methodology](../explanation/methodology.md).
