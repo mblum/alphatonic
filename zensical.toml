@@ -1,7 +1,7 @@
 # The documentation site, built with Zensical: `uv run --group docs zensical serve`.
 
 [project]
-site_name = "alphatonic docs"
+site_name = "alphatonic"
 site_description = "Test trading signals with information coefficients, uncertainty estimates and offline reports."
 repo_url = "https://github.com/mblum/alphatonic"
 repo_name = "mblum/alphatonic"
@@ -40,8 +40,8 @@ nav = [
     { "Scope and alternatives" = "explanation/scope.md" },
     { "Evaluation methodology" = "explanation/methodology.md" },
     { "Targets and scaling" = "explanation/targets-and-scaling.md" },
-    { "Dependence and uncertainty" = "explanation/inference.md" },
-    { "Trials, selection and the holdout" = "explanation/research-validity.md" },
+    { "Uncertainty" = "explanation/inference.md" },
+    { "Trials and holdouts" = "explanation/research-validity.md" },
     { "Signal persistence" = "explanation/signal-persistence.md" },
     { "Report design" = "explanation/report-design.md" },
     { "Software architecture" = "explanation/design.md" },
