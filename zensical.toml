@@ -1,7 +1,7 @@
 # The documentation site, built with Zensical: `uv run --group docs zensical serve`.
 
 [project]
-site_name = "alphatonic docs"
+site_name = "alphatonic"
 site_description = "Test trading signals with information coefficients, uncertainty estimates and offline reports."
 repo_url = "https://github.com/mblum/alphatonic"
 repo_name = "mblum/alphatonic"
@@ -23,7 +23,6 @@ nav = [
   { "How-to guides" = [
     { "Prepare factor and prices" = "how-to/prepare-inputs.md" },
     { "Configure an evaluation" = "how-to/configure-evaluation.md" },
-    { "Measure signal persistence" = "how-to/measure-persistence.md" },
     { "Read a tearsheet" = "how-to/read-a-tearsheet.md" },
     { "Save and reload results" = "how-to/save-and-reload.md" },
     { "Compare factors" = "how-to/compare-factors.md" },
@@ -36,12 +35,15 @@ nav = [
     { "Results and metrics" = "reference/results.md" },
   ] },
   { "Explanation" = [
-    { "Evaluation methodology" = "explanation/methodology.md" },
+    { "Overview" = "explanation/index.md" },
     { "Scope and alternatives" = "explanation/scope.md" },
+    { "Evaluation methodology" = "explanation/methodology.md" },
+    { "Targets and scaling" = "explanation/targets-and-scaling.md" },
+    { "Uncertainty" = "explanation/inference.md" },
+    { "Trials and holdouts" = "explanation/research-validity.md" },
     { "Signal persistence" = "explanation/signal-persistence.md" },
     { "Report design" = "explanation/report-design.md" },
-    { "Design decisions" = "explanation/design.md" },
-    { "Targets and scaling" = "explanation/targets-and-scaling.md" },
+    { "Software architecture" = "explanation/design.md" },
   ] },
 ]
 

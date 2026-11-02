@@ -7,7 +7,7 @@ Missing statistics are `NaN` in tables, blank in CSV files and omitted from `met
 never replaced by zero. Summary and time-series tables have a `method` column: `spearman`,
 `pearson`, or (time series only) `cosine`. The cross-sectional `periods` table stores `spearman` and
 `pearson` as separate columns. Correlations are taken against each analysis's target: the forward
-return, or the vol-scaled forward return (see [methodology](../explanation/methodology.md#targets)).
+return, or the vol-scaled forward return (see [targets and scaling](../explanation/targets-and-scaling.md#volatility-scaled-targets)).
 
 ## In-memory labels
 

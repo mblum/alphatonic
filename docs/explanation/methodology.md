@@ -1,14 +1,40 @@
 # Evaluation methodology
 
-This page explains how alphatonic measures predictive association and why its uncertainty estimates
-account for dependence. For table columns, see [results and metrics](../reference/results.md). The
+This page explains which observations enter an IC and how alphatonic aggregates them across
+assets and time. For table columns, see [results and metrics](../reference/results.md). The
 defaults named here are those of `EvaluationConfig` and `TimeSeriesOptions`.
+
+## What an IC estimates
+
+An information coefficient (IC) measures association between scores and subsequent targets. The
+axis of the calculation determines the question:
+
+| Analysis | Observations in one correlation | Summary weights | Question |
+| --- | --- | --- | --- |
+| Cross-sectional | Assets at one timestamp | Equal weight per valid timestamp | Do higher-scored assets subsequently have higher targets? |
+| Time-series | Bars for one asset | Equal weight per eligible asset | Does an asset have higher targets when its own score is higher? |
+
+These summaries estimate different quantities. A signal can rank assets well without timing any
+one asset, or time a common market move without distinguishing assets. Pooling all asset-bar pairs
+would mix between-asset differences with within-asset variation; alphatonic does not use that
+pooled correlation. Neither IC establishes causality or a tradeable return.
+
+[Spearman (1904)][spearman] introduced rank association; alphatonic computes it as Pearson
+correlation of average ranks on the surviving pairs. [Alphalens][alphalens] provides the related
+cross-sectional factor-analysis convention. The exact sampling and missingness rules below are
+alphatonic's, and need not match another package's defaults.
 
 ## Bars and the evaluation window
 
 The rows of the price table are the **bars**. A horizon of `h` is `h` rows. The evaluation window is
 `[start, end)` in UTC: scores and their return labels must lie inside it. Prices before `start` may
 be used to estimate volatility; prices at or after `end` never enter a label.
+
+Counting rows keeps the calculation free of market-specific calendars: business-day tables,
+24/7 hourly grids and irregular rebalance dates follow the same rule. A missing *row* therefore
+looks like a shorter gap than a missing *price*. The [input guide](../how-to/prepare-inputs.md#calendars)
+explains how to put missing bars on the grid. Calendar-month and rolling-window views use
+timestamps to select their samples.
 
 ## Forward-return labels
 
@@ -25,84 +51,44 @@ that jumps from `1e-300` to `1e300`) are missing.
 
 ## Targets
 
-Each analysis correlates the scores with a **target** built from the label:
-
-| `target` | Value | Default for |
-| --- | --- | --- |
-| `return` | The label. | Cross-section (`target`) |
-| `vol_scaled` | $\text{label} / (\hat\sigma_t \sqrt{h})$ | Time series (`time_series.target`) |
-
-$\hat\sigma_t$ is the exponentially weighted standard deviation of one-bar returns ending at or before row
-`t` (`vol_span`, default 60 bars), available once `vol_min_bars` (20) returns have been seen. It
-uses only prices known at the observation, including prices before `start`, so it adds no
-look-ahead; across a gap the last estimate carries forward, and an estimate of zero (constant
-prices) is missing. The $\sqrt{h}$ factor gives the target roughly unit variance at every horizon. A
-label without an estimate is missing, so when prices begin at `start` the first bars have no
-vol-scaled target. `Evaluation.volatility` holds `σ̂` on the evaluation grid.
-
-Scaling expresses returns in estimated risk units. It can reduce the influence of volatile periods,
-but does not eliminate outliers or errors in the volatility estimate. Choose this target when your
-score predicts returns relative to risk. [Targets, scaling and the cosine
-IC](targets-and-scaling.md) explains the defaults.
+Each analysis correlates scores with a target derived from the forward-return label. The
+[target definitions](targets-and-scaling.md#volatility-scaled-targets) explain raw and
+volatility-scaled returns, their defaults and the volatility warmup that can make targets missing.
 
 ## Cross-sectional evaluation
 
-At each timestamp and horizon, the finite score/return pairs produce:
+At each timestamp and horizon, the finite score/target pairs produce:
 
 - **Spearman IC**, the Pearson correlation of average ranks, ties included. This is the primary
   metric.
 - **Pearson IC**, the linear association, useful beside the rank IC.
 - Counts of available assets, scored assets and pairs, pair coverage, and a skip reason.
 
-A constant score or return, or fewer than `min_assets` pairs, gives an undefined IC and never zero.
+A constant score or target, or fewer than `min_assets` pairs, gives an undefined IC and never zero.
 Correlations whose magnitude is below 1e-12 are floating-point noise and are returned as exact zero;
 this matters for small cross-sections, where rank correlations take few discrete values and some are
 exactly zero. Pair coverage divides valid pairs by assets with a price at the timestamp. It does not
 measure coverage against a historical universe.
 
-### Summary statistics and inference
+### Summary statistics { #summary-statistics-and-inference }
 
 Timestamps are weighted equally. Reported: mean, sample standard deviation, positive fraction, and
 **ICIR = mean / standard deviation**, without annualisation.
 
-The standard error of the mean is Newey–West with Bartlett weights and an `n/(n−1)` correction,
-using at least `horizon − 1` lags (automatically `max(horizon − 1, floor(4·(n/100)^(2/9)))`). The
-reason is the overlap of labels: with `h`-bar labels and persistent scores, the ICs of adjacent
-timestamps are dependent, so a plain standard error is too small. In a simulation of 20 assets and
-300 bars with a factor that has no skill, 0.9 score persistence and a 5-bar horizon, a plain t-test
-rejects the null in about a third of runs at the 5% level, while the Newey–West estimate rejects in
-under a tenth (see `tests/test_inference.py`). Missing IC periods keep their positions in the grid,
-so a lag of `k` always means `k` bars, and the denominator counts valid observations. The
-z-statistic, two-sided p-value and 95% interval use the normal approximation. Inference is omitted
-when the series is constant or shorter than the lag count permits. The interval is for the mean, so
-it is not clipped to the correlation bounds.
+The [Newey–West explanation](inference.md#cross-sectional-mean-neweywest) covers uncertainty
+for this mean, including its test, interval, lag count and missing-period handling.
 
 ## Time-series evaluation
 
 For each asset and horizon, correlate scores with the time-series target **over time**, with three
 methods:
 
-- **Spearman**, ranks recomputed within each paired sample: monotone timing, robust to fat tails.
+- **Spearman**, ranks recomputed within each paired sample: monotone timing, with magnitudes
+  replaced by ranks.
 - **Pearson**, linear timing.
-- **Cosine**, the uncentred correlation $\sum s r \big/ \sqrt{\sum s^2 \sum r^2}$. It treats the score as a
-  position, so its zero point matters: a signal that is long on average earns the asset's drift.
-  It can resemble a per-bar Sharpe ratio in some settings, but it is not a portfolio Sharpe
-  ratio. See [the distinction](targets-and-scaling.md#cosine-is-not-a-sharpe-ratio).
-
-The cosine splits exactly into two parts, reported as `ic_timing` and `ic_static`:
-
-$$
-\text{cosine} = \underbrace{\frac{\operatorname{cov}(s, r)}{\operatorname{rms}(s)\,\operatorname{rms}(r)}}_{\text{timing}}
-+ \underbrace{\frac{\bar s\,\bar r}{\operatorname{rms}(s)\,\operatorname{rms}(r)}}_{\text{static}}
-$$
-
-with population moments over the valid pairs. The **timing** part is the covariance, Pearson's
-correlation rescaled by `sd/rms` on both sides. The **static** part is what the average position
-earns from the average target, which needs no prediction. A constant, non-zero score is a valid
-position for the cosine (all static); Spearman and Pearson call it `constant_signal`. The cosine is
-undefined when every score (`zero_signal`) or every target (`zero_returns`) is zero. The usual
-sample-size and coverage checks also apply. `long_fraction` is the share of valid pairs with a
-positive score.
+- **Cosine**, the uncentred association, including both timing and average exposure. Its
+  [definition and timing/static split](targets-and-scaling.md#timing-and-average-exposure)
+  explain why a constant non-zero score can still have a defined cosine.
 
 The universe summary reports the equal-asset mean IC (and, for the cosine, the mean timing and
 static parts), median, quartiles, positive fraction and number of eligible assets. It does not pool
@@ -129,95 +115,14 @@ confidence interval or significance test is claimed for ICIR.
 **Rolling IC** is descriptive. It is not used for any ratio or interval, and overlapping
 windows are strongly dependent.
 
-### Block bootstrap
+### Full-period uncertainty { #block-bootstrap }
 
-The full-period IC of each asset and the mean asset IC get 95% **percentile intervals from a
-circular block bootstrap** of paired score/return rows. One set of resampled time indices is shared
-by all assets and all methods, preserving cross-asset dependence, and ranks are recomputed in every
-draw. Interior gaps keep their positions. The set of eligible assets stays fixed while bootstrapping
-the mean. The default block length is `max(h, ceil(n^(1/3)))` for `n` bars with labels that end
-inside the window; this is a heuristic, so set `block_bars` to examine the sensitivity to long
-dependence. An interval needs at least five blocks of history and at least `max(100, ceil(0.8 ·
-bootstrap_samples))` valid draws. The generator is seeded with `(seed, horizon)`, so results are
-reproducible and independent between horizons.
+Full-period asset estimates and their equal-asset mean have
+[paired block-bootstrap intervals](inference.md#time-series-intervals-paired-circular-blocks).
 
-### Time-series tests
-
-Each eligible asset's full-period IC, and the mean IC over the eligible assets, comes with a
-t-statistic and a two-sided p-value (`hac_t` and `hac_p_value`).
-
-**The null hypothesis.** For Spearman and Pearson, the null is that the scores do not time the
-target: the IC is zero. For the cosine, it is that the mean of $s \cdot r$ is zero: held as a
-position, the score earns nothing in units of the target. This is a test of the per-bar Sharpe ratio
-of the payoff $s \cdot r$, with a standard error that allows for dependence (Lo 2002, "The
-Statistics of Sharpe Ratios", *Financial Analysts Journal* 58(4)). A score that is long on average
-on a rising asset rejects it, as it should, because the cosine credits the average position. The
-timing part of the cosine is zero exactly when Pearson's correlation is, so the Pearson test is its
-test. The static part has no test of its own: it is the mean score times the asset's realised drift,
-and a drift is hard to tell from zero.
-
-**The statistic.** Standardise an asset's scores $s_t$ and targets $r_t$ over its $n$ valid pairs as
-the method correlates them: subtract the mean and divide by the standard deviation (for Spearman, of
-the ranks), or, for the cosine, divide by the root mean square. With the standardised values $u_t$
-and $v_t$, the IC is the mean of $u_t v_t$, so bar $t$ contributes
-
-$$
-e_t = \frac{u_t v_t}{n}, \qquad \text{IC} = \sum_t e_t,
-$$
-
-and a bar without a pair contributes zero. Under the null the contributions have mean zero. They
-are the first-order terms of the IC at zero association; using them rather than the terms at the
-estimated IC keeps the test's size in short samples. The mean IC over $N$ eligible assets adds their
-contributions bar by bar, $d_t = \frac{1}{N} \sum_i e_{i,t}$, as Driscoll and Kraay (1998,
-"Consistent Covariance Matrix Estimation with Spatially Dependent Panel Data", *Review of Economics
-and Statistics* 80(4)) do for panels. Assets that share a signal and a market factor then count as
-the correlated draws they are, where a t-test across the assets' ICs would treat them as
-independent.
-
-**The standard error.** Overlapping labels and persistent scores make neighbouring contributions
-dependent. Their long-run variance is estimated with the equal-weighted cosine (EWC) estimator of
-Lazarus, Lewis, Stock and Watson (2018, "HAR Inference: Recommendations for Practice", *Journal of
-Business & Economic Statistics* 36(4)), over the $T$ bars whose label ends inside the window, with
-missing bars as zeros so that every bar keeps its place in time:
-
-$$
-\hat\Omega = \frac{1}{\nu} \sum_{j=1}^{\nu} \Lambda_j^2, \qquad
-\Lambda_j = \sqrt{\frac{2}{T}} \sum_{t=1}^{T} \cos\left(\frac{\pi j (t - 1/2)}{T}\right) e_t.
-$$
-
-The standard error is $\sqrt{T \hat\Omega}$ (`hac_se`), the t-statistic is the IC divided by it,
-and the p-value comes from Student's t with $\nu$ degrees of freedom (`hac_dof`). With $\nu$ fixed,
-that is the distribution of the ratio when the long-run variance is about flat over the frequencies
-of the cosines. The number of cosines is
-
-$$
-\nu = \min\left(\left\lfloor 0.4\, T^{2/3} \right\rfloor, \left\lfloor \frac{T}{2h} \right\rfloor\right).
-$$
-
-The first term is the rule Lazarus et al. recommend. The second is alphatonic's: the products of
-overlapping $h$-bar labels are dependent over about $h$ bars, so the estimator must average over
-slower movements than that, and the cap makes the shortest cosine span at least four horizons. With
-fewer than $2h$ bars there is no cosine, and the test is omitted. Because $\hat\Omega$ is computed
-under the null, `hac_se` is the IC's spread when there is no association: it is the test's
-denominator, not the basis of an interval.
-
-A Newey–West estimate with about $h$ lags, as the cross-section uses, gives these autocovariances
-too little weight, and Ang and Bekaert (2007, "Stock Return Predictability: Is It There?", *Review
-of Financial Studies* 20(3)) find that such standard errors over-reject in overlapping long-horizon
-regressions. In fixed-seed simulations of scores that are independent of returns
-(`tests/test_inference.py`):
-
-- With 20 assets, 300 bars, score persistence 0.9 and a 5-bar horizon, a correlation t-test that
-  treats every bar as independent rejects for about a third of the assets. The asset tests reject in
-  5–6% of cases, and the mean-IC tests in 6–8%.
-- With 20 assets, 400 bars, score persistence 0.98, half the variance of both scores and returns
-  shared by all assets, and a 20-bar horizon, a t-test of the mean IC across assets rejects in about
-  40% of samples, and the mean-IC tests in 6–8%. With Lazarus et al.'s rule alone, the asset tests
-  reject in 8–9% of cases; with the cap, in 5–7%.
-
-The test and the bootstrap interval are computed differently, the interval by resampling blocks of
-bars, so near the 5% level they can disagree. The p-value asks whether there is any association;
-the interval says how large it is.
+<span id="time-series-tests"></span>
+The separate [EWC tests](inference.md#time-series-tests-ewc) assess zero association. Monthly
+and rolling estimates remain descriptive; their dispersion is not uncertainty for the full-period IC.
 
 ## Quantile response
 
@@ -228,58 +133,27 @@ a bucket, and empty buckets stay missing. In the report, buckets are averaged wi
 timestamp or per asset. They are retrospective: they describe what happened in the sample and are
 not trading thresholds.
 
-## Trials and the holdout
+## Related explanations
 
-A `Study` counts the trials of each family: every evaluation it saved under that family's name,
-across parameters and both samples. With `n` trials, its board reports `min(1, n × p)` for each
-p-value `p` of a trial: the cross-sectional one as `adjusted_p`, and the time-series rank and cosine
-ones as `ts_adjusted_p` and `ts_cosine_adjusted_p`. This is Bonferroni's bound: if each of `n` tests rejects
-a true null with probability at most `α`, the chance that any of them does is at most `n × α`,
-whatever the dependence between them. Comparing `n × p` with `α` therefore keeps the chance of at
-least one false rejection in that fixed family at `α` or below, provided the individual p-values are
-valid. alphatonic uses approximate p-values and counts recorded trials; this is not a guarantee for
-an adaptive search or repeated inspection of the results. It is conservative when the trials are
-correlated, as parameter variants of one signal usually are. Harvey, Liu and Zhu (2016, "… and the
-Cross-Section of Expected Returns", *Review of Financial Studies* 29(1)) apply the same reasoning to
-published factors and ask a new factor for a t-statistic above 3.
+<span id="trials-and-the-holdout"></span>
+[Trials, selection and the holdout](research-validity.md) explains how the research process
+changes the interpretation of an evaluation, including trial counts and chronological boundaries.
 
-The count is a lower bound. Variants evaluated outside the study, or dropped before evaluation, are
-not in it, and nothing but the family name pools signals that test one idea. Each p-value is
-adjusted for the trials alone, not for the trial's other two p-values: picking trials by whichever
-of the three is smallest makes `3 × n` tests, and the same bound then asks for `3 × n × p` at or
-below `α`. ICs and their intervals are reported as estimated.
+<span id="interpretation-and-limitations"></span>
+[Dependence and uncertainty](inference.md#assumptions-and-failure-modes) covers inferential
+assumptions; [research validity](research-validity.md#missingness-and-the-research-population)
+covers selection through missing data. [Scope and alternatives](scope.md) explains what an IC
+can establish about an investment strategy.
 
-An in-sample evaluation ends at the holdout boundary, and labels end before the window does, so no
-in-sample label reads a holdout price. A holdout evaluation starts at the boundary; its volatility
-estimate for `vol_scaled` targets may read prices before it, which is information available at the
-time. Each holdout evaluation is counted per family, because a holdout tests a choice only while
-that choice was made without it.
+<span id="signal-persistence"></span>
+[Signal persistence](signal-persistence.md) measures score changes independently of return labels.
+Its sampling rules and diagnostic definitions are maintained on that page.
 
-## Interpretation and limitations
+## References
 
-These statistics measure predictive association. Close-to-close labels do not mean a trade could
-execute at the observed price, and returns exclude fees, slippage, financing and market impact.
-Inspect monthly stability and coverage, use samples long enough for the horizon, and reserve
-chronological holdout periods before tuning. If you fit models, purge training labels that overlap a
-validation period.
+- Spearman, C. (1904). [The Proof and Measurement of Association between Two Things][spearman].
+  *The American Journal of Psychology*, 15(1), 72–101. Basis of rank association.
+- Alphalens Reloaded. [Performance API][alphalens]. Software conventions for rank IC and buckets.
 
-HAC and the block bootstrap handle temporal dependence under their assumptions. They do **not**
-correct for trying many signals (a [study](../how-to/run-a-study.md) scales the p-values by the
-trials it holds), selection bias, structural breaks, look-ahead in the factor, or a universe that
-excludes delisted assets. The normal approximation for the cross-sectional interval is
-asymptotic and can be optimistic for short samples or a large number of lags relative to the sample.
-The time-series tests assume that the long-run variance is about flat over the frequencies of their
-cosines. They do not correct the IC itself: with a persistent score built from past returns, such as
-momentum, the score's changes are correlated with the returns it predicts, and the sample IC is
-biased in finite samples (Stambaugh 1999, "Predictive Regressions", *Journal of Financial
-Economics* 54(3)).
-
-## Signal persistence
-
-Signal persistence is descriptive and independent of forward-return horizons and label availability.
-It compares scores with prices available at their own endpoints on the original bar grid:
-cross-sectional rank persistence and bucket entry fractions, plus normalised score changes and
-sign/zero transitions per asset. Summaries weight valid timestamps equally in the cross-section and
-eligible assets equally in time series. No annualisation or inference is applied. See [signal
-persistence](signal-persistence.md) for formulas, units, eligibility rules, research sources and the
-distinction between score changes and trading costs.
+[spearman]: https://doi.org/10.2307/1412159
+[alphalens]: https://alphalens.ml4trading.io/api-reference.html#alphalens.performance.factor_information_coefficient
