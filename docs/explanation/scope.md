@@ -4,7 +4,8 @@ alphatonic evaluates predictive association between scores and future returns. I
 factors or simulate portfolios, costs or P&L. An information coefficient measures association;
 it does not establish that a trading strategy is profitable.
 
-See [evaluation methodology](methodology.md) for the statistical assumptions.
+This page defines the boundary between signal evaluation and the surrounding research and
+trading tools.
 
 ## From association to an investment result
 
@@ -25,10 +26,23 @@ incremental forecasting skill relative to a benchmark. Similarly, the time-serie
 include average exposure to a rising asset. The [timing/static split](targets-and-scaling.md)
 helps interpret that contribution, but is not a regression alpha or a causal decomposition.
 
-Choosing a signal on its measured IC is itself an estimation step. [Cawley and Talbot (2010)][cawley]
-show why performance evaluation must account for model selection as well as fitting. In this
-setting, rerunning inference on the chosen scores does not repeat the search that selected them.
-The [research-validity explanation](research-validity.md) describes the implications for studies.
+## Work outside the evaluator
+
+- **Factor construction.** Alphatonic evaluates supplied scores; it does not compute factors or
+  train forecasting models.
+- **Group analysis and neutralisation.** It does not break results down by sector or remove
+  known exposures. Neutralise scores before evaluating if that is the research question.
+- **Portfolio construction and P&L.** It does not compute weights, traded turnover, cumulative
+  returns, alpha/beta, fees, slippage, financing or market impact. Close-to-close labels do not
+  establish that a trade could execute at the observed price. A backtester must supply the
+  portfolio and execution assumptions.
+- **Research-process validation.** It cannot detect how scores were built or see searches run
+  outside a study. [Research validity](research-validity.md) explains these limits and the
+  protection a recorded trial history and holdout boundary can provide.
+
+[Signal persistence](signal-persistence.md#why-score-changes-are-not-turnover) describes score
+and bucket changes; it does not supply traded notional or a cost estimate. These scope boundaries
+are not a roadmap commitment.
 
 ## Other libraries
 
@@ -57,9 +71,6 @@ need not have the same weighting or normalisation as alphatonic's descriptive bu
 - Boyd, S., Busseti, E., Diamond, S., Kahn, R. N., Koh, K., Nystrup, P. and Speth, J. (2017).
   [Multi-Period Trading via Convex Optimization][boyd]. *Foundations and Trends in Optimization*,
   3(1), 1–76. Portfolio accounting and decisions conditional on forecasts.
-- Cawley, G. C. and Talbot, N. L. C. (2010). [On Over-fitting in Model Selection and Subsequent
-  Selection Bias in Performance Evaluation][cawley]. *Journal of Machine Learning Research*,
-  11, 2079–2107.
 - Alphalens Reloaded. [Performance API](https://alphalens.ml4trading.io/api-reference.html).
   Definitions of IC, mean returns, spreads and turnover for comparison.
 - Qlib. [`calc_ic` implementation](https://github.com/microsoft/qlib/blob/main/qlib/contrib/eva/alpha.py).
@@ -68,4 +79,3 @@ need not have the same weighting or normalisation as alphatonic's descriptive bu
   Factor analysis and backtesting interfaces.
 
 [boyd]: https://web.stanford.edu/~boyd/papers/pdf/cvx_portfolio.pdf
-[cawley]: https://jmlr.org/papers/v11/cawley10a.html

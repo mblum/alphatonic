@@ -78,7 +78,7 @@ the start.
   counts as positive.
 - **Wider intervals than an independence-based estimate** can result from positive temporal dependence.
   The Newey–West standard error accounts for this; see
-  [methodology](../explanation/methodology.md#summary-statistics-and-inference).
+  [dependence and uncertainty](../explanation/inference.md#cross-sectional-mean-neweywest).
 - **A suspiciously high IC** warrants a timing and data check. Run the truncation check in
   [prepare factor and prices](prepare-inputs.md#check-a-factor-for-look-ahead), and confirm
   `delay` matches when the score is really known.

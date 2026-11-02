@@ -36,14 +36,15 @@ nav = [
     { "Results and metrics" = "reference/results.md" },
   ] },
   { "Explanation" = [
+    { "Overview" = "explanation/index.md" },
+    { "Scope and alternatives" = "explanation/scope.md" },
     { "Evaluation methodology" = "explanation/methodology.md" },
+    { "Targets and scaling" = "explanation/targets-and-scaling.md" },
     { "Dependence and uncertainty" = "explanation/inference.md" },
     { "Trials, selection and the holdout" = "explanation/research-validity.md" },
-    { "Scope and alternatives" = "explanation/scope.md" },
     { "Signal persistence" = "explanation/signal-persistence.md" },
     { "Report design" = "explanation/report-design.md" },
-    { "Design decisions" = "explanation/design.md" },
-    { "Targets and scaling" = "explanation/targets-and-scaling.md" },
+    { "Software architecture" = "explanation/design.md" },
   ] },
 ]
 

@@ -52,7 +52,7 @@ is one horizon:
   returns across the 50 assets.
 - `ci95_lower` and `ci95_upper` come from a Newey–West standard error. Labels at longer
   horizons overlap, so adjacent ICs are dependent and a plain standard error would be too
-  small when dependence is positive; see [methodology](../explanation/methodology.md).
+  small when dependence is positive; see [dependence and uncertainty](../explanation/inference.md).
 - `ic_ir` is mean divided by standard deviation, **not** annualised.
 - `n_periods` counts timestamps with a valid IC; the last 21 rows have no 21-bar label.
 
@@ -108,7 +108,7 @@ print(
 Each asset gets its own full-period IC and a block-bootstrap interval. The universe summary averages
 the assets with equal weight. `hac_p_value` tests whether the mean IC is zero, with a standard error
 that allows for overlapping labels and for assets that move together; see
-[methodology](../explanation/methodology.md#time-series-tests).
+[dependence and uncertainty](../explanation/inference.md#time-series-tests-ewc).
 
 The default settings need 100 pairs per window. A month of daily bars has too few, so this example
 has no monthly or 30-day rolling IC. The full-period results can still be valid. The guide to
@@ -128,4 +128,4 @@ JavaScript that draws the charts. [Read a tearsheet](../how-to/read-a-tearsheet.
 
 - Use your own data: [prepare factor and prices](../how-to/prepare-inputs.md).
 - Keep the numbers: [save and reload results](../how-to/save-and-reload.md).
-- Understand every statistic: [evaluation methodology](../explanation/methodology.md).
+- Understand the evaluation: [explanation overview](../explanation/index.md).

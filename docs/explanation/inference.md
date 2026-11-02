@@ -16,6 +16,17 @@ Monthly and rolling ICs describe changes over time. Their dispersion is not a co
 for the full-period estimate. See [evaluation methodology](methodology.md) for sample eligibility
 and [results and metrics](../reference/results.md) for stored columns.
 
+## What an interval describes
+
+A 95% confidence interval describes the repeated-sampling coverage of a procedure under its
+assumptions. It does not assign a 95% probability to the realised interval or forecast the next
+period's IC. The time-series bootstrap interval describes the supplied asset set; its endpoints
+are not cross-asset quartiles and do not sample a larger population of possible assets.
+
+Intervals remain individual-trial intervals. The [study adjustment](research-validity.md#what-the-study-adjustment-means)
+applies to p-values and does not make intervals simultaneous or selection-adjusted. An unavailable
+test is not evidence for the null.
+
 ## Why overlapping labels matter
 
 Two consecutive five-bar returns share four one-bar price changes. Even if one-bar returns are
@@ -69,7 +80,8 @@ it is not the larger-bandwidth procedure with fixed-b critical values recommende
 
 The statistic is $z=\bar c/\widehat{\operatorname{se}}(\bar c)$. Its two-sided p-value and
 $\bar c\pm1.959964\,\widehat{\operatorname{se}}(\bar c)$ interval use the standard normal
-approximation. Inference needs $n>L+1$, non-negligible sample variation and a positive standard
+approximation. The interval estimates the mean IC and is not clipped to the correlation bounds.
+Inference needs $n>L+1$, non-negligible sample variation and a positive standard
 error. Those checks establish computability, not finite-sample accuracy. Short histories and
 large lag counts relative to history can still produce unreliable inference.
 

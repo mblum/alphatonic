@@ -97,6 +97,17 @@ procedures. An ordinary study exposes results directly; it is not a reusable-hol
 For a final confirmatory assessment, reserve data that have not guided the specification and
 record the decision rule before inspecting them.
 
+## Missingness and the research population
+
+The complete pairs in an evaluation need not represent the intended universe. If missing returns
+concentrate around suspensions or distress, the measured association describes a selected sample.
+A universe that excludes delisted assets can similarly favour survivors. Pair coverage measures
+availability against the supplied price grid, not against a historical universe.
+
+Keeping gaps on the grid preserves lag meaning; it does not correct selection caused by those
+gaps. Neither a dependence-aware standard error nor a trial-count adjustment repairs this
+population mismatch. Record the universe and data availability rules alongside the evaluation.
+
 ## Interpret evidence in context
 
 The [ASA statement (2016)][asa] distinguishes a p-value from both an effect size and the

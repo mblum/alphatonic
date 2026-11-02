@@ -21,7 +21,7 @@ Once your first tearsheet is open, these stops take you from the synthetic examp
 | Make sense of the charts and tables in the report | [Read a tearsheet](how-to/read-a-tearsheet.md) |
 | Tune windows and sample requirements | [Configure an evaluation](how-to/configure-evaluation.md) |
 | Find out why a statistic is `NaN` | [Troubleshooting](how-to/troubleshooting.md) |
-| Learn what the numbers mean and how much to trust them | [Evaluation methodology](explanation/methodology.md) |
+| Learn what the numbers mean and how much to trust them | [Explanation overview](explanation/index.md) |
 
 ## Get support
 

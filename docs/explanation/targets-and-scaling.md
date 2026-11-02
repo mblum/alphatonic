@@ -5,8 +5,9 @@ and would its average direction have benefited from the asset's return? Spearman
 address the first question. Cosine also includes the second.
 
 alphatonic reports all three for time series. It uses raw returns by default in the cross-section
-and volatility-scaled returns in time series. This page explains those choices. See [configure an
-evaluation](../how-to/configure-evaluation.md#choose-the-target) to change them.
+and volatility-scaled returns in time series. This page explains how the target and score scale
+determine what an association means. See [configure an evaluation](../how-to/configure-evaluation.md#choose-the-target)
+to change them.
 
 ## Timing and average exposure
 
@@ -37,12 +38,18 @@ together. The static part reflects the average score and average target. Both ar
 sum to cosine. They are not percentages of portfolio profit. This decomposition follows directly
 from the identity $E[sr]=\operatorname{cov}(s,r)+E[s]E[r]$, where $E$ here denotes the average over
 valid sample pairs; it does not require a model of returns.
+For varying scores and targets, the timing component is Pearson IC multiplied by `sd/rms`
+for scores and targets. Alphatonic
+reports the components as `ic_timing` and `ic_static`; `long_fraction` is the share of valid pairs
+with a positive score.
+
 The means describe realised sample exposure and targets, not a separately estimated risk premium.
 
 For example, a constant positive score on an asset with a positive average target has a positive
-cosine, all of it static. Spearman and Pearson are undefined because the score never varies. Cosine
-is undefined if all paired scores or all paired targets are zero. Sample-size and coverage
-requirements still apply.
+cosine, all of it static. Spearman and Pearson report `constant_signal` because the score never
+varies. Cosine is undefined if all paired scores (`zero_signal`) or all paired targets
+(`zero_returns`) are zero. The [sample-size and coverage requirements](methodology.md#time-series-evaluation)
+still apply.
 
 ### Cosine is not a Sharpe ratio
 
@@ -74,6 +81,13 @@ targets are centred, cosine equals Pearson.
 
 ## Volatility-scaled targets
 
+Each analysis builds its target from the [forward-return label](methodology.md#forward-return-labels):
+
+| `target` | Value | Default for |
+| --- | --- | --- |
+| `return` | The forward-return label | Cross-section (`target`) |
+| `vol_scaled` | The label divided by estimated horizon volatility | Time series (`time_series.target`) |
+
 A raw return of 2% means something different for a quiet asset than for a volatile one. A
 volatility-scaled target measures the return relative to estimated risk:
 
@@ -88,9 +102,11 @@ it does not transfer their strategy results to an IC evaluation. Alphatonic's sp
 so 60 hourly bars and 60 daily bars encode different histories.
 
 The volatility estimate is the exponentially weighted standard deviation of one-bar returns. By
-default its span is 60 bars and it needs at least 20 returns. It includes the return ending at the
-score's timestamp and can use prices before the evaluation window. It never uses future prices. A
-missing or zero estimate produces a missing target.
+default `vol_span` is 60 bars and `vol_min_bars` requires at least 20 returns. It includes the return
+ending at the score's timestamp and can use prices before the evaluation window. It never uses future prices. A
+missing or zero estimate produces a missing target. `Evaluation.volatility` holds the estimate
+on the evaluation grid. Scaling can reduce the influence of volatile periods, but does not
+eliminate outliers or errors in the volatility estimate.
 
 The square-root adjustment makes horizons more comparable when variance grows roughly in proportion
 to the horizon. It does not guarantee unit variance. Volatility clustering, serial correlation and
@@ -134,8 +150,8 @@ Spearman but can change Pearson. Either transformation can change time-series IC
 the scores differently at different timestamps.
 
 If scores represent positions, give zero a clear meaning and choose their units before interpreting
-cosine. Estimate any fitted scaling using information available at the time. Full-sample
-normalisation can introduce look-ahead.
+cosine. The [research-validity explanation](research-validity.md#what-the-chronological-boundary-protects)
+covers look-ahead from fitted scaling.
 
 ## Why keep Spearman and Pearson?
 
