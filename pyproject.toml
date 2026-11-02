@@ -1,6 +1,6 @@
 [project]
 name = "alphatonic"
-version = "0.3.0"
+version = "0.3.1"
 description = "alphatonic measures how well trading signals predict future returns"
 readme = "README.md"
 requires-python = ">=3.11"

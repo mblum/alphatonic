@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-02
+
 ### Changed
 
 - Clarify the signal scores and prices accepted by alphatonic, explain the scope of signal
