@@ -38,6 +38,25 @@ Here the graphic is the rank IC with its 95% interval on a single axis, the same
 large but imprecise estimate then looks different from a small, precise one, and an interval that
 crosses zero is seen before any number is read.
 
+A study grows to a hundred trials and more, and the list is built to stay readable at that size.
+Finding a row and comparing rows are the two tasks a table serves first ([Nielsen Norman Group,
+data tables](https://www.nngroup.com/articles/data-tables/)), and both need many rows on a screen
+and headings that stay in view. So a row is two lines whatever the trial holds, the table opens on
+nine columns that fit a laptop without scrolling sideways, and the headings stay under the bar
+while the rows scroll. What a row leaves out is one click away and never lost: the other columns
+of each analysis in its view, and everything else about a trial in the row that opens beneath it.
+This is [progressive disclosure](https://www.nngroup.com/articles/progressive-disclosure/): show
+what most decisions need, and defer the rest. The costs are a click for the raw p-value or the
+t-statistic, and a line of parameters that is cut. The line therefore begins with the parameters
+that differ between the trials of the signal, which are the ones a comparison needs.
+
+The overview keeps the trial count and each `p × trials` beside its estimate, so the default view
+cannot be read without the number of alternatives tried. A trial that was not evaluated at the
+chosen horizon is counted above the table and left out, because a row of dashes says nothing at
+that horizon; it still counts in its family, and one link lists it. The horizon becomes a menu
+beyond six choices, since a segmented control that wraps is no longer read at a glance, and the
+menu gives the number of trials at each horizon so that an empty one is not chosen blindly.
+
 Two choices go against what a leaderboard usually does. The tile for the highest rank IC always
 shows its adjusted p-value, because the best of many trials is picked by being the best. And rows
 are ranked only when the list is sorted by a statistic, so the newest-first order is never mistaken

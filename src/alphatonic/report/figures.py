@@ -254,10 +254,11 @@ def coverage_figures(periods: pd.DataFrame, bar: pd.Timedelta | None) -> dict[st
 def quantile_figure(
     frame: pd.DataFrame, *, unit: str, quantiles: int, vol_scaled: bool = False
 ) -> Spec:
-    """Specify the mean target of each score bucket, one line per horizon.
+    """Specify the mean target of each score bucket, one panel per horizon.
 
     Returns are drawn in basis points; vol-scaled returns in multiples of the volatility of a
-    return over the horizon.
+    return over the horizon. A mean return grows with the horizon, so each horizon has its own
+    panel and its own y scale: on a shared scale the longest horizon would flatten the others.
     """
     scale, tip, axis, suffix = (
         (1, ".3f", "Mean vol-scaled return (σ)", " σ")
@@ -265,8 +266,10 @@ def quantile_figure(
         else (10000, ".2f", "Mean forward return (bps)", " bps")
     )
     buckets = list(range(1, quantiles + 1))
-    series: list[Spec] = []
-    for i, (horizon, group) in enumerate(frame.groupby("horizon")):
+    groups = list(frame.groupby("horizon"))
+    columns = min(len(groups), 3)
+    panels: list[Spec] = []
+    for horizon, group in groups:
         # Each asset (TS) or timestamp (CS) contributes equally within each occupied bin.
         summary = (
             group.groupby("quantile")
@@ -277,15 +280,27 @@ def quantile_figure(
             )
             .reindex(buckets)
         )
-        series.append(
+        name = bar_count(cast(int, horizon))
+        detail = [
+            {"name": "Pairs", "values": counts(summary.n_pairs.fillna(0)), "format": "d"},
+            {"name": unit, "values": counts(summary.n_units.fillna(0)), "format": "d"},
+        ]
+        panels.append(
             {
-                "name": bar_count(cast(int, horizon)),
-                "color": i + 1,
-                "markers": True,
-                "y": values(summary.mean_return * scale),
-                "columns": [
-                    {"name": "Pairs", "values": counts(summary.n_pairs.fillna(0)), "format": "d"},
-                    {"name": unit, "values": counts(summary.n_units.fillna(0)), "format": "d"},
+                "title": name,
+                "height": 340 if columns == 1 else 240,
+                "x": buckets,
+                "reference": 0,
+                "empty": None,
+                "y": {"label": axis, "tip": tip, "unit": suffix},
+                "series": [
+                    {
+                        "name": name,
+                        "color": BLUE,
+                        "markers": True,
+                        "y": values(summary.mean_return * scale),
+                        "columns": detail,
+                    }
                 ],
             }
         )
@@ -298,19 +313,7 @@ def quantile_figure(
             "ticks": buckets,
             "tip": "Quantile",
         },
-        "columns": 1,
-        "legend": [
-            {"name": item["name"], "color": item["color"], "shape": "dot"} for item in series
-        ],
-        "panels": [
-            {
-                "title": None,
-                "height": 340,
-                "x": buckets,
-                "reference": 0,
-                "empty": None,
-                "y": {"label": axis, "tip": tip, "unit": suffix},
-                "series": series,
-            }
-        ],
+        "columns": columns,
+        "legend": [],
+        "panels": panels,
     }

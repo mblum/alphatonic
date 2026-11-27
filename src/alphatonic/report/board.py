@@ -1,9 +1,9 @@
 """The trials of a study as one HTML page, sorted by any column.
 
 The page renders [`Study.to_dict`][alphatonic.Study.to_dict] at one horizon, so it shows what
-the JSON document holds. Sorting, the horizon, a filter by signal and the column groups shown are
-query parameters, so a view is a link that can be shared. Links to a trial's files are relative to
-the study's directory, which is how the server lays them out.
+the JSON document holds. Sorting, the horizon, a filter by signal, a search and the columns shown
+are query parameters, so a view is a link that can be shared. Links to a trial's files are relative
+to the study's directory, which is how the server lays them out.
 """
 
 from __future__ import annotations
@@ -79,6 +79,34 @@ PLOTS: dict[str, tuple[str, str]] = {
 INTERVALS: dict[str, str] = {"cs": "95% interval", "ts": "95% bootstrap interval"}
 """What to call the interval of a plotted column, by the first two letters of its key."""
 
+OVERVIEW: tuple[str, ...] = (
+    "cs_ic",
+    "cs_z",
+    "adjusted_p",
+    "ts_ic",
+    "ts_adjusted_p",
+    "ts_cosine",
+    "ts_cosine_adjusted_p",
+    "trials",
+)
+"""The columns of the default view, beside the signal: the estimate of each analysis with its
+p-value times the family's trial count, and that count. The rest of a group is one view away."""
+
+VIEWS: tuple[tuple[str, str | None], ...] = (
+    ("Overview", None),
+    ("Cross-sectional", "cs,testing"),
+    ("Time-series", "testing,ts"),
+    ("Cosine", "cosine,testing"),
+    ("Data", "data"),
+    ("All", "cosine,cs,data,testing,ts"),
+)
+"""The views the page offers, each with the value of `show` that asks for it: names of `GROUPS`
+in alphabetical order, or `None` for the columns of `OVERVIEW`."""
+
+SEGMENTS = 6
+"""A study with at most this many horizons offers them as buttons; with more, as a menu, because
+a row of buttons that wraps can no longer be read at a glance."""
+
 SIGNIFICANT = 0.05
 """Adjusted p-values at or below this are set in bold, to be found, not to be believed: the
 trial count is a lower bound on the alternatives tried."""
@@ -109,7 +137,10 @@ def render_board(
     sort: str | None = None,
     order: str | None = None,
     signal: str | None = None,
+    bar: str | None = None,
     show: str | Sequence[str] | None = None,
+    search: str | None = None,
+    rows: str | None = None,
 ) -> str:
     """Render the list of the study's trials as a standalone HTML page.
 
@@ -119,11 +150,18 @@ def render_board(
         sort: Board column to sort by; default, or an unknown one: `created_at`.
         order: `asc` or `desc`; default: the column's own direction.
         signal: Show only the trials of this signal.
+        bar: Show only the trials whose bars have this length, named as the page names it, such
+            as `1h`, `1d` or `business day`.
         show: The column groups to show, as names of `GROUPS` (`cs`, `testing`, `ts`, `cosine`,
             `data`), in one string separated by commas or in several. Names that are not
-            groups are ignored, and an empty string shows only the trial. Default: every group. A
+            groups are ignored, and an empty string shows only the trial. Default: the overview,
+            which is each analysis's estimate with its `p × trials`, and the trial count. A
             column that the page is sorted by, other than `created_at`, is shown whatever the
             groups.
+        search: Show only the trials whose signal, parameters, note, context or identifier
+            contain every word of this text, whatever the case.
+        rows: `all` also lists the trials that were not evaluated at the horizon, which have no
+            statistic to show. Default: they are counted above the table and left out.
 
     Returns:
         The HTML.
@@ -153,26 +191,22 @@ def render_board(
         + list(COLUMNS[position:])
     ]
     chosen_groups = _chosen(show)
-    on = set(GROUPS.values()) if chosen_groups is None else chosen_groups
+    on = set() if chosen_groups is None else chosen_groups
     # The default order, newest first, needs no column to explain it.
     forced = None if data["sort"] == "created_at" else data["sort"]
-    sorted_group = next((c["group"] for c in columns if c["key"] == forced), None)
     visible = [
         column
         for column in columns
-        if column["group"] == "Trial" or GROUPS[column["group"]] in on or column["key"] == forced
+        if column["group"] == "Trial"
+        or (column["key"] in OVERVIEW if chosen_groups is None else GROUPS[column["group"]] in on)
+        or column["key"] == forced
     ]
-    toggles = [
-        {
-            "name": name,
-            "label": label,
-            "on": name in on,
-            "forced": label == sorted_group and name not in on,
-        }
-        for label, name in GROUPS.items()
-    ]
-    # Every group is shown by default, which a link leaves unsaid.
+    # The overview is the default, which a link leaves unsaid.
     shown_groups = None if chosen_groups is None else ",".join(sorted(chosen_groups))
+    views = [
+        {"label": label, "show": groups, "current": groups == shown_groups}
+        for label, groups in VIEWS
+    ]
     groups: list[dict[str, Any]] = []
     for column in visible:
         if groups and groups[-1]["label"] == column["group"]:
@@ -181,7 +215,40 @@ def render_board(
             groups.append({"label": column["group"], "span": 1})
     signals = sorted({trial["signal"] for trial in data["trials"]})
     shown = signal if signal in signals else None
-    rows = [trial for trial in data["trials"] if not signal or trial["signal"] == signal]
+    # Every trial is given the name of its bar length, in which the page filters and labels.
+    trials = [
+        {
+            **trial,
+            "bar": "business day"
+            if trial["bar_seconds"] is None
+            and _business_day(study.directory / trial["id"] / "tables")
+            else _bar(trial["bar_seconds"]),
+        }
+        for trial in data["trials"]
+    ]
+    lengths = {trial["bar"]: trial["bar_seconds"] for trial in trials}
+    # Shortest first; a length that is not a number of seconds comes last.
+    bars = sorted(lengths, key=lambda name: (lengths[name] is None, lengths[name] or 0.0, name))
+    shown_bar = bar if bar in bars else None
+    terms = (search or "").lower().split()
+    matched = [
+        trial
+        for trial in trials
+        if (not signal or trial["signal"] == signal)
+        and (not bar or trial["bar"] == bar)
+        and _matches(trial, terms)
+    ]
+    # A trial without the horizon has no statistic here: it is counted, and listed on request.
+    listed = [trial for trial in matched if data["horizon"] in trial["horizons"]]
+    unevaluated = len(matched) - len(listed)
+    everything = rows == "all"
+    if everything:
+        listed = matched
+    horizons = [
+        {"bars": h, "trials": sum(h in trial["horizons"] for trial in matched)}
+        for h in data["horizons"]
+    ]
+    varying = _varying(data["trials"])
     families = data["families"]
 
     def link(**changes: Any) -> str:
@@ -190,8 +257,11 @@ def render_board(
             "sort": data["sort"],
             "order": "desc" if data["descending"] else "asc",
             "horizon": data["horizon"],
-            "signal": shown or "",
+            "signal": shown,
+            "bar": shown_bar,
+            "q": " ".join(terms) or None,
             "show": shown_groups,
+            "rows": "all" if everything else None,
             **changes,
         }
         return "?" + urlencode({key: value for key, value in query.items() if value is not None})
@@ -202,19 +272,35 @@ def render_board(
         for key, (prefix, _) in PLOTS.items()
         if (extent := _extent(data["trials"], key, prefix)) is not None
     }
+    # One graphic carries a row's headline number; a view of whole groups draws each of its own.
+    keys_shown = {column["key"] for column in visible}
+    drawn = [key for key in PLOTS if key in extents and key in keys_shown]
+    if chosen_groups is None:
+        drawn = drawn[:1]
     larger = RANKED.get(data["sort"])
-    ranks = _ranks([row[data["sort"]] for row in rows], larger) if larger is not None else None
-    tiles = _tiles(rows, data)
-    rows = [
+    ranks = _ranks([row[data["sort"]] for row in listed], larger) if larger is not None else None
+    tiles = _tiles(listed, data)
+    listed = [
         {
             **trial,
-            "business_day": trial["bar_seconds"] is None
-            and _business_day(study.directory / trial["id"] / "tables"),
+            "evaluated": data["horizon"] in trial["horizons"],
+            "varied": {
+                name: value
+                for name, value in trial["parameters"].items()
+                if name in varying[trial["signal"]]
+            },
+            "fixed": {
+                name: value
+                for name, value in trial["parameters"].items()
+                if name not in varying[trial["signal"]]
+            },
             "plots": {key: _plot(trial, key, extents.get(key)) for key in PLOTS},
             "rank": None if ranks is None else ranks[i],
         }
-        for i, trial in enumerate(rows)
+        for i, trial in enumerate(listed)
     ]
+    # A horizon of 24 bars is a day of hourly bars and a month of daily ones: say which, if both.
+    mixed_bars = len({trial["bar"] for trial in listed}) > 1 and "bar" not in keys_shown
     ranked_by = None
     if larger is not None:
         column = next(column for column in columns if column["key"] == data["sort"])
@@ -229,16 +315,30 @@ def render_board(
         .render(
             title=study.name or study.directory.name,
             data=data,
-            rows=rows,
+            rows=listed,
             tiles=tiles,
             columns=visible,
             groups=groups,
-            toggles=toggles,
+            views=views,
+            shown_groups=shown_groups,
+            horizons=horizons,
+            segmented=len(horizons) <= SEGMENTS,
+            drawn=drawn,
             plotted=list(PLOTS),
-            testing_hidden="testing" not in on and bool({"cs", "ts", "cosine"} & on),
+            testing_hidden=chosen_groups is not None
+            and "testing" not in on
+            and bool({"cs", "ts", "cosine"} & on),
             signals=signals,
             signal=shown,
             asked_signal=signal,
+            lengths=bars,
+            bar=shown_bar,
+            asked_bar=bar,
+            search=" ".join(terms),
+            matched=len(matched),
+            unevaluated=unevaluated,
+            everything=everything,
+            mixed_bars=mixed_bars,
             link=link,
             extents={key: f"{extent:g}" for key, extent in extents.items()},
             intervals=INTERVALS,
@@ -247,7 +347,6 @@ def render_board(
             significant=SIGNIFICANT,
             number=_number,
             p_value=_p_value,
-            bar=_bar,
             when=_when,
         )
     )
@@ -284,6 +383,41 @@ def render_drawing(signal: str, title: str) -> str:
         The HTML.
     """
     return environment().get_template("drawing.html").render(signal=signal, title=title)
+
+
+def _matches(trial: dict[str, Any], terms: Sequence[str]) -> bool:
+    """Whether what a trial's row and its details say contains every term, in lower case."""
+    said = [
+        trial["id"],
+        trial["signal"],
+        trial["family"],
+        trial["note"] or "",
+        trial["sample"].replace("_", " "),
+        *(f"{name}={value}" for name, value in trial["parameters"].items()),
+        *(str(value) for value in trial["context"].values()),
+    ]
+    text = " ".join(said).lower()
+    return all(term in text for term in terms)
+
+
+def _varying(trials: list[dict[str, Any]]) -> dict[str, set[str]]:
+    """The parameters that tell the trials of a signal apart, by signal.
+
+    A parameter varies if two trials of the signal give it different values, or only some give it
+    at all. A signal with one trial has none. The page names these first in a row, where the
+    line is cut to fit.
+    """
+    parameters: dict[str, list[dict[str, Any]]] = {}
+    for trial in trials:
+        parameters.setdefault(trial["signal"], []).append(trial["parameters"])
+    return {
+        signal: {
+            name
+            for name in {name for given in sets for name in given}
+            if len({repr(given[name]) if name in given else None for given in sets}) > 1
+        }
+        for signal, sets in parameters.items()
+    }
 
 
 def _ranks(values: list[float | None], larger: bool) -> list[int | None]:
@@ -366,8 +500,12 @@ def _tiles(rows: list[dict[str, Any]], data: dict[str, Any]) -> list[dict[str, A
 
     def about(trial: dict[str, Any] | None) -> dict[str, Any]:
         if trial is None:
-            return {"name": None, "href": None}
-        return {"name": named(trial), "href": trial["files"]["tearsheet"]}
+            return {"name": None, "title": None, "href": None}
+        return {
+            "name": trial["signal"],
+            "title": named(trial),
+            "href": trial["files"]["tearsheet"],
+        }
 
     adjusted = [trial for trial in rows if trial["adjusted_p"] is not None]
     lowest = min(adjusted, key=lambda trial: trial["adjusted_p"], default=None)

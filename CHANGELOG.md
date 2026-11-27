@@ -6,6 +6,38 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The list of trials that `alphatonic serve` shows stays readable with a hundred trials and more.
+  A row takes two lines: the signal with its note, and its parameters, cut to the column and
+  starting with those that differ between the signal's trials. Clicking the line of parameters
+  opens the row with every parameter, the note, the data and the links to the tearsheet and the
+  record, which replaces the `Files` column. The headings stay in view while the rows scroll, as
+  long as the table fits the window.
+- The list opens on an overview instead of every column: each analysis's estimate with its
+  `p × trials`, and the family's trial count, with one interval chart per row. Buttons switch to
+  the cross-sectional, time-series, cosine or data columns, or to all of them, and replace the
+  checkboxes. A link without `show` now gives the overview; `?show=cs,ts,cosine,data,testing` gives
+  every column, as before.
+- Trials that were not evaluated at the chosen horizon are counted above the list and left out,
+  instead of each taking a row of dashes; `?rows=all` lists them. With more than six horizons the
+  horizon is chosen from a menu that gives the number of trials at each.
+- The summary tiles name the signal behind a figure and keep its parameters in the tooltip, so a
+  trial with many parameters no longer stretches the tiles.
+- The quantile returns charts of the tearsheet draw one panel per horizon, each with its own y
+  scale, instead of every horizon on one scale. With horizons far apart (1 bar and 480 bars, say)
+  the longest one flattened the others into a line along zero.
+
+### Added
+
+- A search field on the list of trials (`?q=`) keeps the trials whose signal, parameters, note,
+  context or identifier contain every word.
+- A menu on the list of trials (`?bar=`, such as `?bar=1h`) keeps the trials whose bars have one
+  length, when the study holds more than one. A horizon counts bars, so 24 of them are a day of
+  hourly bars and a month of daily ones.
+- A trial's row says its bar length when the trials listed have different ones, and marks a
+  holdout trial with a badge beside its name.
+
 ## [0.3.1] - 2026-11-02
 
 ### Changed
