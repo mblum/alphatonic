@@ -129,26 +129,56 @@ except HoldoutError as error:
 
 `alphatonic serve` shows the board as a web page. Four tiles lead it: the lowest cross-sectional
 `p × trials`, the highest cross-sectional rank IC with its `p × trials` beside it, the family with
-the most trials, and the number of looks at the holdout. Each row names the signal and its
-parameters and draws the cross-sectional rank IC, the time-series rank IC and the time-series cosine
-IC each as a dot with its 95% interval, on one axis per column shared by every row. The
-cross-sectional interval is the Newey–West normal interval; the time-series ones are
-block-bootstrap intervals of the mean over assets, and are drawn hollow and alone when the bootstrap
-was off. The columns follow in groups: the cross-sectional rank IC; the time-series
-rank IC; the cosine IC; the data; and the multiple-testing columns, the family's trial count and the sample, with repeated looks at the holdout flagged. Each IC is followed by its z- or t-statistic, its p-value and
-that p-value times the family's trial count (`p × trials`), and the cosine's group ends with its
-timing part.
+the most trials, and the number of looks at the holdout. Each tile names the signal behind its
+figure and links to that trial's tearsheet.
 
-Choose the groups with the checkboxes above the table, or with `show` in the address: `?show=ts`
-lists the signal and the time-series group, `?show=cs,testing` the cross-sectional and
-multiple-testing groups, and `?show=` the signal alone. The names are `cs`, `testing`, `ts`,
-`cosine` and `data`, and the link of a view keeps them. Hide the multiple-testing columns
-with care: the intervals do not account for the alternatives tried, and the page says so while the
-trial count is hidden. A column that the list is sorted by
-(other than `created_at`) stays visible. Sort it by any column, and when the column is a statistic the rows are numbered from its
-best value, with equal values sharing a rank. Switch the horizon with the buttons above the table,
-filter by signal, and open each trial's
-tearsheet from its name. It reads the records on every request, so a trial saved while it runs
+A row takes two lines. The first names the signal, which links to its tearsheet, followed by the
+trial's note. The second gives the parameters, starting with those that differ between the trials
+of that signal, so that the part of a long line that fits is the part that tells two trials apart.
+Both lines are cut to the column. Click the line of parameters to open the row: it then shows what
+the signal bets on, the whole note, every parameter, the data (sample, window, bar length, assets,
+horizons, your `context` and the identifier) and links to the tearsheet and the record. When the
+trials listed have bars of different lengths, each row says its own beside the name, because a
+horizon of 24 bars is a day of hourly bars and a month of daily ones. A holdout trial carries a
+badge, with the number of looks when its family has had more than one.
+
+The page opens on the overview: the cross-sectional rank IC drawn as a dot with its 95% interval on
+one axis shared by every row, its z-statistic and its p-value times the family's trial count
+(`p × trials`); the time-series rank IC and the cosine IC, each with its `p × trials`; and the
+family's trial count. A `p × trials` at or below 0.05 is bold, to be found, not to be believed. The
+buttons above the table switch to one group of columns at a time, or to all of them:
+
+| View | Columns | `show` |
+|---|---|---|
+| Overview | each estimate with its `p × trials`, and the trial count | (absent) |
+| Cross-sectional | rank IC with its interval, z, p, `p × trials`, trials, sample | `cs,testing` |
+| Time-series | rank IC with its interval, t, p, `p × trials`, trials, sample | `ts,testing` |
+| Cosine | cosine IC with its interval, t, p, `p × trials`, timing part, trials, sample | `cosine,testing` |
+| Data | window, bar length, assets, your `context`, creation time | `data` |
+| All | every column; the table then scrolls sideways | `cs,ts,cosine,data,testing` |
+
+The cross-sectional interval is the Newey–West normal interval; the time-series ones are
+block-bootstrap intervals of the mean over assets, and are drawn hollow and alone when the bootstrap
+was off. `show` in the address takes any combination of the group names `cs`, `ts`, `cosine`,
+`data` and `testing`: `?show=ts` lists the signal and the time-series group, and `?show=` the
+signal alone. Hide the multiple-testing columns with care: the intervals do not account for the
+alternatives tried, and the page says so while the trial count is hidden. A column that the list is
+sorted by (other than `created_at`) stays visible in every view.
+
+Sort by any column from its heading; when the column is a statistic the rows are numbered from its
+best value, with equal values sharing a rank. While the table fits the window, its headings stay in
+view as the rows scroll. Choose the horizon above the table: up to six horizons are buttons, and
+more are a menu that gives the number of trials evaluated at each. A trial that was not evaluated
+at the chosen horizon has no statistic there, so the page counts such trials above the table and
+leaves them out; the link beside the count (`rows=all` in the address) lists them too. Filter by
+signal with the menu, or type in the search field and press Enter (`q` in the address) to keep the
+trials whose signal, parameters, note, context or identifier contain every word. When the study
+holds trials with bars of different lengths, a second menu keeps those of one length (`bar` in the
+address, such as `?bar=1h`), and the horizon menu then offers only the horizons those trials have.
+A horizon counts bars, so filter by bar length before comparing trials at one horizon. The address
+of a view holds all of these choices, so it can be bookmarked or shared.
+
+It reads the records on every request, so a trial saved while it runs
 appears on the next reload. A tearsheet that was not stored is drawn from the trial's tables when
 you open it, which takes a few seconds; the page opens at once with a spinner and shows the
 tearsheet when it is ready, and the server keeps the last few pages it drew. Pass `--name`

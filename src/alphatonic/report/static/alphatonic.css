@@ -165,41 +165,99 @@ tbody tr:hover > * { background-color: var(--at-wash); }
 [role=tablist] button[aria-selected=true] { --pico-color: var(--pico-primary); --pico-border-color: var(--pico-primary); font-weight: 600; }
 [role=tablist] button:hover { --pico-color: var(--pico-color); --pico-background-color: var(--at-wash); }
 
-/* The list of trials: a toolbar, grouped headings and a signal column that stays in view. */
-.toolbar { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; align-items: center; margin: 0; }
+/* The list of trials. One row of controls, then a table whose rows are two lines tall: the signal
+   with its note, and its parameters cut to fit. Everything else about a trial is in a row below
+   it, which opens from the line of parameters. */
+.toolbar { display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: center; margin: 0; }
 .toolbar label { display: flex; align-items: center; gap: .5rem; margin: 0; font-size: .85rem; color: var(--pico-muted-color); }
 .toolbar select { width: auto; margin: 0; padding: .3rem 2.25rem .3rem .65rem; font-size: .85rem; }
+/* Pico rounds a search field into a pill; beside the menus it takes their height and corners. */
+.toolbar input[type=search] { --pico-border-radius: .25rem; width: 10rem; height: auto; margin: 0; padding-block: .3rem; padding-inline-end: .65rem; font-size: .85rem; }
+.toolbar .views { margin-left: auto; }
+.toolbar .views a { padding-inline: .55rem; }
+main > .toolbar { margin: 0 0 .5rem; }
+.status { margin: 0 0 .5rem; color: var(--pico-muted-color); font-size: .8rem; }
 details .toolbar { margin-bottom: .75rem; }
-main > .toolbar { margin: 0 0 .75rem; }
-.toolbar fieldset.groups { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; margin: 0; padding: 0; border: 0; }
-.toolbar fieldset.groups legend { float: left; margin: 0 .5rem 0 0; padding: 0; font-size: .85rem; color: var(--pico-muted-color); }
-.toolbar fieldset.groups input[type=checkbox] { margin: 0; }
 .loading { margin: 1rem 0; padding: .5rem 1rem; border-left: 3px solid var(--pico-primary); background: var(--pico-card-background-color); }
 .loading[aria-busy] { white-space: normal; }
 .loading.failed { border-left-color: var(--at-down); background: var(--at-warn-background); }
 .site-nav [role=button][hidden] { display: none; }
 .site-nav [role=button] { margin: 0; padding: .2rem .75rem; font-size: .85rem; }
 .board { border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); background: var(--pico-card-background-color); }
+.board table { border-collapse: separate; border-spacing: 0; }
+.board thead th { background: var(--pico-card-background-color); }
 .board thead a { color: inherit; text-decoration: none; }
 .board thead a:hover { color: var(--pico-primary); }
 .board thead th[aria-sort=ascending], .board thead th[aria-sort=descending] { color: var(--pico-color); }
-.board tr.groups th { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; border-bottom: 2px solid var(--pico-muted-border-color); }
-.board tbody th, .board thead tr:last-child th:first-child { position: sticky; left: 0; z-index: 1; background: var(--pico-card-background-color); }
-.board tbody th { font-weight: 600; max-width: 22rem; }
-.board .note { font-style: italic; }
-.badge { display: inline-block; padding: 0 .4rem; border-radius: 999px; font-size: .75rem; font-weight: 600; background: var(--at-warn-background); color: var(--at-down); }
+/* Each group's heading is ruled off above its own columns, with a gap to the next group. */
+.board tr.groups th { padding-bottom: 0; border-bottom: 0; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; }
+.board tr.groups th > span { display: block; padding-bottom: .3rem; border-bottom: 1px solid var(--pico-muted-border-color); }
+.board tr.groups th:first-child > span { border-bottom-color: transparent; }
+.board tbody th, .board thead th:first-child { position: sticky; left: 0; z-index: 1; background: var(--pico-card-background-color); }
+.board tbody tr:hover > th { background-color: var(--at-wash); }
+/* The headings stay under the bar while the rows scroll, once the script has found that the table
+   fits and the region no longer has to scroll sideways. */
+.board.fits { overflow: visible; }
+.board.fits thead { position: sticky; top: var(--at-nav-height); z-index: 2; }
+.board.fits tr.groups th:first-child { border-top-left-radius: var(--pico-border-radius); }
+.board.fits tr.groups th:last-child { border-top-right-radius: var(--pico-border-radius); }
+.board tr:last-child > td { border-bottom: 0; }
+.board tr.trial:nth-last-child(2):not(:has(details[open])) > * { border-bottom: 0; }
+.board .unevaluated > * { color: var(--pico-muted-color); }
+
+/* A trial's name and note on one line, its parameters on the next. The column takes the width the
+   statistics leave and cuts both lines to it: the lines ask for no width of their own (a width of
+   zero that grows), so a long note cannot push a statistic out of view. */
+.board tbody th, .board thead th:first-child { width: 100%; }
+.row-head { display: flex; align-items: baseline; gap: .6rem; min-width: 15rem; }
+.who { flex: 1 1 0; width: 0; min-width: 0; }
+.name, .who summary { display: flex; align-items: baseline; gap: .5rem; min-width: 0; white-space: nowrap; }
+.name > a, .name > span:first-child { flex: none; font-weight: 600; }
+.name .note, .parameters { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.note { color: var(--pico-muted-color); font-size: .75rem; font-weight: 400; }
+.tag { flex: none; padding: 0 .35rem; border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); color: var(--pico-muted-color); font-size: .7rem; font-weight: 400; }
+.rank { flex: none; min-width: 2rem; color: var(--pico-muted-color); font-size: .8rem; font-weight: 400; text-align: right; }
+.who details { margin: .1rem 0 0; border: 0; border-radius: 0; background: none; }
+.who summary { gap: .25rem; align-items: center; padding: 0; color: var(--pico-muted-color); font-size: .75rem; font-weight: 400; line-height: 1.5; }
+.who details[open] > summary { margin: 0; border: 0; }
+.who details[open] > summary:not([role]):not(:focus) { color: var(--pico-muted-color); }
+.who summary:hover, .who summary:hover .varied { color: var(--pico-primary); }
+.who summary::after { order: -1; flex: none; float: none; width: .8rem; height: .8rem; margin: 0; background-size: .8rem auto; }
+.who .varied { color: var(--pico-color); }
+
+/* The row of details is shown while the line of parameters above it is open. */
+tr.more { display: none; }
+tr.trial:has(details[open]) + tr.more { display: table-row; }
+tr.trial:has(details[open]) > * { border-bottom-color: transparent; background-color: var(--at-wash); }
+tr.more > td { padding: 0; background-color: var(--at-wash); white-space: normal; }
+.more-body { position: sticky; left: 0; display: flex; flex-wrap: wrap; gap: 1rem 3rem; width: max-content; max-width: calc(min(100vw, var(--at-page-width)) - 2 * var(--at-gutter) - 2px); padding: .5rem 1rem 1.25rem 1.6rem; }
+.more-body > div { min-width: 0; }
+.more-body .about { flex: 1 1 16rem; max-width: 26rem; }
+.more-body p { margin: 0 0 .4rem; font-size: .85rem; }
+.more-body .note { font-size: .85rem; }
+.more-body .label { margin: 0 0 .3rem; color: var(--pico-muted-color); font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.pairs { display: grid; grid-template-columns: auto auto; gap: .15rem 1rem; margin: 0; font-size: .8rem; }
+.pairs > div { display: contents; }
+.pairs dt { color: var(--pico-muted-color); font-weight: 400; }
+.pairs dd { margin: 0; overflow-wrap: anywhere; }
+.pairs .varied dd { font-weight: 600; }
+
+.badge { display: inline-block; flex: none; padding: 0 .4rem; border-radius: 999px; font-size: .75rem; font-weight: 600; background: var(--at-warn-background); color: var(--at-down); }
 .badge.bad { background: var(--at-down); color: var(--pico-background-color); }
 
-/* Summary tiles over the list: a label, one figure and the trial or family behind it. The figure is
-   in proportional digits, because it stands alone; the table below aligns its own. */
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .75rem; margin: 1.25rem 0 1rem; }
-.tile { min-width: 0; padding: .8rem 1rem; border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); background: var(--pico-card-background-color); }
+/* Summary tiles over the list: a label, one figure and the trial or family behind it, each on a line
+   of its own, so that a long name is cut and the four tiles stay level. The figure is in
+   proportional digits, because it stands alone; the table below aligns its own. */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .75rem; margin: 1rem 0 0; }
+.tile { min-width: 0; padding: .6rem .9rem; border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); background: var(--pico-card-background-color); }
 .tile dt { color: var(--pico-muted-color); font-size: .75rem; font-weight: 600; }
 .tile dd { margin: 0; }
-.tile .figure { margin: .1rem 0 .2rem; font-size: 1.85rem; font-weight: 650; line-height: 1.2; }
-.tile .context { color: var(--pico-muted-color); font-size: .8rem; overflow-wrap: anywhere; }
+.tile .figure { font-size: 1.45rem; font-weight: 650; line-height: 1.3; }
+.tile .figure .badge { vertical-align: middle; }
+.tile .context { color: var(--pico-muted-color); font-size: .8rem; }
+.tile .context > span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
-/* Horizon as a segmented control: one click, and the current choice is always in view. */
+/* A choice among a few: one click, and the current one is always in view. */
 .control { display: flex; align-items: center; gap: .5rem; color: var(--pico-muted-color); font-size: .85rem; }
 .segmented { display: inline-flex; width: auto; margin: 0;flex-wrap: wrap; padding: 2px; border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); background: var(--at-wash); }
 .segmented a { padding: .2rem .7rem; border-radius: calc(var(--pico-border-radius) - 2px); color: var(--pico-muted-color); font-size: .85rem; text-decoration: none; }
@@ -210,11 +268,8 @@ main > .toolbar { margin: 0 0 .75rem; }
    the tearsheet's interval chart. Python places every mark in percent, so no script is needed. */
 main > .key { margin: .25rem 0 .5rem; }
 .swatch.zero { --swatch: var(--at-zero); width: 1px; height: .9rem; }
-.row-head { display: flex; align-items: baseline; gap: .6rem; }
-.row-head > div { min-width: 0; }
-.rank { flex: none; min-width: 2rem; color: var(--pico-muted-color); font-size: .8rem; font-weight: 400; text-align: right; }
 .ic-cell { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; }
-.ic { min-width: 3.5rem; font-weight: 600; }
+.ic { min-width: 3.5rem; color: var(--pico-color); }
 .forest { position: relative; flex: none; width: 9rem; height: 1.25rem; }
 .forest::before { content: ""; position: absolute; left: 50%; top: .1rem; bottom: .1rem; width: 1px; background: var(--at-zero); }
 .forest.empty::before { display: none; }
@@ -230,6 +285,8 @@ main > .key { margin: .25rem 0 .5rem; }
 @media (max-width: 640px) {
   :root { --at-gutter: 1rem; }
   .site-nav .brand { display: none; }
+  .toolbar .views { margin-left: 0; }
+  .row-head { min-width: 12rem; }
   article { padding: 1rem; }
   article > header { margin: -1rem -1rem 1rem; padding: .75rem 1rem; }
 }
@@ -243,6 +300,7 @@ main > .key { margin: .25rem 0 .5rem; }
   main > section { margin-bottom: 1.5rem; }
   h2, h3, summary { break-after: avoid; }
   .table-scroll, .chart { overflow: visible; }
+  .board thead, .board tbody th, .more-body { position: static; }
   .host, .chart.wide .host { min-width: 0; }
   .host svg { max-width: 100%; height: auto; }
   th, td { padding: 3px 6px; white-space: normal; }

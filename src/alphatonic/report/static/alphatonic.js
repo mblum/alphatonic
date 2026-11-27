@@ -84,8 +84,9 @@
   }
 
   function lines(spec, width) {
-    const columns = spec.columns || 1;
     const gap = 24;
+    // As many columns as asked for, or fewer where a panel would be too narrow to read.
+    const columns = Math.max(1, Math.min(spec.columns || 1, Math.floor((width + gap) / (280 + gap))));
     const grid = el('div', 'panels');
     grid.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
     const panelWidth = Math.floor((width - gap * (columns - 1)) / columns);
