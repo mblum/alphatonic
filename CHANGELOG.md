@@ -6,6 +6,14 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- A tearsheet drawn by `Study.render_tearsheet` or the server shows its family's count of trials
+  now, the count the list of trials multiplies p-values by, and the trial's place in it ("5 of
+  momentum; this one was number 2"). It used to show the count when the trial ran, which
+  disagreed with the list once later trials existed. A tearsheet written by
+  `evaluate(report=True)` still gives the count when the trial ran, and now says so.
+
 ## [0.3.1] - 2026-11-02
 
 ### Changed

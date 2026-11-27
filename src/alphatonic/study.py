@@ -404,7 +404,7 @@ class Study:
         result.save(directory / TABLES)
         if report:
             count = 1 + sum(item.family == trial.family for item in self.trials())
-            result.tearsheet(directory / TEARSHEET, **self._tearsheet(trial, count))
+            result.tearsheet(directory / TEARSHEET, **self._tearsheet(trial, count, None))
         partial = directory / f"{RECORD}.partial"
         partial.write_text(trial.model_dump_json(indent=2) + "\n", encoding="utf-8")
         partial.replace(directory / RECORD)
@@ -443,9 +443,12 @@ class Study:
     def render_tearsheet(self, identifier: str) -> str:
         """Return the tearsheet of one finished trial as a page of HTML, drawn from its tables.
 
-        The page is the one `evaluate(report=True)` writes: the study's name, the trial's context
-        and note, and its place in its family's count ("2 of momentum, this one included").
-        Nothing is recomputed.
+        The page shows the study's name, the trial's context and note, and its family's count of
+        trials now, the count [`board`][alphatonic.Study.board] multiplies the p-values by, with
+        this trial's place in it ("5 of momentum; this one was number 2"). The page that
+        `evaluate(report=True)` writes cannot know later trials, so it gives the count when the
+        trial ran instead ("2 of momentum when it ran, this one included"). Nothing is
+        recomputed.
 
         Raises:
             UnknownTrialError: If the identifier is malformed or no finished trial has it.
@@ -454,14 +457,12 @@ class Study:
         trial = self.trial(identifier)
         if not self._has_tables(identifier):
             raise FileNotFoundError(f"trial {identifier!r} has no saved tables to draw from")
+        family = [item for item in self.trials() if item.family == trial.family]
         # Trials are never deleted, so those of the family created up to this one are the trials
         # that were counted when it ran.
-        count = sum(
-            item.family == trial.family
-            and (item.created_at, item.id) <= (trial.created_at, trial.id)
-            for item in self.trials()
-        )
-        return self.evaluation(identifier).render_tearsheet(**self._tearsheet(trial, count))
+        place = sum((item.created_at, item.id) <= (trial.created_at, trial.id) for item in family)
+        options = self._tearsheet(trial, place, len(family))
+        return self.evaluation(identifier).render_tearsheet(**options)
 
     def _has_tables(self, identifier: str) -> bool:
         return (self.directory / identifier / TABLES / METADATA).is_file()
@@ -666,13 +667,20 @@ class Study:
         trials.sort(key=lambda trial: trial.created_at, reverse=True)
         return trials, unreadable
 
-    def _tearsheet(self, trial: Trial, count: int) -> dict[str, Any]:
+    def _tearsheet(self, trial: Trial, place: int, total: int | None) -> dict[str, Any]:
+        """Options of a trial's tearsheet: `place` in its family, of `total` now (None: unknown)."""
+        if total is None:
+            trials = f"{place} of {trial.family} when it ran, this one included"
+        elif total == place:
+            trials = f"{total} of {trial.family}, this one included"
+        else:
+            trials = f"{total} of {trial.family}; this one was number {place}"
         parameters = ", ".join(f"{name}={value}" for name, value in trial.parameters.items())
         context = {
             "Signal": f"{trial.signal}: {trial.summary}" if trial.summary else trial.signal,
             "Assets": _assets_line(trial.assets),
             "Sample": "holdout" if trial.sample == "holdout" else "in sample",
-            "Trials": f"{count} of {trial.family}, this one included",
+            "Trials": trials,
             **trial.context,
         }
         if trial.note:

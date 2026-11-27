@@ -180,7 +180,10 @@ print(latest.signal, latest.sample, round(tables.metrics()["cs.h5.spearman.mean"
 ```
 
 `study.render_tearsheet(latest.id)` returns the trial's tearsheet as HTML, drawn from its tables
-with the study's name, the trial's context and its place in its family's count.
+with the study's name, the trial's context, and its family's count of trials now with its place
+in it. That count is the one the list multiplies p-values by. A tearsheet written by
+`evaluate(report=True)` gives the count when the trial ran instead, because it cannot know later
+trials.
 
 `study.trials()` returns completed trials newest first. It skips directories without a
 `record.json`: evaluations that did not finish. Records that exist but cannot be read are listed by
