@@ -3,7 +3,8 @@ from html.parser import HTMLParser
 
 import pytest
 
-from alphatonic import ReportOptions
+from alphatonic import ReportOptions, Study
+from alphatonic.report.board import render_board
 
 
 class Page(HTMLParser):
@@ -76,3 +77,62 @@ def test_all_unavailable_report_keeps_nulls(result):
         for spec in lines
         for panel in spec["panels"]
     )
+
+
+class Board(HTMLParser):
+    """The headings of the list's columns and how many trials it lists."""
+
+    def __init__(self, text):
+        super().__init__()
+        self.headings = []
+        self.trials = 0
+        self.scripts = []
+        self.column = False
+        self.feed(text)
+
+    def handle_starttag(self, tag, attrs):
+        values = dict(attrs)
+        self.column = self.column or (tag == "th" and values.get("scope") == "col")
+        if tag == "tr" and "trial" in (values.get("class") or "").split():
+            self.trials += 1
+        if tag == "script":
+            self.scripts.append(values)
+
+    def handle_data(self, data):
+        if self.column and self.lasttag == "a" and data.strip():
+            self.headings.append(data.strip())
+            self.column = False
+
+
+def test_board_overview_views_horizon_search_and_escaping(panel, config, tmp_path):
+    study = Study(tmp_path)
+    one = config.model_copy(update={"horizons": (1,)})
+    study.evaluate(*panel, one, signal="trend", parameters={"length": 5, "scale": "atr"})
+    study.evaluate(
+        *panel,
+        config,
+        signal="trend",
+        parameters={"length": 20, "scale": "atr"},
+        note="neighbour <b>",
+    )
+    overview = ["Rank IC", "z", "p × trials", "Rank IC", "p × trials", "Cosine", "p × trials"]
+
+    page = render_board(study)
+    parsed = Board(page)
+    assert parsed.headings == ["Signal", *overview, "Trials"] and parsed.trials == 2
+    assert all("src" not in script for script in parsed.scripts)
+    assert "neighbour &lt;b&gt;" in page and "neighbour <b>" not in page
+    assert '<span class="varied">length=20</span>' in page and ">scale=atr<" not in page
+
+    assert Board(render_board(study, show="data")).headings[:2] == ["Signal", "Window"]
+    assert Board(render_board(study, show="")).headings == ["Signal"]
+    assert len(Board(render_board(study, show="cs,ts,cosine,data,testing")).headings) == 20
+    # A column the list is sorted by joins the overview, so the order is never unexplained.
+    assert Board(render_board(study, sort="cs_p")).headings[:4] == ["Signal", "Rank IC", "z", "p ▲"]
+
+    later = render_board(study, horizon=3)
+    assert Board(later).trials == 1 and "1 more was not evaluated at this horizon" in later
+    assert Board(render_board(study, horizon=3, rows="all")).trials == 2
+    assert Board(render_board(study, search="LENGTH=20 neighbour")).trials == 1
+    absent = render_board(study, search="absent")
+    assert Board(absent).trials == 0 and "Clear the filter" in absent
