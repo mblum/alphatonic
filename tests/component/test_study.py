@@ -64,6 +64,18 @@ def test_repeated_variants_preserve_family_counts_across_samples(panel, config, 
         s.evaluate(*panel, config, signal="x", horizons=[1])
 
 
+def test_tearsheet_shows_family_count_now_and_written_page_the_count_then(panel, config, tmp_path):
+    s = Study(tmp_path)
+    first = s.evaluate(*panel, config, signal="a", family="idea", report=True)
+    s.evaluate(*panel, config, signal="other")
+    second = s.evaluate(*panel, config, signal="b", family="idea")
+    assert s.board().loc[first.id, "trials"] == 2
+    assert "2 of idea; this one was number 1" in s.render_tearsheet(first.id)
+    assert "2 of idea, this one included" in s.render_tearsheet(second.id)
+    written = (tmp_path / first.id / "tearsheet.html").read_text(encoding="utf-8")
+    assert "1 of idea when it ran, this one included" in written
+
+
 @pytest.mark.parametrize("identifier", ["../x", "%2e%2e", "unknown", "/etc/passwd", "a/b", ""])
 def test_unknown_and_unsafe_identifiers_refused(tmp_path, identifier):
     with pytest.raises(UnknownTrialError):

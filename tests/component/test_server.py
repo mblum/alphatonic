@@ -64,6 +64,23 @@ def test_lru_eviction_and_study_isolation(tmp_path, monkeypatch):
     assert server._drawn_tearsheet(b, "five") == b"b:five"
 
 
+def test_kept_tearsheet_is_drawn_again_after_a_new_trial(panel, config, tmp_path, monkeypatch):
+    s = Study(tmp_path)
+    trial = s.evaluate(*panel, config, signal="signal")
+    calls = []
+
+    def render(identifier):
+        calls.append(identifier)
+        return f"<html>{len(s.trials())}</html>"
+
+    monkeypatch.setattr(s, "render_tearsheet", render)
+    assert server.respond(s, f"/{trial.id}/tearsheet.html?render").body == b"<html>1</html>"
+    assert server.respond(s, f"/{trial.id}/tearsheet.html?render").body == b"<html>1</html>"
+    s.evaluate(*panel, config, signal="signal")
+    assert server.respond(s, f"/{trial.id}/tearsheet.html?render").body == b"<html>2</html>"
+    assert len(calls) == 2
+
+
 def test_finished_record_without_tables_has_no_report(panel, config, tmp_path):
     import shutil
 

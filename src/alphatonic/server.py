@@ -7,8 +7,9 @@ serves the list at `/`, the same list as JSON ([`Study.to_dict`][alphatonic.Stud
 every other path is not found. A request for a trial's file with `?download` in the query makes the
 browser save it as `<id>-<name>` instead of showing it. A tearsheet that the study did not store is
 drawn from the trial's tables, which takes a few seconds; the server keeps the last few pages it
-drew. Until a page is kept, a request for it is answered at once with a page that says so and
-fetches the tearsheet with `?render`, which waits for the drawing.
+drew until the study saves another trial, which changes the count of trials they show. Until a
+page is kept, a request for it is answered at once with a page that says so and fetches the
+tearsheet with `?render`, which waits for the drawing.
 It binds to the local machine by default and is meant for one researcher, not for the open
 internet.
 """
@@ -138,21 +139,26 @@ def serve(study: Study, host: str = "127.0.0.1", port: int = 8000) -> None:
         server.serve_forever()
 
 
-_KEPT: OrderedDict[tuple[Study, str], bytes] = OrderedDict()
-"""The last drawn tearsheets, least recently used first."""
+_KEPT: OrderedDict[tuple[Study, str, int], bytes] = OrderedDict()
+"""The last drawn tearsheets, least recently used first, by study, trial and count of trials."""
 _KEPT_PAGES = 4
 """How many drawn tearsheets the server keeps."""
 _LOCK = threading.Lock()
 
 
+def _key(study: Study, identifier: str) -> tuple[Study, str, int]:
+    # A trial never changes, but its page shows its family's count of trials, which grows.
+    return (study, identifier, len(study.trials()))
+
+
 def _is_kept(study: Study, identifier: str) -> bool:
     with _LOCK:
-        return (study, identifier) in _KEPT
+        return _key(study, identifier) in _KEPT
 
 
 def _drawn_tearsheet(study: Study, identifier: str) -> bytes:
-    """Draw a trial's tearsheet from its tables; a trial never changes, so the page is reusable."""
-    key = (study, identifier)
+    """Draw a trial's tearsheet from its tables, or reuse it while the study has no new trials."""
+    key = _key(study, identifier)
     with _LOCK:
         if key in _KEPT:
             _KEPT.move_to_end(key)
