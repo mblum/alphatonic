@@ -52,9 +52,10 @@ window. See [troubleshooting](troubleshooting.md) for each status.
 
 ## 4. Inspect the cross-section
 
-The quantile chart orders buckets from lowest to highest score. Look for a pattern across buckets,
-rather than relying only on the top-minus-bottom spread. Ties stay together and can leave buckets
-empty.
+The quantile chart orders buckets from lowest to highest score, in one panel per horizon. Each
+panel has its own y scale, so read the size of a return from its axis before comparing horizons.
+Look for a pattern across buckets, rather than relying only on the top-minus-bottom spread. Ties
+stay together and can leave buckets empty.
 
 Compare Spearman and Pearson in the metric table. Then open **Monthly mean IC** and **IC over time**
 to see whether the average hides changes in direction. The rolling line uses

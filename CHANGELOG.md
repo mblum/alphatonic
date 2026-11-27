@@ -24,6 +24,9 @@ All notable changes are listed here. The format follows
   horizon is chosen from a menu that gives the number of trials at each.
 - The summary tiles name the signal behind a figure and keep its parameters in the tooltip, so a
   trial with many parameters no longer stretches the tiles.
+- The quantile returns charts of the tearsheet draw one panel per horizon, each with its own y
+  scale, instead of every horizon on one scale. With horizons far apart (1 bar and 480 bars, say)
+  the longest one flattened the others into a line along zero.
 
 ### Added
 
