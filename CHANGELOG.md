@@ -29,6 +29,9 @@ All notable changes are listed here. The format follows
 
 - A search field on the list of trials (`?q=`) keeps the trials whose signal, parameters, note,
   context or identifier contain every word.
+- A menu on the list of trials (`?bar=`, such as `?bar=1h`) keeps the trials whose bars have one
+  length, when the study holds more than one. A horizon counts bars, so 24 of them are a day of
+  hourly bars and a month of daily ones.
 - A trial's row says its bar length when the trials listed have different ones, and marks a
   holdout trial with a badge beside its name.
 

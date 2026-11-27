@@ -50,6 +50,7 @@ The page takes these query parameters, and its own links keep them:
 | `horizon` | Horizon of the statistics in bars; default: the smallest of any trial. |
 | `sort`, `order` | Board column to sort by, and `asc` or `desc`; default: `created_at`, newest first. |
 | `signal` | List only the trials of this signal. |
+| `bar` | List only the trials whose bars have this length, as the page names it: `1h`, `1d`, `business day`. |
 | `q` | List only the trials whose signal, parameters, note, context or identifier contain every word. |
 | `show` | Column groups to show (`cs`, `ts`, `cosine`, `data`, `testing`), separated by commas, for example `/?show=ts`; default: the overview. |
 | `rows` | `all` also lists the trials that were not evaluated at the horizon; default: they are counted and left out. |

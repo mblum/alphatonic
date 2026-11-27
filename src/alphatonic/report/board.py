@@ -137,6 +137,7 @@ def render_board(
     sort: str | None = None,
     order: str | None = None,
     signal: str | None = None,
+    bar: str | None = None,
     show: str | Sequence[str] | None = None,
     search: str | None = None,
     rows: str | None = None,
@@ -149,6 +150,8 @@ def render_board(
         sort: Board column to sort by; default, or an unknown one: `created_at`.
         order: `asc` or `desc`; default: the column's own direction.
         signal: Show only the trials of this signal.
+        bar: Show only the trials whose bars have this length, named as the page names it, such
+            as `1h`, `1d` or `business day`.
         show: The column groups to show, as names of `GROUPS` (`cs`, `testing`, `ts`, `cosine`,
             `data`), in one string separated by commas or in several. Names that are not
             groups are ignored, and an empty string shows only the trial. Default: the overview,
@@ -212,11 +215,28 @@ def render_board(
             groups.append({"label": column["group"], "span": 1})
     signals = sorted({trial["signal"] for trial in data["trials"]})
     shown = signal if signal in signals else None
+    # Every trial is given the name of its bar length, in which the page filters and labels.
+    trials = [
+        {
+            **trial,
+            "bar": "business day"
+            if trial["bar_seconds"] is None
+            and _business_day(study.directory / trial["id"] / "tables")
+            else _bar(trial["bar_seconds"]),
+        }
+        for trial in data["trials"]
+    ]
+    lengths = {trial["bar"]: trial["bar_seconds"] for trial in trials}
+    # Shortest first; a length that is not a number of seconds comes last.
+    bars = sorted(lengths, key=lambda name: (lengths[name] is None, lengths[name] or 0.0, name))
+    shown_bar = bar if bar in bars else None
     terms = (search or "").lower().split()
     matched = [
         trial
-        for trial in data["trials"]
-        if (not signal or trial["signal"] == signal) and _matches(trial, terms)
+        for trial in trials
+        if (not signal or trial["signal"] == signal)
+        and (not bar or trial["bar"] == bar)
+        and _matches(trial, terms)
     ]
     # A trial without the horizon has no statistic here: it is counted, and listed on request.
     listed = [trial for trial in matched if data["horizon"] in trial["horizons"]]
@@ -238,6 +258,7 @@ def render_board(
             "order": "desc" if data["descending"] else "asc",
             "horizon": data["horizon"],
             "signal": shown,
+            "bar": shown_bar,
             "q": " ".join(terms) or None,
             "show": shown_groups,
             "rows": "all" if everything else None,
@@ -262,10 +283,6 @@ def render_board(
     listed = [
         {
             **trial,
-            "bar": "business day"
-            if trial["bar_seconds"] is None
-            and _business_day(study.directory / trial["id"] / "tables")
-            else _bar(trial["bar_seconds"]),
             "evaluated": data["horizon"] in trial["horizons"],
             "varied": {
                 name: value
@@ -314,6 +331,9 @@ def render_board(
             signals=signals,
             signal=shown,
             asked_signal=signal,
+            lengths=bars,
+            bar=shown_bar,
+            asked_bar=bar,
             search=" ".join(terms),
             matched=len(matched),
             unevaluated=unevaluated,

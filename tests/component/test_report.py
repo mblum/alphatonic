@@ -1,6 +1,7 @@
 import json
 from html.parser import HTMLParser
 
+import pandas as pd
 import pytest
 
 from alphatonic import ReportOptions, Study
@@ -136,3 +137,24 @@ def test_board_overview_views_horizon_search_and_escaping(panel, config, tmp_pat
     assert Board(render_board(study, search="LENGTH=20 neighbour")).trials == 1
     absent = render_board(study, search="absent")
     assert Board(absent).trials == 0 and "Clear the filter" in absent
+
+
+def test_board_filters_by_bar_length_and_offers_it_only_when_lengths_differ(
+    panel, config, tmp_path
+):
+    study = Study(tmp_path)
+    study.evaluate(*panel, config, signal="daily")
+    assert 'name="bar"' not in render_board(study)
+
+    hours = pd.date_range("2024-01-01", periods=len(panel[0]), freq="h", tz="UTC", name="timestamp")
+    study.evaluate(*(frame.set_axis(hours) for frame in panel), config, signal="hourly")
+    page = render_board(study)
+    assert Board(page).trials == 2
+    assert page.index(">1h bars</option>") < page.index(">1d bars</option>")
+    # Rows say their bar length while both are listed, and stop once the filter leaves one.
+    assert 'title="Length of a bar">1h<' in page and 'title="Length of a bar">1d<' in page
+    hourly = render_board(study, bar="1h", sort="cs_z")
+    assert Board(hourly).trials == 1 and "Length of a bar" not in hourly
+    assert "1 trial with 1h bars" in hourly and "bar=1h" in hourly
+    unknown = render_board(study, bar="7min")
+    assert Board(unknown).trials == 0 and "No trial with 7min bars" in unknown

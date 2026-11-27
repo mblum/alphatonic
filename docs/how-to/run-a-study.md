@@ -172,8 +172,11 @@ more are a menu that gives the number of trials evaluated at each. A trial that 
 at the chosen horizon has no statistic there, so the page counts such trials above the table and
 leaves them out; the link beside the count (`rows=all` in the address) lists them too. Filter by
 signal with the menu, or type in the search field and press Enter (`q` in the address) to keep the
-trials whose signal, parameters, note, context or identifier contain every word. The address of a
-view holds all of these choices, so it can be bookmarked or shared.
+trials whose signal, parameters, note, context or identifier contain every word. When the study
+holds trials with bars of different lengths, a second menu keeps those of one length (`bar` in the
+address, such as `?bar=1h`), and the horizon menu then offers only the horizons those trials have.
+A horizon counts bars, so filter by bar length before comparing trials at one horizon. The address
+of a view holds all of these choices, so it can be bookmarked or shared.
 
 It reads the records on every request, so a trial saved while it runs
 appears on the next reload. A tearsheet that was not stored is drawn from the trial's tables when

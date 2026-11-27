@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% set order = 'desc' if data.descending else 'asc' %}
+{% macro length(name) %}{% if name == '–' %}bars of unknown length{% else %}{{ 'business-day' if name == 'business day' else name }} bars{% endif %}{% endmacro %}
 {% macro bars(count) %}{{ count }} bar{{ '' if count == 1 else 's' }}{% endmacro %}
 {% macro holdout(trial) %}<span class="badge {{ 'bad' if trial.holdout_uses > 1 else 'warn' }}" title="The family {{ trial.family }} has {{ trial.holdout_uses }} holdout evaluation{{ '' if trial.holdout_uses == 1 else 's' }}">holdout{% if trial.holdout_uses > 1 %} · {{ trial.holdout_uses }} looks{% endif %}</span>{% endmacro %}
 {% macro sample(trial) %}{% if trial.sample == 'holdout' %}{{ holdout(trial) }}{% else %}in sample{% endif %}{% endmacro %}
@@ -48,16 +49,26 @@
     {% else %}
     <label>Horizon
       <select name="horizon" onchange="this.form.submit()">
-        {% for h in horizons %}<option value="{{ h.bars }}"{% if h.bars == data.horizon %} selected{% endif %}>{{ bars(h.bars) }} · {{ h.trials }} trial{{ '' if h.trials == 1 else 's' }}</option>{% endfor %}
+        {# A horizon that none of the trials filtered to has is left out, unless it is the one shown. #}
+        {% for h in horizons if h.trials or h.bars == data.horizon %}<option value="{{ h.bars }}"{% if h.bars == data.horizon %} selected{% endif %}>{{ bars(h.bars) }} · {{ h.trials }} trial{{ '' if h.trials == 1 else 's' }}</option>{% endfor %}
       </select>
     </label>
     {% endif %}
-    <label>Signal
+    <label><span class="sr-only">Signal</span>
       <select name="signal" onchange="this.form.submit()">
         <option value="">All signals</option>
         {% for name in signals %}<option value="{{ name }}"{% if name == signal %} selected{% endif %}>{{ name }}</option>{% endfor %}
       </select>
     </label>
+    {% if lengths | length > 1 %}
+    <label><span class="sr-only">Bar length</span>
+      <select name="bar" onchange="this.form.submit()">
+        <option value="">All bar lengths</option>
+        {% for name in lengths %}<option value="{{ name }}"{% if name == bar %} selected{% endif %}>{{ length(name) }}</option>{% endfor %}
+      </select>
+    </label>
+    {% elif bar %}<input type="hidden" name="bar" value="{{ bar }}">
+    {% endif %}
     <label class="search"><span class="sr-only">Search the trials</span>
       <input type="search" name="q" value="{{ search }}" placeholder="Search trials" autocomplete="off">
     </label>
@@ -76,12 +87,13 @@
   <p class="status" role="status">
     {{ rows | length }} trial{{ '' if rows | length == 1 else 's' }}
     {%- if signal %} of {{ signal }}{% endif %}
+    {%- if bar %} with {{ length(bar) }}{% endif %}
     {%- if search %} matching “{{ search }}”{% endif %}
-    {%- if everything and unevaluated %}, {{ unevaluated }} of them not evaluated at {{ bars(data.horizon) }} · <a href="{{ link(rows=none) }}">leave them out</a>
+    {%- if everything and unevaluated %}, {{ unevaluated }} of them not evaluated at a horizon of {{ bars(data.horizon) }} · <a href="{{ link(rows=none) }}">leave them out</a>
     {%- elif everything %}
-    {%- else %} at {{ bars(data.horizon) }}{% if unevaluated %} · {{ unevaluated }} more {{ 'was' if unevaluated == 1 else 'were' }} not evaluated at this horizon · <a href="{{ link(rows='all') }}">list {{ 'it' if unevaluated == 1 else 'them' }}</a>{% endif %}
+    {%- else %} at a horizon of {{ bars(data.horizon) }}{% if unevaluated %} · {{ unevaluated }} more {{ 'was' if unevaluated == 1 else 'were' }} not evaluated at this horizon · <a href="{{ link(rows='all') }}">list {{ 'it' if unevaluated == 1 else 'them' }}</a>{% endif %}
     {%- endif %}
-    {%- if signal or search %} · <a href="{{ link(signal=none, q=none) }}">clear the filter</a>{% endif %}
+    {%- if signal or bar or search %} · <a href="{{ link(signal=none, bar=none, q=none) }}">clear the filter</a>{% endif %}
   </p>
   {% endif %}
   {% if rows %}
@@ -209,9 +221,9 @@
   </p>
   {% endif %}
   {% elif unevaluated %}
-  <p class="unavailable">No trial{% if asked_signal %} of {{ asked_signal }}{% endif %}{% if search %} matching “{{ search }}”{% endif %} was evaluated at {{ bars(data.horizon) }}. Choose another horizon, or <a href="{{ link(rows='all') }}">list the {{ unevaluated }} evaluated at other horizons</a>.</p>
+  <p class="unavailable">No trial{% if asked_signal %} of {{ asked_signal }}{% endif %}{% if asked_bar %} with {{ length(asked_bar) }}{% endif %}{% if search %} matching “{{ search }}”{% endif %} was evaluated at a horizon of {{ bars(data.horizon) }}. Choose another horizon, or <a href="{{ link(rows='all') }}">list the {{ unevaluated }} evaluated at other horizons</a>.</p>
   {% elif data.trials %}
-  <p class="unavailable">No trial{% if asked_signal %} of {{ asked_signal }}{% endif %}{% if search %} matches “{{ search }}”{% endif %}. <a href="{{ link(signal=none, q=none) }}">Clear the filter</a>.</p>
+  <p class="unavailable">No trial{% if asked_signal %} of {{ asked_signal }}{% endif %}{% if asked_bar %} with {{ length(asked_bar) }}{% endif %}{% if search %} matching “{{ search }}”{% endif %}. <a href="{{ link(signal=none, bar=none, q=none) }}">Clear the filter</a>.</p>
   {% else %}
   <p class="unavailable">No trials yet. Evaluations run through <code>Study.evaluate</code> appear here.</p>
   {% endif %}

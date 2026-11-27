@@ -87,6 +87,7 @@ def respond(study: Study, target: str) -> Response:
             sort=query.get("sort"),
             order=query.get("order"),
             signal=query.get("signal"),
+            bar=query.get("bar"),
             show=parse_qs(url.query, keep_blank_values=True).get("show"),
             search=query.get("q"),
             rows=query.get("rows"),
